@@ -186,7 +186,7 @@ function setLoading(loading) {
 async function loginGoogle() {
   const { error } = await db.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.origin + '/finetouch_crm_app.html' }
+    options: { redirectTo: window.location.origin + '/dashboard' }
   });
   if (error) showToast('Erro ao conectar com Google.', 'error');
 }
