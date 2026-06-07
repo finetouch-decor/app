@@ -259,6 +259,8 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 async function init() {
   const { data: { session } } = await db.auth.getSession();
   if (!session) { window.location.href = '/login.html'; return; }
+  const { data: prof } = await db.from('user_profiles').select('status,role').eq('id', session.user.id).single();
+  if (!prof || (prof.status !== 'approved' && prof.role !== 'admin')) { window.location.href = '/pending.html'; return; }
 
   const user = session.user;
   const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário';

@@ -157,19 +157,44 @@ const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const TELEGRAM_BOT = '8836394381:AAHxobG5fORZ_KX_EeheX0j9AriFc5bP-Ec';
+const TELEGRAM_CHAT = '7758479066'; // Admin chat ID
+
 let isRegister = false;
+
+async function checkAndRedirect(session) {
+  const { data: profile } = await db.from('user_profiles').select('status,role').eq('id', session.user.id).single();
+  if (!profile || profile.status === 'pending') {
+    window.location.href = '/pending.html';
+  } else if (profile.status === 'rejected') {
+    window.location.href = '/pending.html';
+  } else {
+    window.location.href = '/dashboard';
+  }
+}
 
 // Redirect if already logged in
 db.auth.getSession().then(({ data }) => {
-  if (data.session) window.location.href = '/dashboard';
+  if (data.session) checkAndRedirect(data.session);
 });
 
 // Handle OAuth redirect
-db.auth.onAuthStateChange((event, session) => {
+db.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_IN' && session) {
-    window.location.href = '/dashboard';
+    await checkAndRedirect(session);
   }
 });
+
+async function notifyTelegram(name, email) {
+  try {
+    const msg = `🔔 *Novo usuário solicitando acesso ao Fine Touch ERP*\n\n👤 *Nome:* ${name}\n📧 *Email:* ${email}\n\n➡️ Acesse /users para aprovar ou rejeitar.`;
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TELEGRAM_CHAT, text: msg, parse_mode: 'Markdown' })
+    });
+  } catch(e) {}
+}
 
 function showToast(msg, type='') {
   const t = document.getElementById('toast');
@@ -200,16 +225,19 @@ async function submitForm() {
 
   if (isRegister) {
     const name = document.getElementById('fullname').value.trim();
-    const { error } = await db.auth.signUp({
+    if (!name) { showToast('Informe seu nome completo.', 'error'); setLoading(false); return; }
+    const { data, error } = await db.auth.signUp({
       email, password,
       options: { data: { full_name: name } }
     });
     if (error) { showToast(error.message, 'error'); setLoading(false); return; }
-    showToast('Conta criada! Verifique seu email.', 'success');
+    await notifyTelegram(name, email);
+    showToast('Solicitação enviada! Aguarde aprovação do administrador.', 'success');
+    setTimeout(() => window.location.href = '/pending.html', 2000);
   } else {
-    const { error } = await db.auth.signInWithPassword({ email, password });
+    const { data, error } = await db.auth.signInWithPassword({ email, password });
     if (error) { showToast('Email ou senha incorretos.', 'error'); setLoading(false); return; }
-    window.location.href = '/dashboard';
+    await checkAndRedirect(data.session);
   }
   setLoading(false);
 }
