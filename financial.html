@@ -22,7 +22,7 @@
   .app { display:flex; height:100%; }
 
   /* SIDEBAR */
-  .sidebar { width:220px; flex-shrink:0; background:var(--navy); display:flex; flex-direction:column; padding-top:calc(var(--safe-top)); }
+  .sidebar { width:220px; flex-shrink:0; background:var(--navy); display:flex; flex-direction:column; }
   .sidebar-logo { padding:24px 20px 20px; border-bottom:1px solid rgba(255,255,255,0.08); }
   .logo-fine { font-size:20px; font-weight:800; color:var(--cream); letter-spacing:1px; line-height:1; }
   .logo-touch { font-size:20px; font-weight:800; color:var(--gold); letter-spacing:1px; line-height:1; }
@@ -41,16 +41,8 @@
 
   /* MAIN */
   .main { flex:1; overflow-y:auto; display:flex; flex-direction:column; min-width:0; }
-  .topbar { background:var(--white); border-bottom:1px solid var(--border); padding:calc(var(--safe-top)+16px) 28px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:12px; }
+  .topbar { background:var(--white); border-bottom:1px solid var(--border); padding:calc(var(--safe-top)+16px) 28px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
   .topbar h1 { font-size:20px; font-weight:700; color:var(--navy); }
-  .topbar-actions { display:flex; gap:8px; }
-  .btn { padding:9px 16px; border-radius:8px; border:none; cursor:pointer; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; transition:all .2s; white-space:nowrap; }
-  .btn-primary { background:var(--navy); color:var(--cream); }
-  .btn-income { background:#2e6b3e; color:var(--white); }
-  .btn-expense { background:var(--red); color:var(--white); }
-  .btn-outline { background:transparent; color:var(--navy); border:1.5px solid var(--border); }
-  .btn-danger { background:#a0303010; color:var(--red); border:1.5px solid #a0303030; }
-  .btn-sm { padding:6px 12px; font-size:12px; }
 
   /* CONTENT */
   .content { padding:24px 28px; flex:1; }
@@ -59,57 +51,86 @@
   .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
   .kpi-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:16px 18px; box-shadow:var(--shadow); }
   .kpi-label { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
-  .kpi-value { font-size:24px; font-weight:800; line-height:1; }
-  .kpi-value.income { color:var(--green); }
-  .kpi-value.expense { color:var(--red); }
-  .kpi-value.profit { color:var(--navy); }
-  .kpi-value.neutral { color:var(--navy); }
+  .kpi-value { font-size:22px; font-weight:800; line-height:1; color:var(--navy); }
+  .kpi-value.green { color:var(--green); }
+  .kpi-value.red { color:var(--red); }
+  .kpi-sub { font-size:11px; color:var(--muted); margin-top:4px; }
 
-  /* FILTERS */
-  .filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; align-items:center; }
-  .filters input, .filters select { background:var(--white); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:13px; outline:none; }
+  /* PROJECT CARDS */
+  .projects-list { display:flex; flex-direction:column; gap:12px; }
+  .proj-card { background:var(--white); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); }
+  .proj-card-header { padding:16px 20px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+  .proj-card-header:hover { background:var(--cream2); }
+  .proj-info { flex:1; }
+  .proj-name { font-size:15px; font-weight:700; color:var(--navy); }
+  .proj-client { font-size:12px; color:var(--muted); margin-top:2px; }
+  .proj-summary { display:flex; gap:24px; align-items:center; }
+  .proj-stat { text-align:right; }
+  .proj-stat-label { font-size:10px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+  .proj-stat-value { font-size:15px; font-weight:700; }
+  .profit-positive { color:var(--green); }
+  .profit-negative { color:var(--red); }
+  .proj-chevron { color:var(--muted); font-size:18px; margin-left:16px; transition:transform .2s; }
+  .proj-chevron.open { transform:rotate(90deg); }
 
-  /* TABLE */
-  .table-wrap { background:var(--white); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); }
-  table { width:100%; border-collapse:collapse; }
-  thead { background:var(--cream2); }
-  th { padding:11px 16px; text-align:left; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; border-bottom:1px solid var(--border); }
-  td { padding:13px 16px; font-size:13px; border-bottom:1px solid var(--border); vertical-align:middle; }
-  tr:last-child td { border-bottom:none; }
-  tr:hover td { background:var(--cream2); cursor:pointer; }
+  /* DETAIL PANEL */
+  .proj-detail { display:none; border-top:1px solid var(--border); }
+  .proj-detail.open { display:block; }
+  .detail-header { padding:14px 20px; background:var(--cream2); display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); }
+  .detail-title { font-size:12px; font-weight:700; color:var(--navy); text-transform:uppercase; letter-spacing:.8px; }
+  .btn-add-cost { padding:6px 12px; border-radius:7px; border:none; cursor:pointer; font-family:'Inter',sans-serif; font-size:12px; font-weight:600; }
+  .btn-add-income { background:#2e6b3e18; color:var(--green); }
+  .btn-add-expense { background:#a0303018; color:var(--red); }
+  .detail-grid { display:grid; grid-template-columns:1fr 1fr; }
+  .detail-col { padding:16px 20px; }
+  .detail-col:first-child { border-right:1px solid var(--border); }
+  .detail-col-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; margin-bottom:12px; }
+  .detail-col-title.income { color:var(--green); }
+  .detail-col-title.expense { color:var(--red); }
+  .cost-item { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); }
+  .cost-item:last-child { border-bottom:none; }
+  .cost-desc { font-size:13px; color:var(--text); flex:1; }
+  .cost-cat { font-size:10px; background:var(--cream2); border:1px solid var(--border); padding:2px 7px; border-radius:10px; color:var(--muted); margin:0 8px; }
+  .cost-value { font-size:13px; font-weight:700; }
+  .cost-value.income { color:var(--green); }
+  .cost-value.expense { color:var(--red); }
+  .cost-del { background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; margin-left:8px; padding:2px; }
+  .cost-del:hover { color:var(--red); }
+  .empty-costs { font-size:12px; color:var(--muted); text-align:center; padding:20px; }
 
-  .type-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
-  .type-income  { background:#2e6b3e18; color:var(--green); }
-  .type-expense { background:#a0303018; color:var(--red); }
-
-  .amount-income  { font-weight:700; color:var(--green); }
-  .amount-expense { font-weight:700; color:var(--red); }
-
-  .cat-badge { background:var(--cream2); border:1px solid var(--border); display:inline-block; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:600; color:var(--muted); }
+  /* PROFIT BOX */
+  .profit-box { padding:14px 20px; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .profit-box-label { font-size:13px; font-weight:700; color:var(--navy); }
+  .profit-box-value { font-size:18px; font-weight:800; }
+  .profit-margin { font-size:11px; color:var(--muted); margin-top:2px; text-align:right; }
 
   /* MODAL */
-  .overlay { display:none; position:fixed; inset:0; background:rgba(16,42,75,0.5); z-index:200; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto; }
+  .overlay { display:none; position:fixed; inset:0; background:rgba(16,42,75,0.5); z-index:200; align-items:center; justify-content:center; padding:20px; }
   .overlay.open { display:flex; }
-  .modal { background:var(--cream2); border-radius:16px; width:100%; max-width:520px; margin:auto; box-shadow:0 24px 80px rgba(0,0,0,0.2); animation:fadeUp .25s ease; }
+  .modal { background:var(--cream2); border-radius:16px; width:100%; max-width:440px; box-shadow:0 24px 80px rgba(0,0,0,0.2); animation:fadeUp .25s ease; }
   @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-  .modal-header { padding:20px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-  .modal-header h2 { font-size:18px; font-weight:700; }
+  .modal-header { padding:18px 22px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .modal-header h2 { font-size:16px; font-weight:700; }
   .modal-header h2.income { color:var(--green); }
   .modal-header h2.expense { color:var(--red); }
-  .modal-body { padding:24px; }
-  .modal-footer { padding:16px 24px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; }
-  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  .form-full { grid-column:1/-1; }
-  .field label { display:block; font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:5px; }
-  .field input, .field select, .field textarea { width:100%; background:var(--white); border:1.5px solid var(--border); color:var(--text); padding:10px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:14px; outline:none; }
+  .modal-body { padding:20px 22px; display:flex; flex-direction:column; gap:12px; }
+  .modal-footer { padding:14px 22px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; }
+  .field label { display:block; font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:5px; }
+  .field input, .field select { width:100%; background:var(--white); border:1.5px solid var(--border); color:var(--text); padding:10px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:14px; outline:none; }
   .field input:focus, .field select:focus { border-color:var(--gold); }
+  .btn { padding:9px 16px; border-radius:8px; border:none; cursor:pointer; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; white-space:nowrap; }
+  .btn-primary { background:var(--navy); color:var(--cream); }
+  .btn-income-solid { background:var(--green); color:var(--white); }
+  .btn-expense-solid { background:var(--red); color:var(--white); }
+  .btn-outline { background:transparent; color:var(--navy); border:1.5px solid var(--border); }
+  .btn-sm { padding:6px 12px; font-size:12px; }
 
-  .empty { text-align:center; color:var(--muted); padding:60px 20px; }
-  .empty-icon { font-size:40px; margin-bottom:12px; }
-  .empty h3 { font-size:16px; font-weight:600; margin-bottom:6px; }
   .loading { text-align:center; color:var(--muted); padding:40px; }
   .spinner { width:28px; height:28px; border:2px solid var(--border); border-top-color:var(--navy); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 8px; }
   @keyframes spin { to { transform:rotate(360deg); } }
+  .empty { text-align:center; color:var(--muted); padding:60px 20px; }
+  .empty-icon { font-size:40px; margin-bottom:12px; }
+  .empty h3 { font-size:16px; font-weight:600; margin-bottom:6px; }
   .toast { position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-10px); background:var(--navy); color:var(--cream); padding:10px 20px; border-radius:30px; font-size:13px; font-weight:600; z-index:400; opacity:0; transition:all .3s; white-space:nowrap; }
   .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
   .toast.success { background:#2e6b3e; }
@@ -118,9 +139,10 @@
   @media(max-width:768px) {
     .sidebar { display:none; }
     .content { padding:16px; }
-    .topbar { padding:calc(var(--safe-top)+12px) 16px 12px; }
     .kpi-row { grid-template-columns:1fr 1fr; }
-    .form-grid { grid-template-columns:1fr; }
+    .proj-summary { display:none; }
+    .detail-grid { grid-template-columns:1fr; }
+    .detail-col:first-child { border-right:none; border-bottom:1px solid var(--border); }
   }
 </style>
 </head>
@@ -160,43 +182,16 @@
 
   <main class="main">
     <div class="topbar">
-      <h1>Financeiro</h1>
-      <div class="topbar-actions">
-        <button class="btn btn-income" onclick="openModal('income')">+ Receita</button>
-        <button class="btn btn-expense" onclick="openModal('expense')">+ Despesa</button>
-      </div>
+      <h1>Financeiro por Obra</h1>
     </div>
-
     <div class="content">
-      <!-- KPIs -->
-      <div class="kpi-row" id="kpi-row">
-        <div class="kpi-card"><div class="kpi-label">Receitas</div><div class="kpi-value income" id="k-income">—</div></div>
-        <div class="kpi-card"><div class="kpi-label">Despesas</div><div class="kpi-value expense" id="k-expense">—</div></div>
-        <div class="kpi-card"><div class="kpi-label">Lucro</div><div class="kpi-value profit" id="k-profit">—</div></div>
-        <div class="kpi-card"><div class="kpi-label">Transações</div><div class="kpi-value neutral" id="k-count">—</div></div>
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="kpi-label">Receita Total</div><div class="kpi-value green" id="k-revenue">—</div><div class="kpi-sub">Todas as obras</div></div>
+        <div class="kpi-card"><div class="kpi-label">Custo Total</div><div class="kpi-value red" id="k-cost">—</div><div class="kpi-sub">Materiais + extras</div></div>
+        <div class="kpi-card"><div class="kpi-label">Lucro Total</div><div class="kpi-value" id="k-profit">—</div><div class="kpi-sub" id="k-margin">margem —</div></div>
+        <div class="kpi-card"><div class="kpi-label">Obras</div><div class="kpi-value" id="k-count">—</div><div class="kpi-sub">com lançamentos</div></div>
       </div>
-
-      <!-- FILTERS -->
-      <div class="filters">
-        <input type="search" id="search" placeholder="🔍 Buscar..." oninput="render()">
-        <select id="filterType" onchange="render()">
-          <option value="">Todos</option>
-          <option value="income">Receitas</option>
-          <option value="expense">Despesas</option>
-        </select>
-        <select id="filterCat" onchange="render()">
-          <option value="">Todas as categorias</option>
-          <option value="labor">Mão de obra</option>
-          <option value="material">Material</option>
-          <option value="marketing">Marketing</option>
-          <option value="admin">Administrativo</option>
-          <option value="project">Projeto</option>
-          <option value="other">Outro</option>
-        </select>
-        <input type="month" id="filterMonth" onchange="render()">
-      </div>
-
-      <div class="table-wrap" id="table-wrap">
+      <div id="projects-list">
         <div class="loading"><div class="spinner"></div><div>Carregando...</div></div>
       </div>
     </div>
@@ -211,29 +206,23 @@
       <button class="btn btn-outline btn-sm" onclick="closeModal()">✕</button>
     </div>
     <div class="modal-body">
-      <div class="form-grid">
-        <div class="field form-full"><label>Descrição</label><input id="f-desc" placeholder="Ex: Pagamento reforma Johnson"></div>
-        <div class="field"><label>Valor (US$)</label><input type="number" id="f-amount" placeholder="0.00" min="0" step="0.01"></div>
-        <div class="field"><label>Data</label><input type="date" id="f-date"></div>
-        <div class="field"><label>Categoria</label>
-          <select id="f-category">
-            <option value="project">Projeto</option>
-            <option value="labor">Mão de obra</option>
-            <option value="material">Material</option>
-            <option value="marketing">Marketing</option>
-            <option value="admin">Administrativo</option>
-            <option value="other">Outro</option>
-          </select>
-        </div>
-        <div class="field"><label>Obra (opcional)</label><select id="f-project"><option value="">Nenhuma</option></select></div>
-        <div class="field form-full"><label>Referência / Número</label><input id="f-ref" placeholder="Ex: INV-001, cheque #123..."></div>
-        <div class="field form-full"><label>Observações</label><input id="f-notes" placeholder="Detalhes adicionais..."></div>
+      <div class="field"><label>Descrição</label><input id="f-desc" placeholder="Ex: Pagamento cliente, Compra de tinta..."></div>
+      <div class="field"><label>Valor (US$)</label><input type="number" id="f-amount" placeholder="0.00" min="0" step="0.01"></div>
+      <div class="field"><label>Categoria</label>
+        <select id="f-category">
+          <option value="project">Contrato / Projeto</option>
+          <option value="material">Material</option>
+          <option value="labor">Mão de obra</option>
+          <option value="transport">Transporte</option>
+          <option value="other">Outro</option>
+        </select>
       </div>
+      <div class="field"><label>Data</label><input type="date" id="f-date"></div>
+      <div class="field"><label>Observações</label><input id="f-notes" placeholder="Detalhe adicional..."></div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-danger" id="btn-delete" onclick="deleteTransaction()" style="display:none;margin-right:auto">Excluir</button>
       <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" id="btn-save" onclick="saveTransaction()">Salvar</button>
+      <button class="btn btn-income-solid" id="btn-save" onclick="saveTransaction()">Salvar</button>
     </div>
   </div>
 </div>
@@ -245,9 +234,10 @@ const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let transactions = [], projects = [], editId = null, currentType = 'income';
+let projects = [], transactions = [];
+let currentProjectId = null, currentType = 'income';
 
-const catLabel = { project:'Projeto', labor:'Mão de obra', material:'Material', marketing:'Marketing', admin:'Administrativo', other:'Outro' };
+const catLabel = { project:'Contrato', material:'Material', labor:'Mão de obra', transport:'Transporte', other:'Outro' };
 
 async function init() {
   const { data: { session } } = await db.auth.getSession();
@@ -255,106 +245,155 @@ async function init() {
   const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuário';
   document.getElementById('user-name').textContent = name;
   document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
-
-  // Set current month filter
-  const now = new Date();
-  document.getElementById('filterMonth').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-
-  await Promise.all([loadProjects(), loadTransactions()]);
+  await loadData();
 }
 db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
 async function logout() { await db.auth.signOut(); }
 
-function fmtValor(v) { return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2}); }
-function fmtDate(d) { if(!d)return'—'; const[y,m,dia]=d.split('-'); return`${dia}/${m}/${y}`; }
+function fmt(v) { return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2}); }
 function showToast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+type; setTimeout(()=>t.className='toast',2800); }
 
-async function loadProjects() {
-  const { data } = await db.from('projects').select('id,name').order('name');
-  projects = data || [];
-  const sel = document.getElementById('f-project');
-  sel.innerHTML = '<option value="">Nenhuma</option>' + projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
-}
-
-async function loadTransactions() {
-  const { data, error } = await db
-    .from('transactions')
-    .select('*, projects(name)')
-    .order('date', { ascending: false });
-  if (error) { showToast('Erro ao carregar','error'); return; }
-  transactions = data || [];
+async function loadData() {
+  const [{ data: proj }, { data: trans }] = await Promise.all([
+    db.from('projects').select('id,name,project_number,status,clients(name)').order('created_at',{ascending:false}),
+    db.from('transactions').select('*').order('date',{ascending:false})
+  ]);
+  projects = proj || [];
+  transactions = trans || [];
   render();
 }
 
+function getProjectFinancials(projectId) {
+  const t = transactions.filter(t => t.project_id === projectId);
+  const revenue = t.filter(x=>x.type==='income').reduce((s,x)=>s+Number(x.amount),0);
+  const cost    = t.filter(x=>x.type==='expense').reduce((s,x)=>s+Number(x.amount),0);
+  const profit  = revenue - cost;
+  const margin  = revenue > 0 ? Math.round((profit/revenue)*100) : 0;
+  return { revenue, cost, profit, margin, items: t };
+}
+
 function render() {
-  const s = document.getElementById('search').value.toLowerCase();
-  const ft = document.getElementById('filterType').value;
-  const fc = document.getElementById('filterCat').value;
-  const fm = document.getElementById('filterMonth').value;
+  // Global KPIs
+  const allIncome  = transactions.filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
+  const allExpense = transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
+  const allProfit  = allIncome - allExpense;
+  const margin     = allIncome > 0 ? Math.round((allProfit/allIncome)*100) : 0;
+  const activeProj = projects.filter(p => transactions.some(t=>t.project_id===p.id)).length;
 
-  let filtered = transactions.filter(t =>
-    (!s || t.description.toLowerCase().includes(s) || (t.reference||'').toLowerCase().includes(s)) &&
-    (!ft || t.type === ft) &&
-    (!fc || t.category === fc) &&
-    (!fm || t.date?.startsWith(fm))
-  );
+  document.getElementById('k-revenue').textContent = fmt(allIncome);
+  document.getElementById('k-cost').textContent    = fmt(allExpense);
+  document.getElementById('k-profit').textContent  = fmt(allProfit);
+  document.getElementById('k-profit').style.color  = allProfit >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('k-margin').textContent  = `margem ${margin}%`;
+  document.getElementById('k-count').textContent   = activeProj;
 
-  // KPIs from filtered
-  const income  = filtered.filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
-  const expense = filtered.filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
-  const profit  = income - expense;
-  document.getElementById('k-income').textContent  = fmtValor(income);
-  document.getElementById('k-expense').textContent = fmtValor(expense);
-  document.getElementById('k-profit').textContent  = fmtValor(profit);
-  document.getElementById('k-profit').style.color  = profit >= 0 ? 'var(--green)' : 'var(--red)';
-  document.getElementById('k-count').textContent   = filtered.length;
-
-  if (!filtered.length) {
-    document.getElementById('table-wrap').innerHTML = `
+  if (!projects.length) {
+    document.getElementById('projects-list').innerHTML = `
       <div class="empty"><div class="empty-icon">💰</div>
-      <h3>Nenhuma transação encontrada</h3><p>Clique em "+ Receita" ou "+ Despesa" para começar.</p></div>`;
+      <h3>Nenhuma obra cadastrada</h3><p>Crie obras primeiro em <a href="/projects" style="color:var(--gold)">Obras</a>.</p></div>`;
     return;
   }
 
-  document.getElementById('table-wrap').innerHTML = `
-    <table>
-      <thead><tr>
-        <th>Data</th><th>Descrição</th><th>Tipo</th>
-        <th>Categoria</th><th>Obra</th><th>Valor</th>
-      </tr></thead>
-      <tbody>${filtered.map(t=>`
-        <tr onclick="openModal('${t.type}','${t.id}')">
-          <td style="color:var(--muted);font-size:12px">${fmtDate(t.date)}</td>
-          <td style="font-weight:600">${t.description}</td>
-          <td><span class="type-badge type-${t.type}">${t.type==='income'?'↑ Receita':'↓ Despesa'}</span></td>
-          <td><span class="cat-badge">${catLabel[t.category]||t.category||'—'}</span></td>
-          <td style="font-size:12px;color:var(--muted)">${t.projects?.name||'—'}</td>
-          <td class="amount-${t.type}">${fmtValor(t.amount)}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>`;
+  document.getElementById('projects-list').innerHTML = `<div class="projects-list">` +
+    projects.map(p => {
+      const f = getProjectFinancials(p.id);
+      const incomeItems  = f.items.filter(x=>x.type==='income');
+      const expenseItems = f.items.filter(x=>x.type==='expense');
+
+      return `<div class="proj-card" id="card-${p.id}">
+        <div class="proj-card-header" onclick="toggleCard('${p.id}')">
+          <div class="proj-info">
+            <div class="proj-name">${p.name}</div>
+            <div class="proj-client">👤 ${p.clients?.name||'—'} · ${p.project_number||''}</div>
+          </div>
+          <div class="proj-summary">
+            <div class="proj-stat">
+              <div class="proj-stat-label">Receita</div>
+              <div class="proj-stat-value" style="color:var(--green)">${fmt(f.revenue)}</div>
+            </div>
+            <div class="proj-stat">
+              <div class="proj-stat-label">Custo</div>
+              <div class="proj-stat-value" style="color:var(--red)">${fmt(f.cost)}</div>
+            </div>
+            <div class="proj-stat">
+              <div class="proj-stat-label">Lucro</div>
+              <div class="proj-stat-value ${f.profit>=0?'profit-positive':'profit-negative'}">${fmt(f.profit)}</div>
+            </div>
+            <div class="proj-stat">
+              <div class="proj-stat-label">Margem</div>
+              <div class="proj-stat-value ${f.profit>=0?'profit-positive':'profit-negative'}">${f.margin}%</div>
+            </div>
+          </div>
+          <span class="proj-chevron" id="chev-${p.id}">›</span>
+        </div>
+
+        <div class="proj-detail" id="detail-${p.id}">
+          <div class="detail-header">
+            <span class="detail-title">Lançamentos da Obra</span>
+            <div style="display:flex;gap:8px">
+              <button class="btn-add-cost btn-add-income" onclick="openModal('${p.id}','income')">+ Receita</button>
+              <button class="btn-add-cost btn-add-expense" onclick="openModal('${p.id}','expense')">+ Despesa</button>
+            </div>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-col">
+              <div class="detail-col-title income">↑ Receitas</div>
+              ${incomeItems.length ? incomeItems.map(i=>`
+                <div class="cost-item">
+                  <div class="cost-desc">${i.description}</div>
+                  <span class="cost-cat">${catLabel[i.category]||i.category||'—'}</span>
+                  <div class="cost-value income">${fmt(i.amount)}</div>
+                  <button class="cost-del" onclick="deleteTransaction('${i.id}')">✕</button>
+                </div>`).join('')
+              : '<div class="empty-costs">Nenhuma receita lançada</div>'}
+            </div>
+            <div class="detail-col">
+              <div class="detail-col-title expense">↓ Despesas</div>
+              ${expenseItems.length ? expenseItems.map(i=>`
+                <div class="cost-item">
+                  <div class="cost-desc">${i.description}</div>
+                  <span class="cost-cat">${catLabel[i.category]||i.category||'—'}</span>
+                  <div class="cost-value expense">${fmt(i.amount)}</div>
+                  <button class="cost-del" onclick="deleteTransaction('${i.id}')">✕</button>
+                </div>`).join('')
+              : '<div class="empty-costs">Nenhuma despesa lançada</div>'}
+            </div>
+          </div>
+          <div class="profit-box">
+            <div class="profit-box-label">Lucro da Obra</div>
+            <div>
+              <div class="profit-box-value ${f.profit>=0?'profit-positive':'profit-negative'}">${fmt(f.profit)}</div>
+              <div class="profit-margin">margem de ${f.margin}%</div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('') + `</div>`;
 }
 
-function openModal(type, id) {
-  editId = id || null;
-  currentType = type;
-  const t = id ? transactions.find(x=>x.id===id) : null;
-  const isIncome = (t?.type||type) === 'income';
+function toggleCard(id) {
+  const detail = document.getElementById('detail-'+id);
+  const chev   = document.getElementById('chev-'+id);
+  const isOpen = detail.classList.contains('open');
+  detail.classList.toggle('open', !isOpen);
+  chev.classList.toggle('open', !isOpen);
+}
 
-  document.getElementById('modal-title').textContent = t ? (isIncome?'Editar Receita':'Editar Despesa') : (isIncome?'Nova Receita':'Nova Despesa');
+function openModal(projectId, type) {
+  currentProjectId = projectId;
+  currentType = type;
+  const isIncome = type === 'income';
+  document.getElementById('modal-title').textContent = isIncome ? 'Nova Receita' : 'Nova Despesa';
   document.getElementById('modal-title').className = isIncome ? 'income' : 'expense';
-  document.getElementById('btn-save').className = `btn ${isIncome?'btn-income':'btn-expense'}`;
-  document.getElementById('f-desc').value = t?.description || '';
-  document.getElementById('f-amount').value = t?.amount || '';
-  document.getElementById('f-date').value = t?.date || new Date().toISOString().slice(0,10);
-  document.getElementById('f-category').value = t?.category || 'project';
-  document.getElementById('f-project').value = t?.project_id || '';
-  document.getElementById('f-ref').value = t?.reference || '';
-  document.getElementById('f-notes').value = t?.notes || '';
-  document.getElementById('btn-delete').style.display = t ? 'block' : 'none';
+  document.getElementById('btn-save').className = `btn ${isIncome?'btn-income-solid':'btn-expense-solid'}`;
+  document.getElementById('f-desc').value = '';
+  document.getElementById('f-amount').value = '';
+  document.getElementById('f-category').value = isIncome ? 'project' : 'material';
+  document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('f-notes').value = '';
   document.getElementById('overlay').classList.add('open');
 }
-function closeModal() { document.getElementById('overlay').classList.remove('open'); editId=null; }
+function closeModal() { document.getElementById('overlay').classList.remove('open'); }
 function closeIfOutside(e) { if(e.target.id==='overlay') closeModal(); }
 
 async function saveTransaction() {
@@ -369,30 +408,27 @@ async function saveTransaction() {
     amount,
     date: document.getElementById('f-date').value,
     category: document.getElementById('f-category').value,
-    project_id: document.getElementById('f-project').value || null,
-    reference: document.getElementById('f-ref').value.trim(),
     notes: document.getElementById('f-notes').value.trim(),
+    project_id: currentProjectId
   };
 
   try {
-    if (editId) {
-      await db.from('transactions').update(data).eq('id', editId);
-      showToast('Atualizado!','success');
-    } else {
-      await db.from('transactions').insert(data);
-      showToast(currentType==='income'?'Receita lançada!':'Despesa lançada!','success');
-    }
+    await db.from('transactions').insert(data);
+    showToast(currentType==='income'?'Receita lançada!':'Despesa lançada!','success');
     closeModal();
-    await loadTransactions();
+    await loadData();
+    // Reopen the card
+    const detail = document.getElementById('detail-'+currentProjectId);
+    const chev   = document.getElementById('chev-'+currentProjectId);
+    if (detail) { detail.classList.add('open'); chev.classList.add('open'); }
   } catch(err) { showToast('Erro ao salvar.','error'); }
 }
 
-async function deleteTransaction() {
-  if (!confirm('Excluir esta transação?')) return;
-  await db.from('transactions').delete().eq('id', editId);
+async function deleteTransaction(id) {
+  if (!confirm('Excluir este lançamento?')) return;
+  await db.from('transactions').delete().eq('id', id);
   showToast('Excluído.','');
-  closeModal();
-  await loadTransactions();
+  await loadData();
 }
 
 init();
