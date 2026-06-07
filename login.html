@@ -161,13 +161,13 @@ let isRegister = false;
 
 // Redirect if already logged in
 db.auth.getSession().then(({ data }) => {
-  if (data.session) window.location.href = '/finetouch_crm_app.html';
+  if (data.session) window.location.href = '/dashboard';
 });
 
 // Handle OAuth redirect
 db.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_IN' && session) {
-    window.location.href = '/finetouch_crm_app.html';
+    window.location.href = '/dashboard';
   }
 });
 
@@ -209,7 +209,7 @@ async function submitForm() {
   } else {
     const { error } = await db.auth.signInWithPassword({ email, password });
     if (error) { showToast('Email ou senha incorretos.', 'error'); setLoading(false); return; }
-    window.location.href = '/finetouch_crm_app.html';
+    window.location.href = '/dashboard';
   }
   setLoading(false);
 }
