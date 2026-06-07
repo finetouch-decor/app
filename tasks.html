@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#102A4B">
+<title>Fine Touch — Tarefas</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  :root {
+    --navy:#102A4B; --gold:#C69E63; --gold2:#C7B090;
+    --cream:#EAE6DA; --cream2:#F5F2EC; --white:#FFFFFF;
+    --border:#D8D2C4; --text:#1a1a1a; --muted:#7a7060;
+    --green:#2e6b3e; --red:#a03030;
+    --shadow:0 2px 12px rgba(16,42,75,0.08);
+    --safe-top:env(safe-area-inset-top); --safe-bottom:env(safe-area-inset-bottom);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; font-family:'Inter',sans-serif; background:var(--cream2); color:var(--text); }
+  .app { display:flex; height:100%; }
+
+  /* SIDEBAR */
+  .sidebar { width:220px; flex-shrink:0; background:var(--navy); display:flex; flex-direction:column; }
+  .sidebar-logo { padding:24px 20px 20px; border-bottom:1px solid rgba(255,255,255,0.08); }
+  .logo-fine { font-size:20px; font-weight:800; color:var(--cream); letter-spacing:1px; line-height:1; }
+  .logo-touch { font-size:20px; font-weight:800; color:var(--gold); letter-spacing:1px; line-height:1; }
+  .logo-sub { font-size:9px; color:var(--gold2); letter-spacing:2px; text-transform:uppercase; margin-top:3px; }
+  .sidebar-nav { flex:1; padding:12px 0; overflow-y:auto; }
+  .nav-section { padding:12px 16px 6px; font-size:9px; font-weight:700; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1.5px; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 16px; color:rgba(255,255,255,0.6); font-size:13px; font-weight:500; border-left:3px solid transparent; transition:all .15s; text-decoration:none; }
+  .nav-item:hover { color:var(--cream); background:rgba(255,255,255,0.06); }
+  .nav-item.active { color:var(--gold); border-left-color:var(--gold); background:rgba(198,158,99,0.1); }
+  .nav-item .icon { font-size:16px; width:20px; text-align:center; flex-shrink:0; }
+  .sidebar-user { padding:14px 16px calc(14px + var(--safe-bottom)); border-top:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; gap:10px; }
+  .user-avatar { width:32px; height:32px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--navy); flex-shrink:0; }
+  .user-name { font-size:12px; font-weight:600; color:var(--cream); }
+  .user-role { font-size:10px; color:var(--gold2); }
+  .btn-logout { margin-left:auto; background:none; border:none; color:rgba(255,255,255,0.4); cursor:pointer; font-size:16px; }
+
+  /* MAIN */
+  .main { flex:1; overflow-y:auto; display:flex; flex-direction:column; min-width:0; }
+  .topbar { background:var(--white); border-bottom:1px solid var(--border); padding:calc(var(--safe-top)+16px) 28px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+  .topbar h1 { font-size:20px; font-weight:700; color:var(--navy); }
+
+  .btn { padding:9px 16px; border-radius:8px; border:none; cursor:pointer; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; transition:all .2s; white-space:nowrap; }
+  .btn-primary { background:var(--navy); color:var(--cream); }
+  .btn-outline { background:transparent; color:var(--navy); border:1.5px solid var(--border); }
+  .btn-danger { background:#a0303010; color:var(--red); border:1.5px solid #a0303030; }
+  .btn-sm { padding:6px 12px; font-size:12px; }
+
+  /* CONTENT */
+  .content { padding:24px 28px; flex:1; }
+
+  /* KPI */
+  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+  .kpi-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:14px 16px; box-shadow:var(--shadow); }
+  .kpi-label { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+  .kpi-value { font-size:22px; font-weight:800; color:var(--navy); }
+
+  /* FILTERS */
+  .filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+  .filters input, .filters select { background:var(--white); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:13px; outline:none; }
+
+  /* COLUMNS */
+  .kanban { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .col { background:var(--white); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); }
+  .col-header { padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .col-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:1px; }
+  .col-count { font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; }
+  .col-todo .col-title { color:var(--navy); }
+  .col-todo .col-count { background:#102A4B15; color:var(--navy); }
+  .col-progress .col-title { color:#8a6520; }
+  .col-progress .col-count { background:#C69E6318; color:#8a6520; }
+  .col-done .col-title { color:var(--green); }
+  .col-done .col-count { background:#2e6b3e18; color:var(--green); }
+  .col-body { padding:12px; min-height:200px; }
+
+  /* TASK CARDS */
+  .task-card { background:var(--cream2); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:8px; cursor:pointer; transition:all .15s; }
+  .task-card:hover { border-color:var(--gold); }
+  .task-card.done { opacity:0.6; }
+  .task-title { font-size:13px; font-weight:600; color:var(--navy); margin-bottom:6px; }
+  .task-title.done { text-decoration:line-through; }
+  .task-meta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .task-proj { font-size:10px; background:var(--cream); border:1px solid var(--border); padding:2px 7px; border-radius:10px; color:var(--muted); }
+  .task-due { font-size:10px; font-weight:600; }
+  .task-due.overdue { color:var(--red); }
+  .task-due.today { color:#8a6520; }
+  .task-due.future { color:var(--muted); }
+  .priority-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .p-high   { background:var(--red); }
+  .p-medium { background:var(--gold); }
+  .p-low    { background:var(--muted); }
+
+  /* EMPTY COL */
+  .col-empty { text-align:center; color:var(--muted); padding:24px 12px; font-size:12px; }
+
+  /* MODAL */
+  .overlay { display:none; position:fixed; inset:0; background:rgba(16,42,75,0.5); z-index:200; align-items:center; justify-content:center; padding:20px; }
+  .overlay.open { display:flex; }
+  .modal { background:var(--cream2); border-radius:16px; width:100%; max-width:480px; box-shadow:0 24px 80px rgba(0,0,0,0.2); animation:fadeUp .25s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  .modal-header { padding:18px 22px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .modal-header h2 { font-size:16px; font-weight:700; color:var(--navy); }
+  .modal-body { padding:20px 22px; display:flex; flex-direction:column; gap:12px; }
+  .modal-footer { padding:14px 22px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; }
+  .field label { display:block; font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:5px; }
+  .field input, .field select, .field textarea { width:100%; background:var(--white); border:1.5px solid var(--border); color:var(--text); padding:10px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:14px; outline:none; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color:var(--gold); }
+  .field textarea { resize:none; height:70px; }
+
+  .loading { text-align:center; color:var(--muted); padding:40px; }
+  .spinner { width:28px; height:28px; border:2px solid var(--border); border-top-color:var(--navy); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 8px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .toast { position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-10px); background:var(--navy); color:var(--cream); padding:10px 20px; border-radius:30px; font-size:13px; font-weight:600; z-index:400; opacity:0; transition:all .3s; white-space:nowrap; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.success { background:#2e6b3e; }
+  .toast.error { background:#a03030; }
+
+  @media(max-width:768px) {
+    .sidebar { display:none; }
+    .content { padding:16px; }
+    .kpi-row { grid-template-columns:1fr 1fr; }
+    .kanban { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-fine">FINE</div>
+      <div class="logo-touch">TOUCH</div>
+      <div class="logo-sub">Decor &amp; Design</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Principal</div>
+      <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
+      <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
+      <div class="nav-section">Vendas</div>
+      <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
+      <a class="nav-item" href="#"><span class="icon">📄</span>Propostas</a>
+      <a class="nav-item" href="#"><span class="icon">📝</span>Contratos</a>
+      <div class="nav-section">Operacional</div>
+      <a class="nav-item" href="/projects"><span class="icon">🏗️</span>Obras</a>
+      <a class="nav-item" href="#"><span class="icon">🛒</span>Compras</a>
+      <a class="nav-item" href="#"><span class="icon">📚</span>Catálogo</a>
+      <div class="nav-section">Financeiro</div>
+      <a class="nav-item" href="/financial"><span class="icon">💰</span>Financeiro</a>
+      <a class="nav-item" href="#"><span class="icon">🧾</span>Invoices</a>
+      <div class="nav-section">Outros</div>
+      <a class="nav-item" href="#"><span class="icon">📣</span>Marketing</a>
+      <a class="nav-item active" href="/tasks"><span class="icon">✅</span>Tarefas</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <div><div class="user-name" id="user-name">...</div><div class="user-role">Administrador</div></div>
+      <button class="btn-logout" onclick="logout()">⏏</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h1>Tarefas</h1>
+      <button class="btn btn-primary" onclick="openModal()">+ Nova Tarefa</button>
+    </div>
+    <div class="content">
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="kpi-label">A Fazer</div><div class="kpi-value" id="k-todo">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Em Andamento</div><div class="kpi-value" id="k-progress">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Concluídas</div><div class="kpi-value" id="k-done">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Atrasadas</div><div class="kpi-value" id="k-overdue" style="color:var(--red)">—</div></div>
+      </div>
+      <div class="filters">
+        <input type="search" id="search" placeholder="🔍 Buscar tarefa..." oninput="render()">
+        <select id="filterProject" onchange="render()">
+          <option value="">Todas as obras</option>
+        </select>
+        <select id="filterPriority" onchange="render()">
+          <option value="">Todas as prioridades</option>
+          <option value="high">Alta</option>
+          <option value="medium">Média</option>
+          <option value="low">Baixa</option>
+        </select>
+      </div>
+      <div class="kanban">
+        <div class="col col-todo">
+          <div class="col-header"><span class="col-title">A Fazer</span><span class="col-count" id="c-todo">0</span></div>
+          <div class="col-body" id="col-todo"></div>
+        </div>
+        <div class="col col-progress">
+          <div class="col-header"><span class="col-title">Em Andamento</span><span class="col-count" id="c-progress">0</span></div>
+          <div class="col-body" id="col-progress"></div>
+        </div>
+        <div class="col col-done">
+          <div class="col-header"><span class="col-title">Concluídas</span><span class="col-count" id="c-done">0</span></div>
+          <div class="col-body" id="col-done"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="closeIfOutside(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Nova Tarefa</h2>
+      <button class="btn btn-outline btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Título</label><input id="f-title" placeholder="O que precisa ser feito?"></div>
+      <div class="field"><label>Descrição</label><textarea id="f-desc" placeholder="Detalhes..."></textarea></div>
+      <div class="field"><label>Status</label>
+        <select id="f-status">
+          <option value="todo">A Fazer</option>
+          <option value="in_progress">Em Andamento</option>
+          <option value="done">Concluída</option>
+        </select>
+      </div>
+      <div class="field"><label>Prioridade</label>
+        <select id="f-priority">
+          <option value="high">🔴 Alta</option>
+          <option value="medium" selected>🟡 Média</option>
+          <option value="low">⚪ Baixa</option>
+        </select>
+      </div>
+      <div class="field"><label>Data de entrega</label><input type="date" id="f-due"></div>
+      <div class="field"><label>Obra (opcional)</label><select id="f-project"><option value="">Nenhuma</option></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-delete" onclick="deleteTask()" style="display:none;margin-right:auto">Excluir</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTask()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let tasks = [], projects = [], editId = null;
+
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { window.location.href = '/login.html'; return; }
+  const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuário';
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+  await Promise.all([loadProjects(), loadTasks()]);
+}
+db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
+async function logout() { await db.auth.signOut(); }
+function showToast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+type; setTimeout(()=>t.className='toast',2800); }
+function today() { return new Date().toISOString().slice(0,10); }
+
+async function loadProjects() {
+  const { data } = await db.from('projects').select('id,name').order('name');
+  projects = data || [];
+  const fp = document.getElementById('filterProject');
+  fp.innerHTML = '<option value="">Todas as obras</option>' + projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  const mp = document.getElementById('f-project');
+  mp.innerHTML = '<option value="">Nenhuma</option>' + projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+}
+
+async function loadTasks() {
+  const { data } = await db.from('tasks').select('*, projects(name)').order('created_at',{ascending:false});
+  tasks = data || [];
+  render();
+}
+
+function render() {
+  const s   = document.getElementById('search').value.toLowerCase();
+  const fp  = document.getElementById('filterProject').value;
+  const pri = document.getElementById('filterPriority').value;
+  const t   = today();
+
+  const filtered = tasks.filter(x =>
+    (!s  || x.title.toLowerCase().includes(s)) &&
+    (!fp || x.project_id === fp) &&
+    (!pri|| x.priority === pri)
+  );
+
+  const todo     = filtered.filter(x=>x.status==='todo');
+  const progress = filtered.filter(x=>x.status==='in_progress');
+  const done     = filtered.filter(x=>x.status==='done');
+  const overdue  = filtered.filter(x=>x.due_date && x.due_date < t && x.status !== 'done');
+
+  document.getElementById('k-todo').textContent     = todo.length;
+  document.getElementById('k-progress').textContent = progress.length;
+  document.getElementById('k-done').textContent     = done.length;
+  document.getElementById('k-overdue').textContent  = overdue.length;
+  document.getElementById('c-todo').textContent     = todo.length;
+  document.getElementById('c-progress').textContent = progress.length;
+  document.getElementById('c-done').textContent     = done.length;
+
+  renderCol('col-todo',     todo,     t);
+  renderCol('col-progress', progress, t);
+  renderCol('col-done',     done,     t);
+}
+
+function renderCol(id, items, t) {
+  const el = document.getElementById(id);
+  if (!items.length) { el.innerHTML = '<div class="col-empty">Nenhuma tarefa</div>'; return; }
+  el.innerHTML = items.map(x => {
+    const isDone    = x.status === 'done';
+    const isOverdue = x.due_date && x.due_date < t && !isDone;
+    const isToday   = x.due_date === t;
+    const dueClass  = isOverdue ? 'overdue' : isToday ? 'today' : 'future';
+    const dueLabel  = x.due_date ? (isOverdue ? '⚠ '+fmtDate(x.due_date) : isToday ? '● Hoje' : '📅 '+fmtDate(x.due_date)) : '';
+    return `<div class="task-card ${isDone?'done':''}" onclick="openModal('${x.id}')">
+      <div class="task-title ${isDone?'done':''}">${x.title}</div>
+      <div class="task-meta">
+        <div class="priority-dot p-${x.priority||'medium'}"></div>
+        ${x.projects?.name ? `<span class="task-proj">🏗️ ${x.projects.name}</span>` : ''}
+        ${dueLabel ? `<span class="task-due ${dueClass}">${dueLabel}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function fmtDate(d) { if(!d)return''; const[y,m,dia]=d.split('-'); return`${dia}/${m}`; }
+
+function openModal(id) {
+  editId = id || null;
+  const x = id ? tasks.find(t=>t.id===id) : null;
+  document.getElementById('modal-title').textContent = x ? 'Editar Tarefa' : 'Nova Tarefa';
+  document.getElementById('f-title').value    = x?.title || '';
+  document.getElementById('f-desc').value     = x?.description || '';
+  document.getElementById('f-status').value   = x?.status || 'todo';
+  document.getElementById('f-priority').value = x?.priority || 'medium';
+  document.getElementById('f-due').value      = x?.due_date || '';
+  document.getElementById('f-project').value  = x?.project_id || '';
+  document.getElementById('btn-delete').style.display = x ? 'block' : 'none';
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('overlay').classList.remove('open'); editId=null; }
+function closeIfOutside(e) { if(e.target.id==='overlay') closeModal(); }
+
+async function saveTask() {
+  const title = document.getElementById('f-title').value.trim();
+  if (!title) { showToast('Informe o título.','error'); return; }
+
+  const data = {
+    title,
+    description: document.getElementById('f-desc').value.trim(),
+    status:      document.getElementById('f-status').value,
+    priority:    document.getElementById('f-priority').value,
+    due_date:    document.getElementById('f-due').value || null,
+    project_id:  document.getElementById('f-project').value || null,
+    source:      'app'
+  };
+
+  try {
+    if (editId) {
+      await db.from('tasks').update(data).eq('id', editId);
+      showToast('Tarefa atualizada!','success');
+    } else {
+      await db.from('tasks').insert(data);
+      showToast('Tarefa criada!','success');
+    }
+    closeModal();
+    await loadTasks();
+  } catch(err) { showToast('Erro ao salvar.','error'); }
+}
+
+async function deleteTask() {
+  if (!confirm('Excluir esta tarefa?')) return;
+  await db.from('tasks').delete().eq('id', editId);
+  showToast('Excluída.','');
+  closeModal();
+  await loadTasks();
+}
+
+init();
+</script>
+</body>
+</html>
