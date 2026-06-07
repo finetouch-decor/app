@@ -210,10 +210,10 @@
       <div class="field"><label>Valor (US$)</label><input type="number" id="f-amount" placeholder="0.00" min="0" step="0.01"></div>
       <div class="field"><label>Categoria</label>
         <select id="f-category">
-          <option value="project">Contrato / Projeto</option>
           <option value="material">Material</option>
           <option value="labor">Mão de obra</option>
           <option value="transport">Transporte</option>
+          <option value="equipment">Equipamento/Ferramenta</option>
           <option value="other">Outro</option>
         </select>
       </div>
@@ -255,7 +255,7 @@ function showToast(msg,type='') { const t=document.getElementById('toast'); t.te
 
 async function loadData() {
   const [{ data: proj }, { data: trans }] = await Promise.all([
-    db.from('projects').select('id,name,project_number,status,clients(name)').order('created_at',{ascending:false}),
+    db.from('projects').select('id,name,project_number,status,quote_id,clients(name),quotes(total,quote_number)').order('created_at',{ascending:false}),
     db.from('transactions').select('*').order('date',{ascending:false})
   ]);
   projects = proj || [];
@@ -263,9 +263,9 @@ async function loadData() {
   render();
 }
 
-function getProjectFinancials(projectId) {
-  const t = transactions.filter(t => t.project_id === projectId);
-  const revenue = t.filter(x=>x.type==='income').reduce((s,x)=>s+Number(x.amount),0);
+function getProjectFinancials(project) {
+  const t = transactions.filter(t => t.project_id === project.id);
+  const revenue = Number(project.quotes?.total || 0); // puxa do orçamento aprovado
   const cost    = t.filter(x=>x.type==='expense').reduce((s,x)=>s+Number(x.amount),0);
   const profit  = revenue - cost;
   const margin  = revenue > 0 ? Math.round((profit/revenue)*100) : 0;
@@ -274,7 +274,7 @@ function getProjectFinancials(projectId) {
 
 function render() {
   // Global KPIs
-  const allIncome  = transactions.filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
+  const allIncome  = projects.reduce((s,p)=>s+Number(p.quotes?.total||0),0);
   const allExpense = transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
   const allProfit  = allIncome - allExpense;
   const margin     = allIncome > 0 ? Math.round((allProfit/allIncome)*100) : 0;
@@ -296,8 +296,7 @@ function render() {
 
   document.getElementById('projects-list').innerHTML = `<div class="projects-list">` +
     projects.map(p => {
-      const f = getProjectFinancials(p.id);
-      const incomeItems  = f.items.filter(x=>x.type==='income');
+      const f = getProjectFinancials(p);
       const expenseItems = f.items.filter(x=>x.type==='expense');
 
       return `<div class="proj-card" id="card-${p.id}">
@@ -329,35 +328,30 @@ function render() {
 
         <div class="proj-detail" id="detail-${p.id}">
           <div class="detail-header">
-            <span class="detail-title">Lançamentos da Obra</span>
-            <div style="display:flex;gap:8px">
-              <button class="btn-add-cost btn-add-income" onclick="openModal('${p.id}','income')">+ Receita</button>
-              <button class="btn-add-cost btn-add-expense" onclick="openModal('${p.id}','expense')">+ Despesa</button>
-            </div>
+            <span class="detail-title">Custos da Obra</span>
+            <button class="btn-add-cost btn-add-expense" onclick="openModal('${p.id}')">+ Lançar Custo</button>
           </div>
-          <div class="detail-grid">
-            <div class="detail-col">
-              <div class="detail-col-title income">↑ Receitas</div>
-              ${incomeItems.length ? incomeItems.map(i=>`
-                <div class="cost-item">
-                  <div class="cost-desc">${i.description}</div>
-                  <span class="cost-cat">${catLabel[i.category]||i.category||'—'}</span>
-                  <div class="cost-value income">${fmt(i.amount)}</div>
-                  <button class="cost-del" onclick="deleteTransaction('${i.id}')">✕</button>
-                </div>`).join('')
-              : '<div class="empty-costs">Nenhuma receita lançada</div>'}
+
+          <!-- Receita automática do orçamento -->
+          <div style="padding:14px 20px;background:#2e6b3e08;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;">↑ Valor Vendido (Orçamento Aprovado)</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">${p.quotes?.quote_number || 'Sem orçamento vinculado'}</div>
             </div>
-            <div class="detail-col">
-              <div class="detail-col-title expense">↓ Despesas</div>
-              ${expenseItems.length ? expenseItems.map(i=>`
-                <div class="cost-item">
-                  <div class="cost-desc">${i.description}</div>
-                  <span class="cost-cat">${catLabel[i.category]||i.category||'—'}</span>
-                  <div class="cost-value expense">${fmt(i.amount)}</div>
-                  <button class="cost-del" onclick="deleteTransaction('${i.id}')">✕</button>
-                </div>`).join('')
-              : '<div class="empty-costs">Nenhuma despesa lançada</div>'}
-            </div>
+            <div style="font-size:18px;font-weight:800;color:var(--green);">${fmt(f.revenue)}</div>
+          </div>
+
+          <!-- Custos -->
+          <div class="detail-col" style="padding:16px 20px;">
+            <div class="detail-col-title expense" style="margin-bottom:12px;">↓ Custos (Materiais + Extras)</div>
+            ${expenseItems.length ? expenseItems.map(i=>`
+              <div class="cost-item">
+                <div class="cost-desc">${i.description}</div>
+                <span class="cost-cat">${catLabel[i.category]||i.category||'—'}</span>
+                <div class="cost-value expense">${fmt(i.amount)}</div>
+                <button class="cost-del" onclick="deleteTransaction('${i.id}')">✕</button>
+              </div>`).join('')
+            : '<div class="empty-costs">Nenhum custo lançado ainda</div>'}
           </div>
           <div class="profit-box">
             <div class="profit-box-label">Lucro da Obra</div>
@@ -379,13 +373,12 @@ function toggleCard(id) {
   chev.classList.toggle('open', !isOpen);
 }
 
-function openModal(projectId, type) {
+function openModal(projectId) {
   currentProjectId = projectId;
-  currentType = type;
-  const isIncome = type === 'income';
-  document.getElementById('modal-title').textContent = isIncome ? 'Nova Receita' : 'Nova Despesa';
-  document.getElementById('modal-title').className = isIncome ? 'income' : 'expense';
-  document.getElementById('btn-save').className = `btn ${isIncome?'btn-income-solid':'btn-expense-solid'}`;
+  currentType = 'expense';
+  document.getElementById('modal-title').textContent = 'Lançar Custo';
+  document.getElementById('modal-title').className = 'expense';
+  document.getElementById('btn-save').className = 'btn btn-expense-solid';
   document.getElementById('f-desc').value = '';
   document.getElementById('f-amount').value = '';
   document.getElementById('f-category').value = isIncome ? 'project' : 'material';
@@ -414,7 +407,7 @@ async function saveTransaction() {
 
   try {
     await db.from('transactions').insert(data);
-    showToast(currentType==='income'?'Receita lançada!':'Despesa lançada!','success');
+    showToast('Custo lançado!','success');
     closeModal();
     await loadData();
     // Reopen the card

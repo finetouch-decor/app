@@ -210,6 +210,7 @@
       <div class="form-grid">
         <div class="field form-full"><label>Nome da Obra</label><input id="f-name" placeholder="Ex: Reforma Apt. Johnson"></div>
         <div class="field"><label>Cliente</label><select id="f-client"></select></div>
+        <div class="field"><label>Orçamento Aprovado</label><select id="f-quote"><option value="">Nenhum</option></select></div>
         <div class="field"><label>Status</label>
           <select id="f-status">
             <option value="planning">Planejamento</option>
@@ -266,7 +267,7 @@ async function init() {
   const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuário';
   document.getElementById('user-name').textContent = name;
   document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
-  await Promise.all([loadClients(), loadProjects()]);
+  await Promise.all([loadClients(), loadQuotes(), loadProjects()]);
 }
 db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
 async function logout() { await db.auth.signOut(); }
@@ -280,6 +281,12 @@ async function loadClients() {
   clients = data || [];
   const sel = document.getElementById('f-client');
   sel.innerHTML = '<option value="">Selecionar cliente...</option>' + clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+async function loadQuotes() {
+  const { data } = await db.from('quotes').select('id,quote_number,total,clients(name)').eq('status','approved').order('created_at',{ascending:false});
+  const sel = document.getElementById('f-quote');
+  sel.innerHTML = '<option value="">Nenhum</option>' + (data||[]).map(q=>`<option value="${q.id}">${q.quote_number||'ORC'} — ${q.clients?.name||'?'} — $${Number(q.total).toLocaleString('en-US')}</option>`).join('');
 }
 
 async function loadProjects() {
@@ -371,6 +378,7 @@ function openModal(id) {
   document.getElementById('modal-title').textContent = p ? 'Editar Obra' : 'Nova Obra';
   document.getElementById('f-name').value = p?.name || '';
   document.getElementById('f-client').value = p?.client_id || '';
+  document.getElementById('f-quote').value = p?.quote_id || '';
   document.getElementById('f-status').value = p?.status || 'planning';
   document.getElementById('f-type').value = p?.project_type || 'Reforma';
   document.getElementById('f-budget').value = p?.budget || '';
@@ -401,6 +409,7 @@ async function saveProject() {
   const projectData = {
     name,
     client_id: document.getElementById('f-client').value || null,
+    quote_id: document.getElementById('f-quote').value || null,
     status: document.getElementById('f-status').value,
     project_type: document.getElementById('f-type').value,
     budget: document.getElementById('f-budget').value || null,
