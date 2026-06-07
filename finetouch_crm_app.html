@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Fine Touch CRM">
 <meta name="theme-color" content="#102A4B">
 <title>Fine Touch CRM</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@400;600;700;800&display=swap');
   :root {
@@ -189,18 +190,11 @@
   .modal-actions { display:flex; gap:10px; margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
   .modal-actions .btn { flex:1; padding:13px; font-size:15px; border-radius:10px; }
 
-  /* SETUP SCREEN */
-  .setup-screen { display:none; position:fixed; inset:0; background:var(--navy); z-index:300; align-items:center; justify-content:center; padding:32px; flex-direction:column; gap:20px; }
-  .setup-screen.open { display:flex; }
-  .setup-logo { text-align:center; margin-bottom:12px; }
-  .setup-logo .fine { font-family:'Barlow Condensed',sans-serif; font-size:36px; font-weight:700; color:var(--cream); display:block; }
-  .setup-logo .touch { font-family:'Barlow Condensed',sans-serif; font-size:36px; font-weight:700; color:var(--gold); display:block; }
-  .setup-logo .sub { font-size:11px; color:var(--gold2); letter-spacing:2px; text-transform:uppercase; }
-  .setup-title { font-size:16px; font-weight:600; color:var(--cream); text-align:center; }
-  .setup-desc { font-size:13px; color:var(--gold2); text-align:center; line-height:1.6; }
-  .setup-input { width:100%; background:rgba(255,255,255,0.08); border:1.5px solid rgba(198,158,99,0.4); color:var(--cream); padding:14px 16px; border-radius:10px; font-family:'Barlow',sans-serif; font-size:14px; outline:none; }
-  .setup-input:focus { border-color:var(--gold); }
-  .setup-input::placeholder { color:var(--gold2); opacity:.6; }
+  /* LOADING */
+  .loading { display:flex; align-items:center; justify-content:center; height:200px; flex-direction:column; gap:12px; color:var(--muted); }
+  .spinner { width:32px; height:32px; border:3px solid var(--border); border-top-color:var(--navy); border-radius:50%; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
   .empty { text-align:center; color:var(--muted); padding:48px 20px; }
   .empty-icon { font-size:36px; margin-bottom:8px; }
 
@@ -212,20 +206,6 @@
 </style>
 </head>
 <body>
-
-<!-- SETUP SCREEN -->
-<div class="setup-screen" id="setup-screen">
-  <div class="setup-logo">
-    <span class="fine">FINE</span>
-    <span class="touch">TOUCH</span>
-    <span class="sub">Decor &amp; Design · CRM</span>
-  </div>
-  <div class="setup-title">Configurar sincronização</div>
-  <div class="setup-desc">Cole abaixo a URL do seu Google Apps Script para sincronizar os dados com o Google Sheets em tempo real.</div>
-  <input class="setup-input" id="setup-url" type="url" placeholder="https://script.google.com/macros/s/..." autocomplete="off" autocorrect="off" spellcheck="false">
-  <button class="btn btn-gold" style="width:100%;padding:14px;font-size:15px;border-radius:10px" onclick="saveSetup()">Conectar ao Google Sheets</button>
-  <button class="btn" style="background:transparent;color:var(--gold2);font-size:13px" onclick="skipSetup()">Usar sem sincronização por agora</button>
-</div>
 
 <!-- HEADER -->
 <header>
@@ -246,9 +226,9 @@
       <span class="sub">CRM</span>
     </div>
   </div>
-  <div class="sync-status" id="sync-status" onclick="openSetupScreen()">
+  <div class="sync-status">
     <div class="sync-dot" id="sync-dot"></div>
-    <span id="sync-label">Configurar</span>
+    <span id="sync-label">Conectando...</span>
   </div>
 </header>
 
@@ -270,7 +250,9 @@
 
 <!-- CONTENT -->
 <div class="content" id="content">
-  <div id="view-lista" class="list-view"></div>
+  <div id="view-lista" class="list-view">
+    <div class="loading"><div class="spinner"></div><span>Carregando...</span></div>
+  </div>
   <div id="view-kanban" class="kanban-view" style="display:none">
     <div class="kanban-col col-lead"><div class="kanban-col-header"><h3>Lead</h3><span class="kanban-count" id="kc-lead">0</span></div><div class="kanban-cards" id="kl-lead"></div></div>
     <div class="kanban-col col-visita"><div class="kanban-col-header"><h3>Visita</h3><span class="kanban-count" id="kc-visita">0</span></div><div class="kanban-cards" id="kl-visita"></div></div>
@@ -333,64 +315,70 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// ─── SUPABASE ────────────────────────────────────────────────
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // ─── STATE ───────────────────────────────────────────────────
-let clients = JSON.parse(localStorage.getItem('ft_crm') || '[]');
-let scriptURL = localStorage.getItem('ft_script_url') || '';
-let editId = null, currentView = 'lista';
+let records = []; // combined lead+client records
+let editId = null, editClientId = null, currentView = 'lista';
 
-// ─── SETUP ───────────────────────────────────────────────────
-function openSetupScreen() { document.getElementById('setup-screen').classList.add('open'); }
-function skipSetup() { document.getElementById('setup-screen').classList.remove('open'); updateSyncUI(); }
-function saveSetup() {
-  const url = document.getElementById('setup-url').value.trim();
-  if (!url.startsWith('https://script.google.com')) { showToast('URL inválida. Use a URL do Apps Script.','error'); return; }
-  scriptURL = url;
-  localStorage.setItem('ft_script_url', url);
-  document.getElementById('setup-screen').classList.remove('open');
-  showToast('Conectado! Sincronizando...','success');
-  syncAll();
-}
-
-// ─── SYNC ────────────────────────────────────────────────────
+// ─── SYNC UI ─────────────────────────────────────────────────
 function updateSyncUI(state) {
   const dot = document.getElementById('sync-dot');
   const label = document.getElementById('sync-label');
   dot.className = 'sync-dot';
-  if (!scriptURL) { label.textContent = 'Configurar'; return; }
-  if (state === 'syncing') { dot.classList.add('syncing'); label.textContent = 'Sincronizando...'; }
-  else if (state === 'ok') { dot.classList.add('ok'); label.textContent = 'Sincronizado'; }
+  if (state === 'syncing') { dot.classList.add('syncing'); label.textContent = 'Salvando...'; }
+  else if (state === 'ok')  { dot.classList.add('ok');      label.textContent = 'Conectado'; }
   else if (state === 'error') { dot.classList.add('error'); label.textContent = 'Erro'; }
-  else { dot.classList.add('ok'); label.textContent = 'Conectado'; }
 }
 
-async function syncAll() {
-  if (!scriptURL) return;
+// ─── LOAD DATA ───────────────────────────────────────────────
+async function loadData() {
   updateSyncUI('syncing');
-  try {
-    await fetch(scriptURL, {
-      method:'POST', mode:'no-cors',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ action:'sync_all', clients })
-    });
-    updateSyncUI('ok');
-  } catch(e) { updateSyncUI('error'); }
-}
+  const { data, error } = await db
+    .from('leads')
+    .select(`
+      id,
+      status,
+      project_type,
+      scope,
+      estimated_value,
+      first_contact_date,
+      follow_up_date,
+      notes,
+      clients ( id, name, phone, city )
+    `)
+    .order('created_at', { ascending: false });
 
-async function syncClient(client, action) {
-  if (!scriptURL) return;
-  updateSyncUI('syncing');
-  try {
-    await fetch(scriptURL, {
-      method:'POST', mode:'no-cors',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ action, client })
-    });
-    updateSyncUI('ok');
-  } catch(e) { updateSyncUI('error'); }
+  if (error) {
+    updateSyncUI('error');
+    showToast('Erro ao carregar dados', 'error');
+    console.error(error);
+    return;
+  }
+
+  records = (data || []).map(l => ({
+    id: l.id,
+    client_id: l.clients?.id,
+    nome: l.clients?.name || '',
+    tel: l.clients?.phone || '',
+    local: l.clients?.city || '',
+    tipo: l.project_type || '',
+    interesse: l.scope || '',
+    valor: l.estimated_value || '',
+    status: l.status || 'lead',
+    dtcontato: l.first_contact_date || '',
+    retorno: l.follow_up_date || '',
+    obs: l.notes || ''
+  }));
+
+  updateSyncUI('ok');
+  render();
 }
 
 // ─── UTILS ───────────────────────────────────────────────────
-function save() { localStorage.setItem('ft_crm', JSON.stringify(clients)); }
 function fmtValor(v) { if(!v&&v!==0)return'—'; return '$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:0}); }
 function fmtDate(d) { if(!d)return'—'; const[y,m,dia]=d.split('-'); return`${dia}/${m}/${y}`; }
 function today() { return new Date().toISOString().slice(0,10); }
@@ -406,7 +394,7 @@ function showToast(msg, type='') {
 function filtered() {
   const s = document.getElementById('search').value.toLowerCase();
   const fs = document.getElementById('filterStatus').value;
-  return clients.filter(c =>
+  return records.filter(c =>
     (!s || c.nome.toLowerCase().includes(s) || (c.local||'').toLowerCase().includes(s)) &&
     (!fs || c.status === fs)
   );
@@ -422,11 +410,11 @@ function render() {
 
 function renderStats() {
   const t = today();
-  const total = clients.length;
-  const ativos = clients.filter(c=>c.status!=='perdido'&&c.status!=='fechado').length;
-  const alerts = clients.filter(c=>c.retorno&&c.retorno<=t&&c.status!=='fechado'&&c.status!=='perdido').length;
-  const pipeline = clients.filter(c=>c.status!=='perdido').reduce((s,c)=>s+(Number(c.valor)||0),0);
-  const fechados = clients.filter(c=>c.status==='fechado').length;
+  const total = records.length;
+  const ativos = records.filter(c=>c.status!=='perdido'&&c.status!=='fechado').length;
+  const alerts = records.filter(c=>c.retorno&&c.retorno<=t&&c.status!=='fechado'&&c.status!=='perdido').length;
+  const pipeline = records.filter(c=>c.status!=='perdido').reduce((s,c)=>s+(Number(c.valor)||0),0);
+  const fechados = records.filter(c=>c.status==='fechado').length;
   document.getElementById('stats-bar').innerHTML = `
     <div class="stat-item"><div class="stat-label">Clientes</div><div class="stat-value">${total}</div></div>
     <div class="stat-item"><div class="stat-label">Ativos</div><div class="stat-value">${ativos}</div></div>
@@ -441,7 +429,7 @@ function renderLista() {
   const el = document.getElementById('view-lista');
   if (!data.length) { el.innerHTML='<div class="empty"><div class="empty-icon">✦</div>Nenhum cliente encontrado.</div>'; return; }
   el.innerHTML = data.map(c => `
-    <div class="client-card" onclick="openModal(${c.id})">
+    <div class="client-card" onclick="openModal('${c.id}')">
       <div class="card-top">
         <div><div class="card-name">${c.nome}</div><div class="card-tipo">${c.tipo||''} ${c.local?'· '+c.local:''}</div></div>
         <span class="status-badge s-${c.status}">${c.status}</span>
@@ -466,7 +454,7 @@ function renderKanban() {
     const kl = document.getElementById('kl-'+s);
     if(!kl) return;
     kl.innerHTML = list.length ? list.map(c=>`
-      <div class="kanban-card" onclick="openModal(${c.id})">
+      <div class="kanban-card" onclick="openModal('${c.id}')">
         <h4>${c.nome}</h4>
         <div class="meta">${c.tipo||''} ${c.local?'· '+c.local:''}</div>
         ${c.valor?`<div class="valor">${fmtValor(c.valor)}</div>`:''}
@@ -479,13 +467,13 @@ function renderKanban() {
 function renderRetornos() {
   const t = today();
   const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const sorted = [...clients].filter(c=>c.retorno).sort((a,b)=>a.retorno.localeCompare(b.retorno));
+  const sorted = [...records].filter(c=>c.retorno).sort((a,b)=>a.retorno.localeCompare(b.retorno));
   const el = document.getElementById('view-retornos');
   if (!sorted.length) { el.innerHTML='<div class="empty"><div class="empty-icon">📅</div>Nenhum retorno agendado.</div>'; return; }
   el.innerHTML = sorted.map(c=>{
     const[y,m,d]=c.retorno.split('-');
     const cls=c.retorno<t?'cal-past':c.retorno===t?'cal-today':'';
-    return`<div class="cal-item ${cls}" onclick="openModal(${c.id})">
+    return`<div class="cal-item ${cls}" onclick="openModal('${c.id}')">
       <div class="cal-date"><div class="day">${d}</div><div class="mon">${meses[parseInt(m)-1]}</div></div>
       <div class="cal-info" style="flex:1">
         <h4>${c.nome}</h4>
@@ -512,88 +500,108 @@ function setView(v) {
 
 // ─── MODAL ───────────────────────────────────────────────────
 function openModal(id) {
-  editId=id||null;
-  const c=id?clients.find(x=>x.id===id):null;
-  document.getElementById('modal-title').innerHTML=c?'Editar <span>Cliente</span>':'Novo <span>Cliente</span>';
-  document.getElementById('f-nome').value=c?.nome||'';
-  document.getElementById('f-tel').value=c?.tel||'';
-  document.getElementById('f-local').value=c?.local||'';
-  document.getElementById('f-tipo').value=c?.tipo||'Reforma';
-  document.getElementById('f-interesse').value=c?.interesse||'';
-  document.getElementById('f-valor').value=c?.valor||'';
-  document.getElementById('f-status').value=c?.status||'lead';
-  document.getElementById('f-dtcontato').value=c?.dtcontato||today();
-  document.getElementById('f-retorno').value=c?.retorno||'';
-  document.getElementById('f-obs').value=c?.obs||'';
-  document.getElementById('btn-delete').style.display=c?'flex':'none';
+  editId = id || null;
+  const c = id ? records.find(x => x.id === id) : null;
+  editClientId = c?.client_id || null;
+  document.getElementById('modal-title').innerHTML = c ? 'Editar <span>Cliente</span>' : 'Novo <span>Cliente</span>';
+  document.getElementById('f-nome').value = c?.nome || '';
+  document.getElementById('f-tel').value = c?.tel || '';
+  document.getElementById('f-local').value = c?.local || '';
+  document.getElementById('f-tipo').value = c?.tipo || 'Reforma';
+  document.getElementById('f-interesse').value = c?.interesse || '';
+  document.getElementById('f-valor').value = c?.valor || '';
+  document.getElementById('f-status').value = c?.status || 'lead';
+  document.getElementById('f-dtcontato').value = c?.dtcontato || today();
+  document.getElementById('f-retorno').value = c?.retorno || '';
+  document.getElementById('f-obs').value = c?.obs || '';
+  document.getElementById('btn-delete').style.display = c ? 'flex' : 'none';
   document.getElementById('overlay').classList.add('open');
 }
-function closeModal(){document.getElementById('overlay').classList.remove('open');editId=null;}
-function closeIfOutside(e){if(e.target.id==='overlay')closeModal();}
+function closeModal() { document.getElementById('overlay').classList.remove('open'); editId = null; editClientId = null; }
+function closeIfOutside(e) { if(e.target.id==='overlay') closeModal(); }
 
-function saveClient() {
-  const nome=document.getElementById('f-nome').value.trim();
-  if(!nome){showToast('Informe o nome do cliente.','error');return;}
-  const data={
-    id:editId||Date.now(), nome,
-    tel:document.getElementById('f-tel').value.trim(),
-    local:document.getElementById('f-local').value.trim(),
-    tipo:document.getElementById('f-tipo').value,
-    interesse:document.getElementById('f-interesse').value.trim(),
-    valor:document.getElementById('f-valor').value,
-    status:document.getElementById('f-status').value,
-    dtcontato:document.getElementById('f-dtcontato').value,
-    retorno:document.getElementById('f-retorno').value,
-    obs:document.getElementById('f-obs').value.trim(),
+// ─── SAVE ────────────────────────────────────────────────────
+async function saveClient() {
+  const nome = document.getElementById('f-nome').value.trim();
+  if (!nome) { showToast('Informe o nome do cliente.', 'error'); return; }
+
+  const clientData = {
+    name: nome,
+    phone: document.getElementById('f-tel').value.trim(),
+    city: document.getElementById('f-local').value.trim(),
+    type: 'person'
   };
-  if(editId){clients=clients.map(c=>c.id===editId?data:c);}
-  else{clients.push(data);}
-  save(); closeModal(); render();
-  showToast(editId?'Cliente atualizado!':'Cliente salvo!','success');
-  syncClient(data,'upsert');
+
+  const leadData = {
+    project_type: document.getElementById('f-tipo').value,
+    scope: document.getElementById('f-interesse').value.trim(),
+    estimated_value: document.getElementById('f-valor').value || null,
+    status: document.getElementById('f-status').value,
+    first_contact_date: document.getElementById('f-dtcontato').value || null,
+    follow_up_date: document.getElementById('f-retorno').value || null,
+    notes: document.getElementById('f-obs').value.trim()
+  };
+
+  updateSyncUI('syncing');
+
+  try {
+    if (editId && editClientId) {
+      // UPDATE
+      const { error: ce } = await db.from('clients').update(clientData).eq('id', editClientId);
+      const { error: le } = await db.from('leads').update(leadData).eq('id', editId);
+      if (ce || le) throw ce || le;
+      showToast('Cliente atualizado!', 'success');
+    } else {
+      // INSERT client
+      const { data: newClient, error: ce } = await db.from('clients').insert(clientData).select().single();
+      if (ce) throw ce;
+      // INSERT lead
+      leadData.client_id = newClient.id;
+      const { error: le } = await db.from('leads').insert(leadData);
+      if (le) throw le;
+      showToast('Cliente criado!', 'success');
+    }
+    updateSyncUI('ok');
+    closeModal();
+    await loadData();
+  } catch(err) {
+    console.error(err);
+    updateSyncUI('error');
+    showToast('Erro ao salvar. Tente novamente.', 'error');
+  }
 }
 
-function deleteClient(){
-  if(!confirm('Excluir este cliente?'))return;
-  const c=clients.find(x=>x.id===editId);
-  clients=clients.filter(c=>c.id!==editId);
-  save(); closeModal(); render();
-  showToast('Cliente excluído.','');
-  if(c) syncClient(c,'delete');
+// ─── DELETE ──────────────────────────────────────────────────
+async function deleteClient() {
+  if (!confirm('Excluir este cliente?')) return;
+  updateSyncUI('syncing');
+  try {
+    await db.from('leads').delete().eq('id', editId);
+    if (editClientId) await db.from('clients').delete().eq('id', editClientId);
+    updateSyncUI('ok');
+    closeModal();
+    showToast('Cliente excluído.', '');
+    await loadData();
+  } catch(err) {
+    updateSyncUI('error');
+    showToast('Erro ao excluir.', 'error');
+  }
 }
 
 // ─── EXPORT ──────────────────────────────────────────────────
-function exportCSV(){
-  const header=['Nome','Telefone','Local','Tipo','Interesse','Valor (USD)','Status','1º Contato','Retorno','Observações'];
-  const rows=clients.map(c=>[c.nome,c.tel,c.local,c.tipo,c.interesse,c.valor?'$'+Number(c.valor).toLocaleString('en-US'):'',c.status,fmtDate(c.dtcontato),fmtDate(c.retorno),c.obs]);
-  const csv=[header,...rows].map(r=>r.map(v=>`"${(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download='finetouch_clientes.csv';a.click();
+function exportCSV() {
+  const header = ['Nome','Telefone','Local','Tipo','Interesse','Valor (USD)','Status','1º Contato','Retorno','Observações'];
+  const rows = records.map(c=>[c.nome,c.tel,c.local,c.tipo,c.interesse,c.valor?'$'+Number(c.valor).toLocaleString('en-US'):'',c.status,fmtDate(c.dtcontato),fmtDate(c.retorno),c.obs]);
+  const csv = [header,...rows].map(r=>r.map(v=>`"${(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='finetouch_clientes.csv'; a.click();
   URL.revokeObjectURL(url);
-  showToast('Exportado com sucesso!','success');
+  showToast('Exportado com sucesso!', 'success');
 }
 
 // ─── INIT ────────────────────────────────────────────────────
-if(!clients.length){
-  const t=today();
-  clients=[
-    {id:1,nome:'Sarah Mitchell',tel:'+1 (305) 987-6543',local:'Miami, FL',tipo:'Design de Interiores',interesse:'Redesign sala de estar e jantar',valor:'28000',status:'proposta',dtcontato:'2026-04-12',retorno:t,obs:'Gosta de referências europeias'},
-    {id:2,nome:'James Whitfield',tel:'+1 (212) 543-2109',local:'New York, NY',tipo:'Decoração',interesse:'Apartamento novo – decoração completa',valor:'55000',status:'visita',dtcontato:'2026-04-22',retorno:'2026-05-05',obs:'Visita agendada'},
-    {id:3,nome:'Carolina Vega',tel:'+1 (786) 321-0987',local:'Coral Gables, FL',tipo:'Reforma',interesse:'Banheiro e closet master',valor:'18000',status:'lead',dtcontato:'2026-04-30',retorno:'2026-05-08',obs:'Indicação da Sarah'},
-    {id:4,nome:'Robert & Anna Chen',tel:'+1 (415) 654-3210',local:'San Francisco, CA',tipo:'Construção',interesse:'Projeto completo de interiores',valor:'120000',status:'fechado',dtcontato:'2026-03-10',retorno:'',obs:'Início em junho'},
-  ];
-  save();
-}
-
-updateSyncUI();
-render();
-
-// Mostrar setup se não tiver URL configurada
-if(!scriptURL){ setTimeout(()=>openSetupScreen(), 800); }
-
-// Sync automático a cada 5 minutos
-if(scriptURL){ setInterval(syncAll, 5*60*1000); }
+loadData();
 </script>
 </body>
 </html>
