@@ -2,6 +2,7 @@
   "rewrites": [
     { "source": "/", "destination": "/login.html" },
     { "source": "/dashboard", "destination": "/dashboard.html" },
-    { "source": "/app", "destination": "/finetouch_crm_app.html" }
+    { "source": "/app", "destination": "/finetouch_crm_app.html" },
+    { "source": "/quotes", "destination": "/quotes.html" }
   ]
 }
