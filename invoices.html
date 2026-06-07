@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#102A4B">
+<title>Fine Touch — Invoices</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  :root {
+    --navy:#102A4B; --gold:#C69E63; --gold2:#C7B090;
+    --cream:#EAE6DA; --cream2:#F5F2EC; --white:#FFFFFF;
+    --border:#D8D2C4; --text:#1a1a1a; --muted:#7a7060;
+    --green:#2e6b3e; --red:#a03030;
+    --shadow:0 2px 12px rgba(16,42,75,0.08);
+    --safe-top:env(safe-area-inset-top); --safe-bottom:env(safe-area-inset-bottom);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; font-family:'Inter',sans-serif; background:var(--cream2); color:var(--text); }
+  .app { display:flex; height:100%; }
+
+  .sidebar { width:220px; flex-shrink:0; background:var(--navy); display:flex; flex-direction:column; }
+  .sidebar-logo { padding:24px 20px 20px; border-bottom:1px solid rgba(255,255,255,0.08); }
+  .logo-fine { font-size:20px; font-weight:800; color:var(--cream); letter-spacing:1px; line-height:1; }
+  .logo-touch { font-size:20px; font-weight:800; color:var(--gold); letter-spacing:1px; line-height:1; }
+  .logo-sub { font-size:9px; color:var(--gold2); letter-spacing:2px; text-transform:uppercase; margin-top:3px; }
+  .sidebar-nav { flex:1; padding:12px 0; overflow-y:auto; }
+  .nav-section { padding:12px 16px 6px; font-size:9px; font-weight:700; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1.5px; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 16px; color:rgba(255,255,255,0.6); font-size:13px; font-weight:500; border-left:3px solid transparent; transition:all .15s; text-decoration:none; }
+  .nav-item:hover { color:var(--cream); background:rgba(255,255,255,0.06); }
+  .nav-item.active { color:var(--gold); border-left-color:var(--gold); background:rgba(198,158,99,0.1); }
+  .nav-item .icon { font-size:16px; width:20px; text-align:center; flex-shrink:0; }
+  .sidebar-user { padding:14px 16px calc(14px + var(--safe-bottom)); border-top:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; gap:10px; }
+  .user-avatar { width:32px; height:32px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--navy); flex-shrink:0; }
+  .user-name { font-size:12px; font-weight:600; color:var(--cream); }
+  .user-role { font-size:10px; color:var(--gold2); }
+  .btn-logout { margin-left:auto; background:none; border:none; color:rgba(255,255,255,0.4); cursor:pointer; font-size:16px; }
+
+  .main { flex:1; overflow-y:auto; display:flex; flex-direction:column; min-width:0; }
+  .topbar { background:var(--white); border-bottom:1px solid var(--border); padding:calc(var(--safe-top)+16px) 28px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+  .topbar h1 { font-size:20px; font-weight:700; color:var(--navy); }
+
+  .btn { padding:9px 16px; border-radius:8px; border:none; cursor:pointer; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; transition:all .2s; white-space:nowrap; }
+  .btn-primary { background:var(--navy); color:var(--cream); }
+  .btn-gold { background:var(--gold); color:var(--white); }
+  .btn-outline { background:transparent; color:var(--navy); border:1.5px solid var(--border); }
+  .btn-green { background:var(--green); color:var(--white); }
+  .btn-danger { background:#a0303010; color:var(--red); border:1.5px solid #a0303030; }
+  .btn-sm { padding:6px 12px; font-size:12px; }
+
+  .content { padding:24px 28px; flex:1; }
+
+  /* KPI */
+  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+  .kpi-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:14px 16px; box-shadow:var(--shadow); }
+  .kpi-label { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+  .kpi-value { font-size:20px; font-weight:800; color:var(--navy); }
+  .kpi-value.green { color:var(--green); }
+  .kpi-value.gold { color:#8a6520; }
+  .kpi-value.red { color:var(--red); }
+
+  /* APPROVED QUOTES BANNER */
+  .banner { background:#C69E6312; border:1px solid var(--gold); border-radius:12px; padding:16px 20px; margin-bottom:20px; display:flex; align-items:center; gap:14px; }
+  .banner-icon { font-size:24px; flex-shrink:0; }
+  .banner-text { flex:1; }
+  .banner-title { font-size:13px; font-weight:700; color:var(--navy); margin-bottom:2px; }
+  .banner-sub { font-size:12px; color:var(--muted); }
+  .quote-chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .quote-chip { display:flex; align-items:center; gap:8px; background:var(--white); border:1.5px solid var(--gold); border-radius:8px; padding:8px 12px; cursor:pointer; transition:all .15s; }
+  .quote-chip:hover { background:var(--gold); color:var(--white); }
+  .quote-chip:hover .chip-sub { color:rgba(255,255,255,0.8); }
+  .chip-name { font-size:13px; font-weight:700; color:var(--navy); }
+  .quote-chip:hover .chip-name { color:var(--white); }
+  .chip-sub { font-size:11px; color:var(--muted); }
+  .chip-value { font-size:13px; font-weight:800; color:var(--gold); }
+  .quote-chip:hover .chip-value { color:var(--white); }
+
+  /* FILTERS */
+  .filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+  .filters input, .filters select { background:var(--white); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:13px; outline:none; }
+
+  /* INVOICES LIST */
+  .invoices-list { display:flex; flex-direction:column; gap:10px; }
+  .invoice-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:16px 20px; display:flex; align-items:center; gap:16px; box-shadow:var(--shadow); cursor:pointer; transition:all .15s; }
+  .invoice-card:hover { border-color:var(--gold); }
+  .inv-number { font-family:'Inter',sans-serif; font-size:13px; font-weight:800; color:var(--navy); min-width:80px; }
+  .inv-info { flex:1; min-width:0; }
+  .inv-client { font-size:14px; font-weight:600; color:var(--navy); }
+  .inv-desc { font-size:12px; color:var(--muted); margin-top:2px; }
+  .inv-dates { font-size:11px; color:var(--muted); margin-top:3px; }
+  .inv-amount { font-size:18px; font-weight:800; color:var(--navy); text-align:right; }
+  .inv-amount-label { font-size:10px; color:var(--muted); text-align:right; }
+
+  .badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+  .b-draft    { background:#102A4B15; color:var(--navy); }
+  .b-sent     { background:#C69E6318; color:#8a6520; }
+  .b-paid     { background:#2e6b3e18; color:var(--green); }
+  .b-overdue  { background:#a0303018; color:var(--red); }
+  .b-cancelled{ background:#88888815; color:#666; }
+
+  /* EMPTY */
+  .empty { text-align:center; color:var(--muted); padding:60px 20px; }
+  .empty-icon { font-size:40px; margin-bottom:12px; }
+  .empty h3 { font-size:16px; font-weight:600; margin-bottom:6px; }
+
+  /* MODAL */
+  .overlay { display:none; position:fixed; inset:0; background:rgba(16,42,75,0.5); z-index:200; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto; }
+  .overlay.open { display:flex; }
+  .modal { background:var(--cream2); border-radius:16px; width:100%; max-width:560px; margin:auto; box-shadow:0 24px 80px rgba(0,0,0,0.2); animation:fadeUp .25s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  .modal-header { padding:20px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .modal-header h2 { font-size:18px; font-weight:700; color:var(--navy); }
+  .modal-body { padding:24px; display:flex; flex-direction:column; gap:14px; }
+  .modal-footer { padding:16px 24px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; }
+
+  /* CONFIRM PANEL (when creating from quote) */
+  .confirm-panel { background:var(--navy); border-radius:12px; padding:20px; color:var(--cream); margin-bottom:4px; }
+  .confirm-panel-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--gold2); margin-bottom:8px; }
+  .confirm-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.08); font-size:13px; }
+  .confirm-row:last-child { border-bottom:none; }
+  .confirm-row .label { color:var(--gold2); }
+  .confirm-row .val { font-weight:600; }
+  .confirm-total { display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.15); }
+  .confirm-total .label { font-size:12px; color:var(--gold2); }
+  .confirm-total .val { font-size:22px; font-weight:800; color:var(--gold); }
+
+  .split-info { background:#C69E6312; border:1px solid #C69E6330; border-radius:10px; padding:14px; display:flex; align-items:center; gap:12px; font-size:13px; color:var(--navy); }
+  .split-info strong { font-weight:700; }
+
+  .form-2col { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .field label { display:block; font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:5px; }
+  .field input, .field select, .field textarea { width:100%; background:var(--white); border:1.5px solid var(--border); color:var(--text); padding:10px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:14px; outline:none; }
+  .field input:focus, .field select:focus { border-color:var(--gold); }
+
+  .loading { text-align:center; color:var(--muted); padding:40px; }
+  .spinner { width:28px; height:28px; border:2px solid var(--border); border-top-color:var(--navy); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 8px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .toast { position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-10px); background:var(--navy); color:var(--cream); padding:10px 20px; border-radius:30px; font-size:13px; font-weight:600; z-index:400; opacity:0; transition:all .3s; white-space:nowrap; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.success { background:#2e6b3e; }
+  .toast.error { background:#a03030; }
+
+  @media(max-width:768px) {
+    .sidebar { display:none; }
+    .content { padding:16px; }
+    .kpi-row { grid-template-columns:1fr 1fr; }
+    .form-2col { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-fine">FINE</div>
+      <div class="logo-touch">TOUCH</div>
+      <div class="logo-sub">Decor &amp; Design</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Principal</div>
+      <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
+      <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
+      <div class="nav-section">Vendas</div>
+      <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
+      <a class="nav-item" href="#"><span class="icon">📄</span>Propostas</a>
+      <a class="nav-item" href="#"><span class="icon">📝</span>Contratos</a>
+      <div class="nav-section">Operacional</div>
+      <a class="nav-item" href="/projects"><span class="icon">🏗️</span>Obras</a>
+      <a class="nav-item" href="#"><span class="icon">🛒</span>Compras</a>
+      <a class="nav-item" href="#"><span class="icon">📚</span>Catálogo</a>
+      <div class="nav-section">Financeiro</div>
+      <a class="nav-item" href="/financial"><span class="icon">💰</span>Financeiro</a>
+      <a class="nav-item active" href="/invoices"><span class="icon">🧾</span>Invoices</a>
+      <div class="nav-section">Outros</div>
+      <a class="nav-item" href="#"><span class="icon">📣</span>Marketing</a>
+      <a class="nav-item" href="/tasks"><span class="icon">✅</span>Tarefas</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <div><div class="user-name" id="user-name">...</div><div class="user-role">Administrador</div></div>
+      <button class="btn-logout" onclick="logout()">⏏</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h1>Invoices</h1>
+      <button class="btn btn-primary" onclick="openManualModal()">+ Nova Invoice</button>
+    </div>
+    <div class="content">
+      <!-- KPIs -->
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="kpi-label">Total Emitido</div><div class="kpi-value" id="k-total">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Recebido</div><div class="kpi-value green" id="k-paid">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Aguardando</div><div class="kpi-value gold" id="k-pending">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Atrasadas</div><div class="kpi-value red" id="k-overdue">—</div></div>
+      </div>
+
+      <!-- APPROVED QUOTES SEM INVOICE -->
+      <div id="banner-wrap"></div>
+
+      <!-- FILTERS -->
+      <div class="filters">
+        <input type="search" id="search" placeholder="🔍 Buscar..." oninput="render()">
+        <select id="filterStatus" onchange="render()">
+          <option value="">Todos os status</option>
+          <option value="draft">Rascunho</option>
+          <option value="sent">Enviada</option>
+          <option value="paid">Paga</option>
+          <option value="overdue">Atrasada</option>
+          <option value="cancelled">Cancelada</option>
+        </select>
+      </div>
+
+      <div id="invoices-wrap">
+        <div class="loading"><div class="spinner"></div><div>Carregando...</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: CRIAR INVOICE DO ORÇAMENTO -->
+<div class="overlay" id="overlay-quote" onclick="closeIfOutside(event,'overlay-quote')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🧾 Criar Invoice de Entrada</h2>
+      <button class="btn btn-outline btn-sm" onclick="closeOverlay('overlay-quote')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Resumo do orçamento -->
+      <div class="confirm-panel" id="quote-summary"></div>
+
+      <!-- Divisão 50/50 -->
+      <div class="split-info">
+        💡 <span>Invoice #1: <strong>50% de entrada</strong> — o cliente paga agora para iniciar a obra.<br>Invoice #2 será criada depois, quando definir a data de entrega.</span>
+      </div>
+
+      <div class="form-2col">
+        <div class="field">
+          <label>Valor desta Invoice (US$)</label>
+          <input type="number" id="qf-amount" step="0.01" min="0">
+        </div>
+        <div class="field">
+          <label>Vencimento</label>
+          <input type="date" id="qf-due">
+        </div>
+      </div>
+      <div class="field">
+        <label>Observações (aparece na invoice)</label>
+        <input id="qf-notes" placeholder="Ex: 50% de entrada conforme contrato">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeOverlay('overlay-quote')">Cancelar</button>
+      <button class="btn btn-gold" onclick="saveInvoiceFromQuote()">✓ Criar Invoice</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: INVOICE MANUAL / EDITAR -->
+<div class="overlay" id="overlay-manual" onclick="closeIfOutside(event,'overlay-manual')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="manual-title">Nova Invoice</h2>
+      <button class="btn btn-outline btn-sm" onclick="closeOverlay('overlay-manual')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-2col">
+        <div class="field" style="grid-column:1/-1"><label>Descrição / Referência</label><input id="mf-desc" placeholder="Ex: Saldo final — Reforma Johnson"></div>
+        <div class="field"><label>Cliente</label><select id="mf-client"></select></div>
+        <div class="field"><label>Orçamento (opcional)</label><select id="mf-quote"></select></div>
+        <div class="field"><label>Valor (US$)</label><input type="number" id="mf-amount" step="0.01" min="0" placeholder="0.00"></div>
+        <div class="field"><label>Status</label>
+          <select id="mf-status">
+            <option value="draft">Rascunho</option>
+            <option value="sent">Enviada</option>
+            <option value="paid">Paga</option>
+            <option value="overdue">Atrasada</option>
+            <option value="cancelled">Cancelada</option>
+          </select>
+        </div>
+        <div class="field"><label>Data de Emissão</label><input type="date" id="mf-issue"></div>
+        <div class="field"><label>Vencimento</label><input type="date" id="mf-due"></div>
+        <div class="field"><label>Data de Pagamento</label><input type="date" id="mf-paid"></div>
+        <div class="field" style="grid-column:1/-1"><label>Observações</label><input id="mf-notes" placeholder="Notas adicionais..."></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-delete-inv" onclick="deleteInvoice()" style="display:none;margin-right:auto">Excluir</button>
+      <button class="btn btn-outline" onclick="closeOverlay('overlay-manual')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveManualInvoice()">Salvar Invoice</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let invoices = [], quotes = [], clients = [], editInvId = null, selectedQuote = null;
+
+const statusLabel = { draft:'Rascunho', sent:'Enviada', paid:'Paga', overdue:'Atrasada', cancelled:'Cancelada' };
+const statusClass = { draft:'b-draft', sent:'b-sent', paid:'b-paid', overdue:'b-overdue', cancelled:'b-cancelled' };
+
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { window.location.href = '/login.html'; return; }
+  const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuário';
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+  await loadAll();
+}
+db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
+async function logout() { await db.auth.signOut(); }
+
+function fmt(v) { return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2}); }
+function fmtDate(d) { if(!d)return'—'; const[y,m,dia]=d.split('-'); return`${dia}/${m}/${y}`; }
+function today() { return new Date().toISOString().slice(0,10); }
+function showToast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+type; setTimeout(()=>t.className='toast',2800); }
+function genInvNum() { return 'INV-'+String(Date.now()).slice(-5); }
+
+async function loadAll() {
+  const [{ data: inv }, { data: q }, { data: cl }] = await Promise.all([
+    db.from('invoices').select('*, clients(name), quotes(quote_number,total)').order('created_at',{ascending:false}),
+    db.from('quotes').select('id,quote_number,total,client_id,clients(name)').eq('status','approved').order('created_at',{ascending:false}),
+    db.from('clients').select('id,name').order('name')
+  ]);
+  invoices = inv || [];
+  quotes   = q   || [];
+  clients  = cl  || [];
+
+  // populate selects
+  document.getElementById('mf-client').innerHTML = '<option value="">Selecionar...</option>' + clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  document.getElementById('mf-quote').innerHTML  = '<option value="">Nenhum</option>' + quotes.map(q=>`<option value="${q.id}">${q.quote_number||'ORC'} — ${q.clients?.name||'?'} — ${fmt(q.total)}</option>`).join('');
+
+  render();
+}
+
+function render() {
+  const s  = document.getElementById('search').value.toLowerCase();
+  const fs = document.getElementById('filterStatus').value;
+  const t  = today();
+
+  const filtered = invoices.filter(i =>
+    (!s  || (i.clients?.name||'').toLowerCase().includes(s) || (i.invoice_number||'').toLowerCase().includes(s)) &&
+    (!fs || i.status === fs)
+  );
+
+  // KPIs
+  const total   = invoices.reduce((s,i)=>s+Number(i.total||i.subtotal||0),0);
+  const paid    = invoices.filter(i=>i.status==='paid').reduce((s,i)=>s+Number(i.total||i.subtotal||0),0);
+  const pending = invoices.filter(i=>['draft','sent'].includes(i.status)).reduce((s,i)=>s+Number(i.total||i.subtotal||0),0);
+  const overdue = invoices.filter(i=>i.status==='overdue'||(i.due_date&&i.due_date<t&&i.status==='sent')).length;
+  document.getElementById('k-total').textContent   = fmt(total);
+  document.getElementById('k-paid').textContent    = fmt(paid);
+  document.getElementById('k-pending').textContent = fmt(pending);
+  document.getElementById('k-overdue').textContent = overdue;
+
+  // Banner: orçamentos aprovados sem invoice
+  const quotesWithInvoice = new Set(invoices.map(i=>i.quote_id).filter(Boolean));
+  const pendingQuotes = quotes.filter(q => !quotesWithInvoice.has(q.id));
+
+  if (pendingQuotes.length) {
+    document.getElementById('banner-wrap').innerHTML = `
+      <div class="banner">
+        <div class="banner-icon">🔔</div>
+        <div class="banner-text">
+          <div class="banner-title">${pendingQuotes.length} orçamento(s) aprovado(s) aguardando invoice</div>
+          <div class="banner-sub">Clique para criar a invoice de entrada (50%)</div>
+          <div class="quote-chips">${pendingQuotes.map(q=>`
+            <div class="quote-chip" onclick="openQuoteModal('${q.id}')">
+              <div>
+                <div class="chip-name">${q.clients?.name||'?'}</div>
+                <div class="chip-sub">${q.quote_number||'ORC'}</div>
+              </div>
+              <div class="chip-value">${fmt(q.total)}</div>
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>`;
+  } else {
+    document.getElementById('banner-wrap').innerHTML = '';
+  }
+
+  // List
+  if (!filtered.length) {
+    document.getElementById('invoices-wrap').innerHTML = `
+      <div class="empty"><div class="empty-icon">🧾</div>
+      <h3>Nenhuma invoice ainda</h3>
+      <p>Aprove um orçamento para criar sua primeira invoice.</p></div>`;
+    return;
+  }
+
+  document.getElementById('invoices-wrap').innerHTML = `<div class="invoices-list">${filtered.map(i => {
+    const amount = Number(i.total||i.subtotal||0);
+    return `<div class="invoice-card" onclick="openEditModal('${i.id}')">
+      <div class="inv-number">${i.invoice_number||'—'}</div>
+      <div class="inv-info">
+        <div class="inv-client">${i.clients?.name||'—'}</div>
+        <div class="inv-desc">${i.notes||i.description||'—'}</div>
+        <div class="inv-dates">Emissão: ${fmtDate(i.issue_date)} · Vencimento: ${fmtDate(i.due_date)} ${i.paid_date?'· Pago: '+fmtDate(i.paid_date):''}</div>
+      </div>
+      <div>
+        <span class="badge ${statusClass[i.status]||'b-draft'}">${statusLabel[i.status]||i.status}</span>
+      </div>
+      <div>
+        <div class="inv-amount">${fmt(amount)}</div>
+        <div class="inv-amount-label">${i.quotes?.quote_number?'de '+fmt(i.quotes.total):''}</div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// ─── MODAL: ORÇAMENTO → INVOICE ──────────────────────────────
+function openQuoteModal(quoteId) {
+  selectedQuote = quotes.find(q=>q.id===quoteId);
+  if (!selectedQuote) return;
+
+  const half = Math.round(selectedQuote.total * 0.5 * 100) / 100;
+  document.getElementById('qf-amount').value = half;
+
+  // due date = 7 dias a partir de hoje
+  const due = new Date(); due.setDate(due.getDate()+7);
+  document.getElementById('qf-due').value = due.toISOString().slice(0,10);
+  document.getElementById('qf-notes').value = '50% de entrada conforme orçamento aprovado';
+
+  document.getElementById('quote-summary').innerHTML = `
+    <div class="confirm-panel-title">Resumo do Orçamento</div>
+    <div class="confirm-row"><span class="label">Cliente</span><span class="val">${selectedQuote.clients?.name||'—'}</span></div>
+    <div class="confirm-row"><span class="label">Número</span><span class="val">${selectedQuote.quote_number||'—'}</span></div>
+    <div class="confirm-total"><span class="label">Valor Total do Orçamento</span><span class="val">${fmt(selectedQuote.total)}</span></div>`;
+
+  document.getElementById('overlay-quote').classList.add('open');
+}
+
+async function saveInvoiceFromQuote() {
+  const amount = parseFloat(document.getElementById('qf-amount').value);
+  const due    = document.getElementById('qf-due').value;
+  if (!amount || amount <= 0) { showToast('Informe o valor.','error'); return; }
+
+  const data = {
+    invoice_number: genInvNum(),
+    client_id:  selectedQuote.client_id,
+    quote_id:   selectedQuote.id,
+    status:     'sent',
+    issue_date: today(),
+    due_date:   due || null,
+    subtotal:   amount,
+    total:      amount,
+    notes:      document.getElementById('qf-notes').value.trim(),
+  };
+
+  try {
+    await db.from('invoices').insert(data);
+    showToast('Invoice criada!','success');
+    closeOverlay('overlay-quote');
+    await loadAll();
+  } catch(err) { showToast('Erro ao criar invoice.','error'); console.error(err); }
+}
+
+// ─── MODAL: MANUAL ────────────────────────────────────────────
+function openManualModal() {
+  editInvId = null;
+  document.getElementById('manual-title').textContent = 'Nova Invoice';
+  document.getElementById('mf-desc').value   = '';
+  document.getElementById('mf-client').value = '';
+  document.getElementById('mf-quote').value  = '';
+  document.getElementById('mf-amount').value = '';
+  document.getElementById('mf-status').value = 'sent';
+  document.getElementById('mf-issue').value  = today();
+  document.getElementById('mf-due').value    = '';
+  document.getElementById('mf-paid').value   = '';
+  document.getElementById('mf-notes').value  = '';
+  document.getElementById('btn-delete-inv').style.display = 'none';
+  document.getElementById('overlay-manual').classList.add('open');
+}
+
+function openEditModal(id) {
+  editInvId = id;
+  const i = invoices.find(x=>x.id===id);
+  if (!i) return;
+  document.getElementById('manual-title').textContent = 'Editar Invoice';
+  document.getElementById('mf-desc').value   = i.notes || '';
+  document.getElementById('mf-client').value = i.client_id || '';
+  document.getElementById('mf-quote').value  = i.quote_id || '';
+  document.getElementById('mf-amount').value = i.total || i.subtotal || '';
+  document.getElementById('mf-status').value = i.status || 'sent';
+  document.getElementById('mf-issue').value  = i.issue_date || '';
+  document.getElementById('mf-due').value    = i.due_date || '';
+  document.getElementById('mf-paid').value   = i.paid_date || '';
+  document.getElementById('mf-notes').value  = i.notes || '';
+  document.getElementById('btn-delete-inv').style.display = 'block';
+  document.getElementById('overlay-manual').classList.add('open');
+}
+
+async function saveManualInvoice() {
+  const amount = parseFloat(document.getElementById('mf-amount').value);
+  if (!amount) { showToast('Informe o valor.','error'); return; }
+
+  const data = {
+    notes:          document.getElementById('mf-desc').value.trim() || document.getElementById('mf-notes').value.trim(),
+    client_id:      document.getElementById('mf-client').value || null,
+    quote_id:       document.getElementById('mf-quote').value || null,
+    status:         document.getElementById('mf-status').value,
+    issue_date:     document.getElementById('mf-issue').value || null,
+    due_date:       document.getElementById('mf-due').value || null,
+    paid_date:      document.getElementById('mf-paid').value || null,
+    subtotal:       amount,
+    total:          amount,
+  };
+
+  try {
+    if (editInvId) {
+      await db.from('invoices').update(data).eq('id', editInvId);
+      showToast('Invoice atualizada!','success');
+    } else {
+      data.invoice_number = genInvNum();
+      await db.from('invoices').insert(data);
+      showToast('Invoice criada!','success');
+    }
+    closeOverlay('overlay-manual');
+    await loadAll();
+  } catch(err) { showToast('Erro ao salvar.','error'); }
+}
+
+async function deleteInvoice() {
+  if (!confirm('Excluir esta invoice?')) return;
+  await db.from('invoices').delete().eq('id', editInvId);
+  showToast('Excluída.','');
+  closeOverlay('overlay-manual');
+  await loadAll();
+}
+
+function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
+function closeIfOutside(e, id) { if(e.target.id===id) closeOverlay(id); }
+
+init();
+</script>
+</body>
+</html>
