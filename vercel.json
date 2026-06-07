@@ -8,6 +8,7 @@
     { "source": "/financial", "destination": "/financial.html" },
     { "source": "/tasks", "destination": "/tasks.html" },
     { "source": "/invoices", "destination": "/invoices.html" },
-    { "source": "/invoice-print", "destination": "/invoice-print.html" }
+    { "source": "/invoice-print", "destination": "/invoice-print.html" },
+    { "source": "/marketing", "destination": "/marketing.html" }
   ]
 }

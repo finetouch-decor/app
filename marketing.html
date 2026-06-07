@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#102A4B">
+<title>Fine Touch — Marketing</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  :root {
+    --navy:#102A4B; --gold:#C69E63; --gold2:#C7B090;
+    --cream:#EAE6DA; --cream2:#F5F2EC; --white:#FFFFFF;
+    --border:#D8D2C4; --text:#1a1a1a; --muted:#7a7060;
+    --green:#2e6b3e; --red:#a03030;
+    --shadow:0 2px 12px rgba(16,42,75,0.08);
+    --safe-top:env(safe-area-inset-top); --safe-bottom:env(safe-area-inset-bottom);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; font-family:'Inter',sans-serif; background:var(--cream2); color:var(--text); }
+  .app { display:flex; height:100%; }
+
+  .sidebar { width:220px; flex-shrink:0; background:var(--navy); display:flex; flex-direction:column; }
+  .sidebar-logo { padding:24px 20px 20px; border-bottom:1px solid rgba(255,255,255,0.08); }
+  .logo-fine { font-size:20px; font-weight:800; color:var(--cream); letter-spacing:1px; line-height:1; }
+  .logo-touch { font-size:20px; font-weight:800; color:var(--gold); letter-spacing:1px; line-height:1; }
+  .logo-sub { font-size:9px; color:var(--gold2); letter-spacing:2px; text-transform:uppercase; margin-top:3px; }
+  .sidebar-nav { flex:1; padding:12px 0; overflow-y:auto; }
+  .nav-section { padding:12px 16px 6px; font-size:9px; font-weight:700; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1.5px; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 16px; color:rgba(255,255,255,0.6); font-size:13px; font-weight:500; border-left:3px solid transparent; transition:all .15s; text-decoration:none; }
+  .nav-item:hover { color:var(--cream); background:rgba(255,255,255,0.06); }
+  .nav-item.active { color:var(--gold); border-left-color:var(--gold); background:rgba(198,158,99,0.1); }
+  .nav-item .icon { font-size:16px; width:20px; text-align:center; flex-shrink:0; }
+  .sidebar-user { padding:14px 16px calc(14px + var(--safe-bottom)); border-top:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; gap:10px; }
+  .user-avatar { width:32px; height:32px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--navy); flex-shrink:0; }
+  .user-name { font-size:12px; font-weight:600; color:var(--cream); }
+  .user-role { font-size:10px; color:var(--gold2); }
+  .btn-logout { margin-left:auto; background:none; border:none; color:rgba(255,255,255,0.4); cursor:pointer; font-size:16px; }
+
+  .main { flex:1; overflow-y:auto; display:flex; flex-direction:column; min-width:0; }
+  .topbar { background:var(--white); border-bottom:1px solid var(--border); padding:calc(var(--safe-top)+16px) 28px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+  .topbar h1 { font-size:20px; font-weight:700; color:var(--navy); }
+  .btn { padding:9px 16px; border-radius:8px; border:none; cursor:pointer; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; transition:all .2s; white-space:nowrap; }
+  .btn-primary { background:var(--navy); color:var(--cream); }
+  .btn-outline { background:transparent; color:var(--navy); border:1.5px solid var(--border); }
+  .btn-danger { background:#a0303010; color:var(--red); border:1.5px solid #a0303030; }
+  .btn-sm { padding:6px 12px; font-size:12px; }
+
+  .content { padding:24px 28px; flex:1; }
+
+  /* KPI */
+  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+  .kpi-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:14px 18px; box-shadow:var(--shadow); }
+  .kpi-label { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+  .kpi-value { font-size:22px; font-weight:800; color:var(--navy); }
+  .kpi-sub { font-size:11px; color:var(--muted); margin-top:3px; }
+
+  /* SITE BANNER */
+  .site-banner { background:var(--navy); border-radius:12px; padding:16px 20px; margin-bottom:20px; display:flex; align-items:center; gap:16px; }
+  .site-icon { font-size:28px; }
+  .site-info { flex:1; }
+  .site-name { font-size:14px; font-weight:700; color:var(--cream); }
+  .site-url  { font-size:12px; color:var(--gold2); }
+  .site-link { font-size:12px; font-weight:600; color:var(--gold); text-decoration:none; padding:6px 12px; border:1px solid var(--gold); border-radius:6px; }
+  .site-link:hover { background:var(--gold); color:var(--navy); }
+
+  /* CAMPAIGNS */
+  .campaigns-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px; margin-bottom:24px; }
+  .campaign-card { background:var(--white); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); cursor:pointer; transition:all .15s; }
+  .campaign-card:hover { border-color:var(--gold); transform:translateY(-1px); }
+  .camp-header { padding:16px 18px 12px; display:flex; justify-content:space-between; align-items:flex-start; }
+  .camp-channel { display:flex; align-items:center; gap:8px; }
+  .channel-icon { font-size:20px; }
+  .camp-name { font-size:14px; font-weight:700; color:var(--navy); }
+  .camp-dates { font-size:11px; color:var(--muted); margin-top:2px; }
+  .badge { display:inline-block; padding:3px 8px; border-radius:20px; font-size:10px; font-weight:700; text-transform:uppercase; }
+  .b-active  { background:#2e6b3e18; color:var(--green); }
+  .b-paused  { background:#C69E6318; color:#8a6520; }
+  .b-ended   { background:#88888818; color:#666; }
+
+  .camp-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:0; border-top:1px solid var(--border); }
+  .camp-stat { padding:12px 14px; border-right:1px solid var(--border); }
+  .camp-stat:last-child { border-right:none; }
+  .cs-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); margin-bottom:3px; }
+  .cs-value { font-size:16px; font-weight:800; color:var(--navy); }
+  .cs-sub   { font-size:10px; color:var(--muted); }
+
+  .camp-progress { padding:10px 18px 14px; }
+  .prog-label { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:5px; }
+  .prog-bar { background:var(--cream2); border-radius:4px; height:6px; overflow:hidden; }
+  .prog-fill { height:100%; border-radius:4px; background:var(--gold); }
+
+  /* LEADS FROM CAMPAIGN */
+  .leads-section { background:var(--white); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); }
+  .leads-header { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .leads-title { font-size:13px; font-weight:700; color:var(--navy); }
+  table { width:100%; border-collapse:collapse; }
+  thead { background:var(--cream2); }
+  th { padding:10px 16px; text-align:left; font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; border-bottom:1px solid var(--border); }
+  td { padding:12px 16px; font-size:13px; border-bottom:1px solid var(--border); }
+  tr:last-child td { border-bottom:none; }
+  .s-lead     { background:#102A4B15; color:var(--navy); padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700; }
+  .s-visita   { background:#C69E6318; color:#8a6520; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700; }
+  .s-proposta { background:#7a6a4a18; color:#7a6a4a; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700; }
+  .s-fechado  { background:#2e6b3e18; color:var(--green); padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700; }
+  .s-perdido  { background:#a0303018; color:var(--red); padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700; }
+
+  /* MODAL */
+  .overlay { display:none; position:fixed; inset:0; background:rgba(16,42,75,0.5); z-index:200; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto; }
+  .overlay.open { display:flex; }
+  .modal { background:var(--cream2); border-radius:16px; width:100%; max-width:520px; margin:auto; box-shadow:0 24px 80px rgba(0,0,0,0.2); animation:fadeUp .25s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  .modal-header { padding:18px 22px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .modal-header h2 { font-size:16px; font-weight:700; color:var(--navy); }
+  .modal-body { padding:20px 22px; display:flex; flex-direction:column; gap:12px; }
+  .modal-footer { padding:14px 22px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; }
+  .field label { display:block; font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:5px; }
+  .field input, .field select, .field textarea { width:100%; background:var(--white); border:1.5px solid var(--border); color:var(--text); padding:10px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:14px; outline:none; }
+  .field input:focus, .field select:focus { border-color:var(--gold); }
+  .form-2col { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+  .loading { text-align:center; color:var(--muted); padding:40px; }
+  .spinner { width:28px; height:28px; border:2px solid var(--border); border-top-color:var(--navy); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 8px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .empty { text-align:center; color:var(--muted); padding:40px; font-size:13px; }
+  .toast { position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-10px); background:var(--navy); color:var(--cream); padding:10px 20px; border-radius:30px; font-size:13px; font-weight:600; z-index:400; opacity:0; transition:all .3s; white-space:nowrap; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.success { background:#2e6b3e; }
+  .toast.error { background:#a03030; }
+
+  @media(max-width:768px) {
+    .sidebar { display:none; }
+    .content { padding:16px; }
+    .kpi-row { grid-template-columns:1fr 1fr; }
+    .form-2col { grid-template-columns:1fr; }
+    .campaigns-grid { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-fine">FINE</div>
+      <div class="logo-touch">TOUCH</div>
+      <div class="logo-sub">Decor &amp; Design</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Principal</div>
+      <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
+      <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
+      <div class="nav-section">Vendas</div>
+      <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
+      <a class="nav-item" href="#"><span class="icon">📄</span>Propostas</a>
+      <a class="nav-item" href="#"><span class="icon">📝</span>Contratos</a>
+      <div class="nav-section">Operacional</div>
+      <a class="nav-item" href="/projects"><span class="icon">🏗️</span>Obras</a>
+      <a class="nav-item" href="/financial"><span class="icon">🛒</span>Compras</a>
+      <a class="nav-item" href="#"><span class="icon">📚</span>Catálogo</a>
+      <div class="nav-section">Financeiro</div>
+      <a class="nav-item" href="/financial"><span class="icon">💰</span>Financeiro</a>
+      <a class="nav-item" href="/invoices"><span class="icon">🧾</span>Invoices</a>
+      <div class="nav-section">Outros</div>
+      <a class="nav-item active" href="/marketing"><span class="icon">📣</span>Marketing</a>
+      <a class="nav-item" href="/tasks"><span class="icon">✅</span>Tarefas</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <div><div class="user-name" id="user-name">...</div><div class="user-role">Administrador</div></div>
+      <button class="btn-logout" onclick="logout()">⏏</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h1>Marketing</h1>
+      <button class="btn btn-primary" onclick="openModal()">+ Nova Campanha</button>
+    </div>
+    <div class="content">
+
+      <!-- KPIs -->
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="kpi-label">Investido</div><div class="kpi-value" id="k-spent">—</div><div class="kpi-sub">Total campanhas</div></div>
+        <div class="kpi-card"><div class="kpi-label">Leads Gerados</div><div class="kpi-value" id="k-leads">—</div><div class="kpi-sub" id="k-cpl">custo/lead —</div></div>
+        <div class="kpi-card"><div class="kpi-label">Convertidos</div><div class="kpi-value" id="k-conv">—</div><div class="kpi-sub" id="k-rate">taxa de conversão</div></div>
+        <div class="kpi-card"><div class="kpi-label">ROI</div><div class="kpi-value" id="k-roi">—</div><div class="kpi-sub">receita / investimento</div></div>
+      </div>
+
+      <!-- SITE -->
+      <div class="site-banner">
+        <div class="site-icon">🌐</div>
+        <div class="site-info">
+          <div class="site-name">Fine Touch Decor &amp; Design</div>
+          <div class="site-url">ftdecordesign.com</div>
+        </div>
+        <a class="site-link" href="https://ftdecordesign.com" target="_blank">Abrir site →</a>
+      </div>
+
+      <!-- CAMPAIGNS -->
+      <div id="campaigns-wrap">
+        <div class="loading"><div class="spinner"></div><div>Carregando...</div></div>
+      </div>
+
+      <!-- LEADS BY SOURCE -->
+      <div class="leads-section" style="margin-top:20px">
+        <div class="leads-header">
+          <span class="leads-title">📊 Leads por Origem</span>
+        </div>
+        <div id="leads-by-source">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="closeIfOutside(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Nova Campanha</h2>
+      <button class="btn btn-outline btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Nome da Campanha</label><input id="f-name" placeholder="Ex: Google Ads — Reforma Residencial Jun/2026"></div>
+      <div class="form-2col">
+        <div class="field"><label>Canal</label>
+          <select id="f-channel">
+            <option value="google_ads">Google Ads</option>
+            <option value="fb_marketplace">FB Marketplace</option>
+            <option value="instagram">Instagram Ads</option>
+            <option value="facebook">Facebook Ads</option>
+            <option value="referral">Indicação</option>
+            <option value="organic">Orgânico / SEO</option>
+            <option value="other">Outro</option>
+          </select>
+        </div>
+        <div class="field"><label>Status</label>
+          <select id="f-status">
+            <option value="active">Ativa</option>
+            <option value="paused">Pausada</option>
+            <option value="ended">Encerrada</option>
+          </select>
+        </div>
+        <div class="field"><label>Início</label><input type="date" id="f-start"></div>
+        <div class="field"><label>Fim (opcional)</label><input type="date" id="f-end"></div>
+        <div class="field"><label>Orçamento (US$)</label><input type="number" id="f-budget" placeholder="0" min="0" step="10"></div>
+        <div class="field"><label>Gasto Real (US$)</label><input type="number" id="f-spent" placeholder="0" min="0" step="0.01"></div>
+        <div class="field"><label>Leads Gerados</label><input type="number" id="f-leads" placeholder="0" min="0" step="1"></div>
+        <div class="field"><label>Convertidos (fechados)</label><input type="number" id="f-conv" placeholder="0" min="0" step="1"></div>
+      </div>
+      <div class="field"><label>Observações</label><input id="f-notes" placeholder="Palavras-chave, público, resultados..."></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-delete" onclick="deleteCampaign()" style="display:none;margin-right:auto">Excluir</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCampaign()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let campaigns = [], leads = [], editId = null;
+
+const channelLabel = { google_ads:'Google Ads', fb_marketplace:'FB Marketplace', instagram:'Instagram Ads', facebook:'Facebook Ads', referral:'Indicação', organic:'Orgânico/SEO', other:'Outro' };
+const channelIcon  = { google_ads:'🔍', fb_marketplace:'🛒', instagram:'📸', facebook:'👥', referral:'🤝', organic:'🌱', other:'📣' };
+const channelColor = { google_ads:'#4285F4', fb_marketplace:'#1877F2', instagram:'#E1306C', facebook:'#1877F2', referral:'#C69E63', organic:'#2e6b3e', other:'#7a7060' };
+const statusLabel  = { active:'Ativa', paused:'Pausada', ended:'Encerrada' };
+const statusClass  = { active:'b-active', paused:'b-paused', ended:'b-ended' };
+const sourceLabel  = { google_ads:'Google Ads', fb_marketplace:'FB Marketplace', instagram:'Instagram', facebook:'Facebook', referral:'Indicação', organic:'Orgânico', other:'Outro', '':'Não informado' };
+
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { window.location.href = '/login.html'; return; }
+  const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuário';
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+  await loadData();
+}
+db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
+async function logout() { await db.auth.signOut(); }
+
+function fmt(v) { return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2}); }
+function fmtShort(v) { return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:0}); }
+function fmtDate(d) { if(!d)return'—'; const[y,m,dia]=d.split('-'); return`${dia}/${m}/${y}`; }
+function today() { return new Date().toISOString().slice(0,10); }
+function showToast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+type; setTimeout(()=>t.className='toast',2800); }
+
+async function loadData() {
+  const [{ data: camp }, { data: lds }] = await Promise.all([
+    db.from('marketing_campaigns').select('*').order('created_at',{ascending:false}),
+    db.from('leads').select('id,status,estimated_value,source,clients(name)').order('created_at',{ascending:false})
+  ]);
+  campaigns = camp || [];
+  leads     = lds  || [];
+  render();
+}
+
+function render() {
+  // Global KPIs
+  const totalSpent = campaigns.reduce((s,c)=>s+Number(c.spent||0),0);
+  const totalLeads = campaigns.reduce((s,c)=>s+Number(c.leads_count||0),0);
+  const totalConv  = campaigns.reduce((s,c)=>s+Number(c.conversions_count||0),0);
+  const cpl        = totalLeads > 0 ? totalSpent/totalLeads : 0;
+  const convRate   = totalLeads > 0 ? Math.round((totalConv/totalLeads)*100) : 0;
+  const revenue    = leads.filter(l=>l.status==='fechado').reduce((s,l)=>s+Number(l.estimated_value||0),0);
+  const roi        = totalSpent > 0 ? (revenue/totalSpent).toFixed(1)+'x' : '—';
+
+  document.getElementById('k-spent').textContent = fmtShort(totalSpent);
+  document.getElementById('k-leads').textContent = totalLeads;
+  document.getElementById('k-cpl').textContent   = cpl > 0 ? `${fmt(cpl)}/lead` : 'custo/lead —';
+  document.getElementById('k-conv').textContent  = totalConv;
+  document.getElementById('k-rate').textContent  = `${convRate}% conversão`;
+  document.getElementById('k-roi').textContent   = roi;
+
+  // Campaigns
+  if (!campaigns.length) {
+    document.getElementById('campaigns-wrap').innerHTML = `
+      <div class="empty">📣 Nenhuma campanha ainda. Clique em "+ Nova Campanha" para começar.</div>`;
+  } else {
+    document.getElementById('campaigns-wrap').innerHTML = `<div class="campaigns-grid">${campaigns.map(c => {
+      const spent  = Number(c.spent||0);
+      const budget = Number(c.budget||0);
+      const pct    = budget > 0 ? Math.min(100, Math.round((spent/budget)*100)) : 0;
+      const cpl    = c.leads_count > 0 ? spent/c.leads_count : 0;
+      const rate   = c.leads_count > 0 ? Math.round((c.conversions_count/c.leads_count)*100) : 0;
+      const color  = channelColor[c.channel] || 'var(--navy)';
+      return `<div class="campaign-card" onclick="openModal('${c.id}')">
+        <div class="camp-header">
+          <div class="camp-channel">
+            <span class="channel-icon">${channelIcon[c.channel]||'📣'}</span>
+            <div>
+              <div class="camp-name">${c.name}</div>
+              <div class="camp-dates">${fmtDate(c.start_date)} ${c.end_date?'→ '+fmtDate(c.end_date):''}</div>
+            </div>
+          </div>
+          <span class="badge ${statusClass[c.status]||'b-active'}">${statusLabel[c.status]||c.status}</span>
+        </div>
+        ${budget > 0 ? `
+        <div class="camp-progress">
+          <div class="prog-label">
+            <span style="color:${color};font-weight:600">${channelLabel[c.channel]||c.channel}</span>
+            <span>${fmtShort(spent)} / ${fmtShort(budget)}</span>
+          </div>
+          <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${color}"></div></div>
+        </div>` : ''}
+        <div class="camp-stats">
+          <div class="camp-stat">
+            <div class="cs-label">Leads</div>
+            <div class="cs-value">${c.leads_count||0}</div>
+            <div class="cs-sub">${cpl>0?fmt(cpl)+'/lead':'—'}</div>
+          </div>
+          <div class="camp-stat">
+            <div class="cs-label">Fechados</div>
+            <div class="cs-value">${c.conversions_count||0}</div>
+            <div class="cs-sub">${rate}% taxa</div>
+          </div>
+          <div class="camp-stat">
+            <div class="cs-label">Investido</div>
+            <div class="cs-value" style="font-size:14px">${fmtShort(spent)}</div>
+            <div class="cs-sub">${budget>0?pct+'% do budget':''}</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  // Leads by source
+  const sources = {};
+  leads.forEach(l => {
+    const src = l.source || 'other';
+    if (!sources[src]) sources[src] = { total:0, fechados:0, value:0 };
+    sources[src].total++;
+    if (l.status === 'fechado') { sources[src].fechados++; sources[src].value += Number(l.estimated_value||0); }
+  });
+
+  const rows = Object.entries(sources).sort((a,b)=>b[1].total-a[1].total);
+  if (!rows.length) {
+    document.getElementById('leads-by-source').innerHTML = '<div class="empty">Nenhum lead com origem cadastrada ainda.</div>';
+  } else {
+    document.getElementById('leads-by-source').innerHTML = `
+      <table>
+        <thead><tr><th>Canal</th><th>Leads</th><th>Fechados</th><th>Conversão</th><th>Receita Gerada</th></tr></thead>
+        <tbody>${rows.map(([src, d]) => {
+          const rate = d.total > 0 ? Math.round((d.fechados/d.total)*100) : 0;
+          return `<tr>
+            <td><strong>${channelIcon[src]||'📣'} ${sourceLabel[src]||src}</strong></td>
+            <td>${d.total}</td>
+            <td>${d.fechados}</td>
+            <td><span style="font-weight:700;color:${rate>20?'var(--green)':'var(--muted)'}">${rate}%</span></td>
+            <td style="font-weight:700;color:var(--green)">${d.value > 0 ? fmtShort(d.value) : '—'}</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>`;
+  }
+}
+
+// ─── MODAL ───────────────────────────────────────────────────
+function openModal(id) {
+  editId = id || null;
+  const c = id ? campaigns.find(x=>x.id===id) : null;
+  document.getElementById('modal-title').textContent = c ? 'Editar Campanha' : 'Nova Campanha';
+  document.getElementById('f-name').value    = c?.name || '';
+  document.getElementById('f-channel').value = c?.channel || 'google_ads';
+  document.getElementById('f-status').value  = c?.status || 'active';
+  document.getElementById('f-start').value   = c?.start_date || today();
+  document.getElementById('f-end').value     = c?.end_date || '';
+  document.getElementById('f-budget').value  = c?.budget || '';
+  document.getElementById('f-spent').value   = c?.spent || '';
+  document.getElementById('f-leads').value   = c?.leads_count || '';
+  document.getElementById('f-conv').value    = c?.conversions_count || '';
+  document.getElementById('f-notes').value   = c?.notes || '';
+  document.getElementById('btn-delete').style.display = c ? 'block' : 'none';
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('overlay').classList.remove('open'); editId=null; }
+function closeIfOutside(e) { if(e.target.id==='overlay') closeModal(); }
+
+async function saveCampaign() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { showToast('Informe o nome da campanha.','error'); return; }
+
+  const data = {
+    name,
+    channel:            document.getElementById('f-channel').value,
+    status:             document.getElementById('f-status').value,
+    start_date:         document.getElementById('f-start').value || null,
+    end_date:           document.getElementById('f-end').value || null,
+    budget:             parseFloat(document.getElementById('f-budget').value)||0,
+    spent:              parseFloat(document.getElementById('f-spent').value)||0,
+    leads_count:        parseInt(document.getElementById('f-leads').value)||0,
+    conversions_count:  parseInt(document.getElementById('f-conv').value)||0,
+    notes:              document.getElementById('f-notes').value.trim(),
+  };
+
+  try {
+    if (editId) {
+      await db.from('marketing_campaigns').update(data).eq('id', editId);
+      showToast('Campanha atualizada!','success');
+    } else {
+      await db.from('marketing_campaigns').insert(data);
+      showToast('Campanha criada!','success');
+    }
+    closeModal();
+    await loadData();
+  } catch(err) { showToast('Erro ao salvar.','error'); }
+}
+
+async function deleteCampaign() {
+  if (!confirm('Excluir esta campanha?')) return;
+  await db.from('marketing_campaigns').delete().eq('id', editId);
+  showToast('Excluída.','');
+  closeModal();
+  await loadData();
+}
+
+init();
+</script>
+</body>
+</html>

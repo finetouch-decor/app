@@ -302,6 +302,18 @@
       <div class="field"><label>Valor Estimado (US$)</label><input id="f-valor" type="number" placeholder="0" step="100" inputmode="numeric"></div>
       <div class="field"><label>1º Contato</label><input id="f-dtcontato" type="date"></div>
       <div class="field form-full"><label>Data de Retorno</label><input id="f-retorno" type="date"></div>
+      <div class="field form-full"><label>Origem do Lead</label>
+        <select id="f-source" style="width:100%;background:#fff;border:1.5px solid var(--border);color:var(--text);padding:11px 12px;border-radius:8px;font-family:'Inter',sans-serif;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
+          <option value="">Não informado</option>
+          <option value="google_ads">🔍 Google Ads</option>
+          <option value="fb_marketplace">🛒 FB Marketplace</option>
+          <option value="instagram">📸 Instagram</option>
+          <option value="facebook">👥 Facebook</option>
+          <option value="referral">🤝 Indicação</option>
+          <option value="organic">🌱 Orgânico / Site</option>
+          <option value="other">Outro</option>
+        </select>
+      </div>
       <div class="field form-full"><label>Observações</label><textarea id="f-obs" placeholder="Notas sobre o cliente e projeto..."></textarea></div>
     </div>
     <div class="modal-actions">
@@ -514,6 +526,7 @@ function openModal(id) {
   document.getElementById('f-dtcontato').value = c?.dtcontato || today();
   document.getElementById('f-retorno').value = c?.retorno || '';
   document.getElementById('f-obs').value = c?.obs || '';
+  document.getElementById('f-source').value = c?.source || '';
   document.getElementById('btn-delete').style.display = c ? 'flex' : 'none';
   document.getElementById('overlay').classList.add('open');
 }
@@ -539,7 +552,8 @@ async function saveClient() {
     status: document.getElementById('f-status').value,
     first_contact_date: document.getElementById('f-dtcontato').value || null,
     follow_up_date: document.getElementById('f-retorno').value || null,
-    notes: document.getElementById('f-obs').value.trim()
+    notes: document.getElementById('f-obs').value.trim(),
+    source: document.getElementById('f-source').value || null
   };
 
   updateSyncUI('syncing');
