@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#102A4B">
 <title>Fine Touch — Financeiro</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
   :root {
@@ -173,6 +174,19 @@
   .btn-primary { background:var(--navy); color:var(--cream); }
   .btn-danger-sm { background:#a0303010; color:var(--red); border:1.5px solid #a0303030; padding:6px 12px; font-size:12px; border-radius:8px; font-family:'Inter',sans-serif; font-weight:600; cursor:pointer; }
 
+  /* CHARTS */
+  .charts-section { margin-bottom:24px; }
+  .chart-tabs { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+  .chart-tab { padding:7px 16px; border-radius:20px; border:1.5px solid var(--border); background:var(--white); color:var(--muted); font-family:'Inter',sans-serif; font-size:12px; font-weight:600; cursor:pointer; transition:all .15s; }
+  .chart-tab.active { background:var(--navy); color:var(--cream); border-color:var(--navy); }
+  .chart-tab:hover:not(.active) { border-color:var(--navy); color:var(--navy); }
+  .charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .chart-card { background:var(--white); border:1px solid var(--border); border-radius:14px; padding:20px; box-shadow:var(--shadow); }
+  .chart-card.wide { grid-column:1/-1; }
+  .chart-title { font-size:13px; font-weight:700; color:var(--navy); margin-bottom:16px; }
+  .chart-wrap { position:relative; }
+  .chart-wrap canvas { max-height:260px; }
+
   .loading { text-align:center; color:var(--muted); padding:40px; }
   .spinner { width:28px; height:28px; border:2px solid var(--border); border-top-color:var(--navy); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 8px; }
   @keyframes spin { to { transform:rotate(360deg); } }
@@ -236,6 +250,59 @@
         <div class="kpi-card"><div class="kpi-label">Extras</div><div class="kpi-value red" id="k-extras">—</div><div class="kpi-sub">Custos avulsos</div></div>
         <div class="kpi-card"><div class="kpi-label">Lucro Total</div><div class="kpi-value" id="k-profit">—</div><div class="kpi-sub" id="k-margin">margem —</div></div>
       </div>
+      <!-- CHARTS -->
+      <div class="charts-section">
+        <div class="chart-tabs">
+          <button class="chart-tab active" onclick="switchChartView('geral')">📊 Geral</button>
+          <button class="chart-tab" onclick="switchChartView('mensal')">📅 Mensal</button>
+          <button class="chart-tab" onclick="switchChartView('obras')">🏗️ Por Obra</button>
+        </div>
+
+        <!-- GERAL -->
+        <div id="cv-geral" class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-title">Distribuição Geral</div>
+            <div class="chart-wrap"><canvas id="chart-pie-geral"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Receita × Custo × Lucro</div>
+            <div class="chart-wrap"><canvas id="chart-bar-geral"></canvas></div>
+          </div>
+        </div>
+
+        <!-- MENSAL -->
+        <div id="cv-mensal" class="charts-grid" style="display:none">
+          <div class="chart-card wide">
+            <div class="chart-title">Receita × Custo × Lucro — Últimos 6 meses</div>
+            <div class="chart-wrap"><canvas id="chart-bar-mensal"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Gastos por Categoria — Acumulado</div>
+            <div class="chart-wrap"><canvas id="chart-pie-cat"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Evolução do Lucro Mensal</div>
+            <div class="chart-wrap"><canvas id="chart-line-profit"></canvas></div>
+          </div>
+        </div>
+
+        <!-- POR OBRA -->
+        <div id="cv-obras" class="charts-grid" style="display:none">
+          <div class="chart-card wide">
+            <div class="chart-title">Lucro por Obra</div>
+            <div class="chart-wrap"><canvas id="chart-bar-obras"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Receita × Custo por Obra</div>
+            <div class="chart-wrap"><canvas id="chart-bar-obras2"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Margem por Obra (%)</div>
+            <div class="chart-wrap"><canvas id="chart-bar-margin"></canvas></div>
+          </div>
+        </div>
+      </div>
+
       <div id="projects-list">
         <div class="loading"><div class="spinner"></div><div>Carregando...</div></div>
       </div>
@@ -481,6 +548,181 @@ function render() {
         </div>
       </div>`;
     }).join('') + '</div>';
+
+  renderCharts();
+}
+
+// ─── CHARTS ───────────────────────────────────────────────────
+const CHART_COLORS = ['#102A4B','#C69E63','#3B6D11','#7C5CBF','#B45309','#0E7490','#9D174D','#065F46'];
+let _charts = {};
+
+function destroyChart(id) { if(_charts[id]){_charts[id].destroy();delete _charts[id];} }
+
+function getMeses6() {
+  const now = new Date(); const res = [];
+  for(let i=5;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    res.push({ mes: d.getMonth(), ano: d.getFullYear(), label: d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}) });
+  }
+  return res;
+}
+
+function getItemDate(item) {
+  const raw = item.order_date || item.date || '';
+  return raw ? new Date(raw) : null;
+}
+
+function renderCharts() {
+  const meses = getMeses6();
+
+  // ── DADOS GERAIS ──
+  const allRevenue  = projects.reduce((s,p)=>s+Number(p.quotes?.total||0),0);
+  const allPurchAmt = purchases.reduce((s,p)=>s+(p.purchase_items||[]).reduce((si,i)=>si+Number(i.total||0),0),0);
+  const allExtAmt   = extras.reduce((s,e)=>s+Number(e.amount||0),0);
+  const allProfit   = allRevenue - allPurchAmt - allExtAmt;
+
+  // ── CHART: PIZZA GERAL ──
+  destroyChart('chart-pie-geral');
+  const ctxPG = document.getElementById('chart-pie-geral');
+  if(ctxPG) _charts['chart-pie-geral'] = new Chart(ctxPG,{
+    type:'doughnut',
+    data:{ labels:['Compras de Materiais','Custos Extras','Lucro'],
+      datasets:[{data:[allPurchAmt, allExtAmt, Math.max(0,allProfit)],
+        backgroundColor:['#C69E63','#B45309','#3B6D11'], borderWidth:2, borderColor:'#fff'}]},
+    options:{ responsive:true, plugins:{ legend:{position:'bottom',labels:{font:{size:11},padding:10}},
+      tooltip:{callbacks:{label:c=>' '+c.label+': $'+Number(c.raw).toLocaleString('en-US',{minimumFractionDigits:2})}}}}
+  });
+
+  // ── CHART: BAR GERAL (por obra) ──
+  destroyChart('chart-bar-geral');
+  const ctxBG = document.getElementById('chart-bar-geral');
+  if(ctxBG && projects.length) {
+    const fins = projects.map(p=>getProjFinancials(p));
+    const labels = projects.map(p=>p.name.length>14?p.name.slice(0,14)+'…':p.name);
+    _charts['chart-bar-geral'] = new Chart(ctxBG,{
+      type:'bar',
+      data:{ labels, datasets:[
+        {label:'Receita', data:fins.map(f=>f.revenue), backgroundColor:'rgba(16,42,75,0.25)', borderColor:'#102A4B', borderWidth:1},
+        {label:'Custo',   data:fins.map(f=>f.totalCost), backgroundColor:'rgba(198,158,99,0.6)', borderWidth:0},
+        {label:'Lucro',   data:fins.map(f=>f.profit),
+          backgroundColor:fins.map(f=>f.profit>=0?'rgba(59,109,17,0.7)':'rgba(185,28,28,0.7)'), borderWidth:0}
+      ]},
+      options:{ responsive:true, plugins:{legend:{position:'bottom',labels:{font:{size:11},boxWidth:12}}},
+        scales:{x:{ticks:{font:{size:10}}}, y:{ticks:{callback:v=>'$'+Math.round(v/1000)+'k'}}}}
+    });
+  }
+
+  // ── DADOS MENSAIS ──
+  const custosMes  = meses.map(m=>purchases.reduce((s,p)=>{
+    const d=getItemDate(p); if(!d)return s;
+    if(d.getMonth()===m.mes&&d.getFullYear()===m.ano)
+      return s+(p.purchase_items||[]).reduce((si,i)=>si+Number(i.total||0),0);
+    return s;},0)
+    + extras.reduce((s,e)=>{const d=getItemDate(e);if(!d)return s;
+      return (d.getMonth()===m.mes&&d.getFullYear()===m.ano)?s+Number(e.amount||0):s;},0));
+
+  const receitaMes = meses.map(m=>{
+    const temCusto = purchases.some(p=>{const d=getItemDate(p);return d&&d.getMonth()===m.mes&&d.getFullYear()===m.ano;})
+      || extras.some(e=>{const d=getItemDate(e);return d&&d.getMonth()===m.mes&&d.getFullYear()===m.ano;});
+    return temCusto ? allRevenue/6 : 0;
+  });
+  const lucrosMes = meses.map((_,i)=>receitaMes[i]-custosMes[i]);
+
+  // ── CHART: BAR MENSAL ──
+  destroyChart('chart-bar-mensal');
+  const ctxBM = document.getElementById('chart-bar-mensal');
+  if(ctxBM) _charts['chart-bar-mensal'] = new Chart(ctxBM,{
+    type:'bar',
+    data:{ labels:meses.map(m=>m.label), datasets:[
+      {label:'Receita',  data:receitaMes, backgroundColor:'rgba(16,42,75,0.2)', borderColor:'rgba(16,42,75,0.5)', borderWidth:1, borderRadius:3},
+      {label:'Custo',    data:custosMes,  backgroundColor:'rgba(198,158,99,0.65)', borderWidth:0, borderRadius:3},
+      {label:'Lucro',    data:lucrosMes,  type:'line', borderColor:'#3B6D11', backgroundColor:'rgba(59,109,17,0.08)',
+        borderWidth:2.5, pointRadius:5, pointBackgroundColor:'#3B6D11', fill:true, tension:0.35, order:0}
+    ]},
+    options:{ responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{legend:{position:'bottom',labels:{font:{size:11},boxWidth:12}}},
+      scales:{x:{ticks:{font:{size:10}}}, y:{ticks:{callback:v=>'$'+Math.round(v/1000)+'k'}}}}
+  });
+
+  // ── CHART: PIZZA CATEGORIAS (mensal) ──
+  const catKeys = ['labor','transport','equipment','other'];
+  const catTotals = catKeys.map(k=>extras.filter(e=>e.category===k).reduce((s,e)=>s+Number(e.amount||0),0));
+  destroyChart('chart-pie-cat');
+  const ctxPC = document.getElementById('chart-pie-cat');
+  if(ctxPC) _charts['chart-pie-cat'] = new Chart(ctxPC,{
+    type:'doughnut',
+    data:{ labels:['Mão de obra','Frete','Equipamento','Outro'],
+      datasets:[{data:catTotals, backgroundColor:['#102A4B','#C69E63','#3B6D11','#7C5CBF'],
+        borderWidth:2, borderColor:'#fff'}]},
+    options:{ responsive:true, plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:8}},
+      tooltip:{callbacks:{label:c=>' '+c.label+': $'+Number(c.raw).toLocaleString('en-US',{minimumFractionDigits:2})}}}}
+  });
+
+  // ── CHART: LINE LUCRO MENSAL ──
+  destroyChart('chart-line-profit');
+  const ctxLP = document.getElementById('chart-line-profit');
+  if(ctxLP) _charts['chart-line-profit'] = new Chart(ctxLP,{
+    type:'line',
+    data:{ labels:meses.map(m=>m.label),
+      datasets:[{label:'Lucro mensal', data:lucrosMes, borderColor:'#C69E63', backgroundColor:'rgba(198,158,99,0.12)',
+        borderWidth:2.5, pointRadius:5, pointBackgroundColor:lucrosMes.map(v=>v>=0?'#3B6D11':'#B91C1C'),
+        fill:true, tension:0.35}]},
+    options:{ responsive:true, plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:10}}}, y:{ticks:{callback:v=>'$'+Math.round(v/1000)+'k'},
+        grid:{color:v=>v.tick.value===0?'rgba(0,0,0,0.2)':'rgba(0,0,0,0.05)'}}}}
+  });
+
+  // ── CHART: LUCRO POR OBRA ──
+  const fins = projects.map(p=>getProjFinancials(p));
+  const pLabels = projects.map(p=>p.name.length>16?p.name.slice(0,16)+'…':p.name);
+  destroyChart('chart-bar-obras');
+  const ctxBO = document.getElementById('chart-bar-obras');
+  if(ctxBO && projects.length) _charts['chart-bar-obras'] = new Chart(ctxBO,{
+    type:'bar',
+    data:{ labels:pLabels,
+      datasets:[{label:'Lucro', data:fins.map(f=>f.profit),
+        backgroundColor:fins.map(f=>f.profit>=0?'rgba(59,109,17,0.7)':'rgba(185,28,28,0.7)'),
+        borderWidth:0, borderRadius:4}]},
+    options:{ responsive:true, plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:10}}}, y:{ticks:{callback:v=>'$'+Math.round(v/1000)+'k'}}}}
+  });
+
+  // ── CHART: RECEITA × CUSTO POR OBRA ──
+  destroyChart('chart-bar-obras2');
+  const ctxBO2 = document.getElementById('chart-bar-obras2');
+  if(ctxBO2 && projects.length) _charts['chart-bar-obras2'] = new Chart(ctxBO2,{
+    type:'bar',
+    data:{ labels:pLabels, datasets:[
+      {label:'Receita', data:fins.map(f=>f.revenue), backgroundColor:'rgba(16,42,75,0.25)', borderColor:'#102A4B', borderWidth:1, borderRadius:3},
+      {label:'Custo',   data:fins.map(f=>f.totalCost), backgroundColor:'rgba(198,158,99,0.65)', borderWidth:0, borderRadius:3}
+    ]},
+    options:{ responsive:true, plugins:{legend:{position:'bottom',labels:{font:{size:11},boxWidth:12}}},
+      scales:{x:{ticks:{font:{size:10}}}, y:{ticks:{callback:v=>'$'+Math.round(v/1000)+'k'}}}}
+  });
+
+  // ── CHART: MARGEM POR OBRA ──
+  destroyChart('chart-bar-margin');
+  const ctxBMg = document.getElementById('chart-bar-margin');
+  if(ctxBMg && projects.length) _charts['chart-bar-margin'] = new Chart(ctxBMg,{
+    type:'bar',
+    data:{ labels:pLabels,
+      datasets:[{label:'Margem %', data:fins.map(f=>f.margin),
+        backgroundColor:fins.map(f=>f.margin>=30?'rgba(59,109,17,0.7)':f.margin>=0?'rgba(198,158,99,0.7)':'rgba(185,28,28,0.7)'),
+        borderWidth:0, borderRadius:4}]},
+    options:{ responsive:true, plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:10}}}, y:{ticks:{callback:v=>v+'%'}, suggestedMax:100}}}
+  });
+}
+
+function switchChartView(view) {
+  ['geral','mensal','obras'].forEach(v=>{
+    const el = document.getElementById('cv-'+v);
+    if(el) el.style.display = v===view?'grid':'none';
+  });
+  document.querySelectorAll('.chart-tab').forEach(btn=>{
+    btn.classList.toggle('active', btn.getAttribute('onclick').includes("'"+view+"'"));
+  });
+  setTimeout(renderCharts, 30);
 }
 
 function toggleCard(id) {
