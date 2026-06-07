@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoice — Fine Touch</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Inter',sans-serif; background:#f5f5f5; color:#1a1a1a; }
+
+  .page-wrap { max-width:800px; margin:0 auto; padding:40px 20px; }
+
+  /* TOOLBAR (screen only) */
+  .toolbar { display:flex; gap:10px; justify-content:flex-end; margin-bottom:24px; }
+  .toolbar button { padding:10px 20px; border-radius:8px; border:none; cursor:pointer; font-family:'Inter',sans-serif; font-size:14px; font-weight:600; }
+  .btn-print { background:#102A4B; color:#EAE6DA; }
+  .btn-back  { background:#EAE6DA; color:#102A4B; }
+
+  /* INVOICE */
+  .invoice { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.1); }
+
+  /* HEADER */
+  .inv-header { background:#102A4B; padding:36px 40px; display:flex; justify-content:space-between; align-items:flex-start; }
+  .inv-logo { }
+  .inv-logo .fine  { font-size:28px; font-weight:800; color:#EAE6DA; letter-spacing:2px; line-height:1; }
+  .inv-logo .touch { font-size:28px; font-weight:800; color:#C69E63; letter-spacing:2px; line-height:1; }
+  .inv-logo .sub   { font-size:10px; color:#C7B090; letter-spacing:3px; text-transform:uppercase; margin-top:4px; }
+  .inv-meta { text-align:right; }
+  .inv-label { font-size:11px; color:#C7B090; text-transform:uppercase; letter-spacing:2px; margin-bottom:6px; }
+  .inv-number { font-size:28px; font-weight:800; color:#C69E63; }
+  .inv-date   { font-size:13px; color:#EAE6DA; margin-top:4px; }
+
+  /* GOLD BAR */
+  .gold-bar { height:4px; background:linear-gradient(90deg, #C69E63, #8a6520); }
+
+  /* BODY */
+  .inv-body { padding:36px 40px; }
+
+  /* BILL TO */
+  .bill-row { display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-bottom:32px; }
+  .bill-section h3 { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:#7a7060; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid #EAE6DA; }
+  .bill-section .name { font-size:16px; font-weight:700; color:#102A4B; margin-bottom:4px; }
+  .bill-section .detail { font-size:13px; color:#7a7060; line-height:1.6; }
+  .bill-from .name { font-size:15px; }
+
+  /* DETAILS ROW */
+  .inv-details { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; background:#F5F2EC; border-radius:10px; padding:16px 20px; margin-bottom:28px; }
+  .detail-item label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:#7a7060; display:block; margin-bottom:4px; }
+  .detail-item span  { font-size:13px; font-weight:600; color:#102A4B; }
+
+  /* ITEMS TABLE */
+  .items-table { width:100%; border-collapse:collapse; margin-bottom:24px; }
+  .items-table thead tr { background:#102A4B; }
+  .items-table th { padding:10px 14px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#C7B090; }
+  .items-table th:last-child { text-align:right; }
+  .items-table td { padding:13px 14px; font-size:13px; border-bottom:1px solid #EAE6DA; }
+  .items-table td:last-child { text-align:right; font-weight:600; color:#102A4B; }
+  .items-table tbody tr:last-child td { border-bottom:none; }
+
+  /* TOTALS */
+  .totals-wrap { display:flex; justify-content:flex-end; margin-bottom:32px; }
+  .totals-box { min-width:260px; }
+  .total-row { display:flex; justify-content:space-between; padding:7px 0; font-size:13px; color:#7a7060; border-bottom:1px solid #EAE6DA; }
+  .total-row:last-child { border-bottom:none; }
+  .total-grand { display:flex; justify-content:space-between; padding:14px 16px; background:#102A4B; border-radius:8px; margin-top:8px; }
+  .total-grand .label { font-size:13px; font-weight:600; color:#C7B090; }
+  .total-grand .val   { font-size:20px; font-weight:800; color:#C69E63; }
+
+  /* NOTES */
+  .inv-notes { background:#F5F2EC; border-left:3px solid #C69E63; border-radius:0 8px 8px 0; padding:14px 16px; margin-bottom:28px; font-size:13px; color:#7a7060; line-height:1.6; }
+
+  /* FOOTER */
+  .inv-footer { border-top:1px solid #EAE6DA; padding:20px 40px; display:flex; justify-content:space-between; align-items:center; }
+  .footer-left { font-size:11px; color:#7a7060; }
+  .footer-right { font-size:11px; color:#7a7060; text-align:right; }
+  .footer-brand { font-size:13px; font-weight:700; color:#102A4B; }
+
+  /* LOADING / ERROR */
+  .loading { text-align:center; padding:80px; color:#7a7060; font-size:16px; }
+
+  /* PRINT STYLES */
+  @media print {
+    body { background:white; }
+    .toolbar { display:none; }
+    .page-wrap { padding:0; max-width:100%; }
+    .invoice { box-shadow:none; border-radius:0; }
+    @page { margin:0; size:A4; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-wrap">
+  <div class="toolbar">
+    <button class="btn-back" onclick="window.history.back()">← Voltar</button>
+    <button class="btn-print" onclick="window.print()">🖨️ Salvar como PDF</button>
+  </div>
+  <div id="invoice-wrap">
+    <div class="loading">Carregando invoice...</div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function fmt(v) { return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2}); }
+function fmtDate(d) {
+  if (!d) return '—';
+  const [y,m,dia] = d.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[parseInt(m)-1]} ${dia}, ${y}`;
+}
+
+async function load() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+  if (!id) { document.getElementById('invoice-wrap').innerHTML = '<div class="loading">Invoice não encontrada.</div>'; return; }
+
+  const { data: inv, error } = await db
+    .from('invoices')
+    .select('*, clients(name,email,phone,address,city,state), quotes(quote_number,total,quote_items(description,quantity,unit_price,total))')
+    .eq('id', id)
+    .single();
+
+  if (error || !inv) { document.getElementById('invoice-wrap').innerHTML = '<div class="loading">Erro ao carregar invoice.</div>'; return; }
+
+  const client = inv.clients || {};
+  const items  = inv.quotes?.quote_items || [];
+  const amount = Number(inv.total || inv.subtotal || 0);
+
+  // Update page title
+  document.title = `${inv.invoice_number} — Fine Touch`;
+
+  document.getElementById('invoice-wrap').innerHTML = `
+  <div class="invoice">
+    <!-- HEADER -->
+    <div class="inv-header">
+      <div class="inv-logo">
+        <div class="fine">FINE</div>
+        <div class="touch">TOUCH</div>
+        <div class="sub">Decor &amp; Design</div>
+      </div>
+      <div class="inv-meta">
+        <div class="inv-label">Invoice</div>
+        <div class="inv-number">${inv.invoice_number}</div>
+        <div class="inv-date">Issued: ${fmtDate(inv.issue_date)}</div>
+      </div>
+    </div>
+    <div class="gold-bar"></div>
+
+    <!-- BODY -->
+    <div class="inv-body">
+
+      <!-- BILL TO / FROM -->
+      <div class="bill-row">
+        <div class="bill-section bill-to">
+          <h3>Bill To</h3>
+          <div class="name">${client.name||'—'}</div>
+          <div class="detail">
+            ${client.email ? client.email+'<br>' : ''}
+            ${client.phone ? client.phone+'<br>' : ''}
+            ${client.address ? client.address+'<br>' : ''}
+            ${client.city ? client.city + (client.state?', '+client.state:'') : ''}
+          </div>
+        </div>
+        <div class="bill-section bill-from">
+          <h3>From</h3>
+          <div class="name">Fine Touch Decor &amp; Design</div>
+          <div class="detail">
+            contact@ftdecordesign.com<br>
+            ftdecordesign.com
+          </div>
+        </div>
+      </div>
+
+      <!-- INVOICE DETAILS -->
+      <div class="inv-details">
+        <div class="detail-item">
+          <label>Invoice Number</label>
+          <span>${inv.invoice_number}</span>
+        </div>
+        <div class="detail-item">
+          <label>Due Date</label>
+          <span>${fmtDate(inv.due_date)}</span>
+        </div>
+        <div class="detail-item">
+          <label>Status</label>
+          <span style="text-transform:capitalize">${inv.status||'—'}</span>
+        </div>
+      </div>
+
+      <!-- ITEMS -->
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th style="text-align:right;width:80px">Qty</th>
+            <th style="text-align:right;width:110px">Unit Price</th>
+            <th style="width:110px">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.length ? items.map(i=>`
+            <tr>
+              <td>${i.description}</td>
+              <td style="text-align:right">${i.quantity}</td>
+              <td style="text-align:right">${fmt(i.unit_price)}</td>
+              <td>${fmt(i.total)}</td>
+            </tr>`).join('')
+          : `<tr><td colspan="4" style="color:#7a7060;font-style:italic">${inv.notes||'Invoice payment'}</td><td></td><td></td><td>${fmt(amount)}</td></tr>`}
+        </tbody>
+      </table>
+
+      <!-- TOTALS -->
+      <div class="totals-wrap">
+        <div class="totals-box">
+          ${inv.quotes?.total ? `<div class="total-row"><span>Quote Total</span><span>${fmt(inv.quotes.total)}</span></div>` : ''}
+          <div class="total-grand">
+            <span class="label">Amount Due</span>
+            <span class="val">${fmt(amount)}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- NOTES -->
+      ${inv.notes ? `<div class="inv-notes">${inv.notes}</div>` : ''}
+
+    </div>
+
+    <!-- FOOTER -->
+    <div class="inv-footer">
+      <div class="footer-left">
+        <div class="footer-brand">Fine Touch Decor &amp; Design</div>
+        <div>contact@ftdecordesign.com</div>
+      </div>
+      <div class="footer-right">
+        <div>Thank you for your business!</div>
+        <div style="margin-top:4px;color:#C69E63;font-weight:600">${inv.invoice_number}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+load();
+</script>
+</body>
+</html>

@@ -326,7 +326,12 @@ function fmt(v) { return '$'+Number(v||0).toLocaleString('en-US',{minimumFractio
 function fmtDate(d) { if(!d)return'—'; const[y,m,dia]=d.split('-'); return`${dia}/${m}/${y}`; }
 function today() { return new Date().toISOString().slice(0,10); }
 function showToast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+type; setTimeout(()=>t.className='toast',2800); }
-function genInvNum() { return 'INV-'+String(Date.now()).slice(-5); }
+async function genInvNum() {
+  const { data } = await db.from('invoices').select('invoice_number').order('created_at',{ascending:false}).limit(50);
+  const nums = (data||[]).map(i => parseInt((i.invoice_number||'').replace(/\D/g,''))).filter(n=>!isNaN(n));
+  const max = nums.length ? Math.max(...nums) : 1499;
+  return 'INV-' + (max + 1);
+}
 
 async function loadAll() {
   const [{ data: inv }, { data: q }, { data: cl }] = await Promise.all([
@@ -402,20 +407,21 @@ function render() {
 
   document.getElementById('invoices-wrap').innerHTML = `<div class="invoices-list">${filtered.map(i => {
     const amount = Number(i.total||i.subtotal||0);
-    return `<div class="invoice-card" onclick="openEditModal('${i.id}')">
-      <div class="inv-number">${i.invoice_number||'—'}</div>
-      <div class="inv-info">
+    return `<div class="invoice-card">
+      <div class="inv-number" onclick="openEditModal('${i.id}')">${i.invoice_number||'—'}</div>
+      <div class="inv-info" onclick="openEditModal('${i.id}')">
         <div class="inv-client">${i.clients?.name||'—'}</div>
-        <div class="inv-desc">${i.notes||i.description||'—'}</div>
+        <div class="inv-desc">${i.notes||'—'}</div>
         <div class="inv-dates">Emissão: ${fmtDate(i.issue_date)} · Vencimento: ${fmtDate(i.due_date)} ${i.paid_date?'· Pago: '+fmtDate(i.paid_date):''}</div>
       </div>
-      <div>
+      <div onclick="openEditModal('${i.id}')">
         <span class="badge ${statusClass[i.status]||'b-draft'}">${statusLabel[i.status]||i.status}</span>
       </div>
-      <div>
+      <div onclick="openEditModal('${i.id}')">
         <div class="inv-amount">${fmt(amount)}</div>
         <div class="inv-amount-label">${i.quotes?.quote_number?'de '+fmt(i.quotes.total):''}</div>
       </div>
+      <button class="btn btn-outline btn-sm" onclick="printInvoice('${i.id}')" title="Gerar PDF" style="flex-shrink:0">🖨️ PDF</button>
     </div>`;
   }).join('')}</div>`;
 }
@@ -455,7 +461,7 @@ async function saveInvoiceFromQuote() {
   if (!amount || amount <= 0) { showToast('Informe o valor.','error'); return; }
 
   const data = {
-    invoice_number: genInvNum(),
+    invoice_number: await genInvNum(),
     client_id:  selectedQuote.client_id,
     quote_id:   selectedQuote.id,
     status:     'sent',
@@ -530,7 +536,7 @@ async function saveManualInvoice() {
       await db.from('invoices').update(data).eq('id', editInvId);
       showToast('Invoice atualizada!','success');
     } else {
-      data.invoice_number = genInvNum();
+      data.invoice_number = await genInvNum();
       await db.from('invoices').insert(data);
       showToast('Invoice criada!','success');
     }
@@ -549,6 +555,10 @@ async function deleteInvoice() {
 
 function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
 function closeIfOutside(e, id) { if(e.target.id===id) closeOverlay(id); }
+
+function printInvoice(id) {
+  window.open('/invoice-print?id=' + id, '_blank');
+}
 
 init();
 </script>
