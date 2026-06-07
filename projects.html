@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#102A4B">
+<title>Fine Touch — Obras</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  :root {
+    --navy:#102A4B; --gold:#C69E63; --gold2:#C7B090;
+    --cream:#EAE6DA; --cream2:#F5F2EC; --white:#FFFFFF;
+    --border:#D8D2C4; --text:#1a1a1a; --muted:#7a7060;
+    --green:#2e6b3e; --red:#a03030;
+    --shadow:0 2px 12px rgba(16,42,75,0.08);
+    --safe-top:env(safe-area-inset-top); --safe-bottom:env(safe-area-inset-bottom);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; font-family:'Inter',sans-serif; background:var(--cream2); color:var(--text); }
+  .app { display:flex; height:100%; }
+
+  /* SIDEBAR */
+  .sidebar { width:220px; flex-shrink:0; background:var(--navy); display:flex; flex-direction:column; padding-top:calc(var(--safe-top)); }
+  .sidebar-logo { padding:24px 20px 20px; border-bottom:1px solid rgba(255,255,255,0.08); }
+  .logo-fine { font-size:20px; font-weight:800; color:var(--cream); letter-spacing:1px; line-height:1; }
+  .logo-touch { font-size:20px; font-weight:800; color:var(--gold); letter-spacing:1px; line-height:1; }
+  .logo-sub { font-size:9px; color:var(--gold2); letter-spacing:2px; text-transform:uppercase; margin-top:3px; }
+  .sidebar-nav { flex:1; padding:12px 0; overflow-y:auto; }
+  .nav-section { padding:12px 16px 6px; font-size:9px; font-weight:700; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1.5px; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 16px; color:rgba(255,255,255,0.6); font-size:13px; font-weight:500; cursor:pointer; border-left:3px solid transparent; transition:all .15s; text-decoration:none; }
+  .nav-item:hover { color:var(--cream); background:rgba(255,255,255,0.06); }
+  .nav-item.active { color:var(--gold); border-left-color:var(--gold); background:rgba(198,158,99,0.1); }
+  .nav-item .icon { font-size:16px; width:20px; text-align:center; flex-shrink:0; }
+  .sidebar-user { padding:14px 16px calc(14px + var(--safe-bottom)); border-top:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; gap:10px; }
+  .user-avatar { width:32px; height:32px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--navy); flex-shrink:0; }
+  .user-name { font-size:12px; font-weight:600; color:var(--cream); }
+  .user-role { font-size:10px; color:var(--gold2); }
+  .btn-logout { margin-left:auto; background:none; border:none; color:rgba(255,255,255,0.4); cursor:pointer; font-size:16px; }
+
+  /* MAIN */
+  .main { flex:1; overflow-y:auto; display:flex; flex-direction:column; min-width:0; }
+  .topbar { background:var(--white); border-bottom:1px solid var(--border); padding:calc(var(--safe-top) + 16px) 28px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+  .topbar h1 { font-size:20px; font-weight:700; color:var(--navy); }
+  .btn { padding:9px 16px; border-radius:8px; border:none; cursor:pointer; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; transition:all .2s; white-space:nowrap; }
+  .btn-primary { background:var(--navy); color:var(--cream); }
+  .btn-outline { background:transparent; color:var(--navy); border:1.5px solid var(--border); }
+  .btn-danger { background:#a0303010; color:var(--red); border:1.5px solid #a0303030; }
+  .btn-sm { padding:6px 12px; font-size:12px; }
+  .btn-gold { background:var(--gold); color:var(--white); }
+
+  /* CONTENT */
+  .content { padding:24px 28px; flex:1; }
+  .filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+  .filters input, .filters select { background:var(--white); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:13px; outline:none; }
+  .filters input { min-width:200px; }
+
+  /* CARDS GRID */
+  .projects-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+  .project-card { background:var(--white); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); cursor:pointer; transition:all .2s; }
+  .project-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(16,42,75,0.12); }
+  .card-top { padding:16px 18px 12px; }
+  .card-number { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+  .card-name { font-size:16px; font-weight:700; color:var(--navy); margin-bottom:4px; }
+  .card-client { font-size:12px; color:var(--muted); }
+  .card-meta { padding:10px 18px; border-top:1px solid var(--border); background:var(--cream2); display:flex; justify-content:space-between; align-items:center; }
+  .card-location { font-size:12px; color:var(--muted); }
+  .card-budget { font-size:14px; font-weight:700; color:var(--navy); }
+
+  /* STAGES */
+  .stages-wrap { padding:12px 18px; border-top:1px solid var(--border); }
+  .stages-label { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; margin-bottom:8px; }
+  .stages-list { display:flex; flex-direction:column; gap:5px; }
+  .stage-item { display:flex; align-items:center; gap:8px; font-size:12px; }
+  .stage-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .stage-dot.pending { background:var(--border); }
+  .stage-dot.in_progress { background:var(--gold); }
+  .stage-dot.completed { background:var(--green); }
+  .stage-name { color:var(--text); flex:1; }
+  .stage-status { font-size:10px; font-weight:600; color:var(--muted); }
+
+  /* BADGES */
+  .badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+  .b-planning  { background:#102A4B15; color:var(--navy); }
+  .b-active    { background:#C69E6318; color:#8a6520; }
+  .b-paused    { background:#88888815; color:#666; }
+  .b-completed { background:#2e6b3e18; color:var(--green); }
+  .b-cancelled { background:#a0303018; color:var(--red); }
+
+  /* EMPTY */
+  .empty { text-align:center; color:var(--muted); padding:60px 20px; }
+  .empty-icon { font-size:40px; margin-bottom:12px; }
+  .empty h3 { font-size:16px; font-weight:600; margin-bottom:6px; }
+
+  /* MODAL */
+  .overlay { display:none; position:fixed; inset:0; background:rgba(16,42,75,0.5); z-index:200; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto; }
+  .overlay.open { display:flex; }
+  .modal { background:var(--cream2); border-radius:16px; width:100%; max-width:680px; margin:auto; box-shadow:0 24px 80px rgba(0,0,0,0.2); animation:fadeUp .25s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  .modal-header { padding:20px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .modal-header h2 { font-size:18px; font-weight:700; color:var(--navy); }
+  .modal-body { padding:24px; }
+  .modal-footer { padding:16px 24px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; }
+
+  /* FORM */
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .form-full { grid-column:1/-1; }
+  .field label { display:block; font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:5px; }
+  .field input, .field select, .field textarea { width:100%; background:var(--white); border:1.5px solid var(--border); color:var(--text); padding:10px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:14px; outline:none; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color:var(--gold); }
+  .section-title { font-size:13px; font-weight:700; color:var(--navy); margin:20px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+
+  /* STAGES EDITOR */
+  .stage-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .stage-row input { flex:1; background:var(--white); border:1.5px solid var(--border); border-radius:8px; padding:8px 10px; font-family:'Inter',sans-serif; font-size:13px; outline:none; }
+  .stage-row input:focus { border-color:var(--gold); }
+  .stage-row select { background:var(--white); border:1.5px solid var(--border); border-radius:8px; padding:8px 10px; font-family:'Inter',sans-serif; font-size:13px; outline:none; color:var(--text); }
+  .stage-row .item-del { background:none; border:none; color:var(--muted); cursor:pointer; font-size:16px; padding:4px; }
+  .stage-row .item-del:hover { color:var(--red); }
+
+  /* PROGRESS BAR */
+  .progress-wrap { padding:0 18px 14px; }
+  .progress-bar { background:var(--cream2); border-radius:4px; height:5px; overflow:hidden; }
+  .progress-fill { height:100%; background:var(--gold); border-radius:4px; transition:width .4s; }
+  .progress-label { font-size:10px; color:var(--muted); margin-top:4px; }
+
+  .loading { text-align:center; color:var(--muted); padding:40px; }
+  .spinner { width:28px; height:28px; border:2px solid var(--border); border-top-color:var(--navy); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 8px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .toast { position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-10px); background:var(--navy); color:var(--cream); padding:10px 20px; border-radius:30px; font-size:13px; font-weight:600; z-index:400; opacity:0; transition:all .3s; white-space:nowrap; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.success { background:#2e6b3e; }
+  .toast.error { background:#a03030; }
+
+  @media(max-width:768px) {
+    .sidebar { display:none; }
+    .content { padding:16px; }
+    .topbar { padding:calc(var(--safe-top)+12px) 16px 12px; }
+    .form-grid { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-fine">FINE</div>
+      <div class="logo-touch">TOUCH</div>
+      <div class="logo-sub">Decor &amp; Design</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Principal</div>
+      <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
+      <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
+      <div class="nav-section">Vendas</div>
+      <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
+      <a class="nav-item" href="#"><span class="icon">📄</span>Propostas</a>
+      <a class="nav-item" href="#"><span class="icon">📝</span>Contratos</a>
+      <div class="nav-section">Operacional</div>
+      <a class="nav-item active" href="/projects"><span class="icon">🏗️</span>Obras</a>
+      <a class="nav-item" href="#"><span class="icon">🛒</span>Compras</a>
+      <a class="nav-item" href="#"><span class="icon">📚</span>Catálogo</a>
+      <div class="nav-section">Financeiro</div>
+      <a class="nav-item" href="#"><span class="icon">💰</span>Financeiro</a>
+      <a class="nav-item" href="#"><span class="icon">🧾</span>Invoices</a>
+      <div class="nav-section">Outros</div>
+      <a class="nav-item" href="#"><span class="icon">📣</span>Marketing</a>
+      <a class="nav-item" href="#"><span class="icon">✅</span>Tarefas</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <div><div class="user-name" id="user-name">...</div><div class="user-role">Administrador</div></div>
+      <button class="btn-logout" onclick="logout()">⏏</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h1>Obras</h1>
+      <button class="btn btn-primary" onclick="openModal()">+ Nova Obra</button>
+    </div>
+    <div class="content">
+      <div class="filters">
+        <input type="search" id="search" placeholder="🔍 Buscar obra ou cliente..." oninput="render()">
+        <select id="filterStatus" onchange="render()">
+          <option value="">Todos os status</option>
+          <option value="planning">Planejamento</option>
+          <option value="active">Em andamento</option>
+          <option value="paused">Pausada</option>
+          <option value="completed">Concluída</option>
+          <option value="cancelled">Cancelada</option>
+        </select>
+      </div>
+      <div id="projects-wrap">
+        <div class="loading"><div class="spinner"></div><div>Carregando...</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="closeIfOutside(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Nova Obra</h2>
+      <button class="btn btn-outline btn-sm" onclick="closeModal()">✕ Fechar</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field form-full"><label>Nome da Obra</label><input id="f-name" placeholder="Ex: Reforma Apt. Johnson"></div>
+        <div class="field"><label>Cliente</label><select id="f-client"></select></div>
+        <div class="field"><label>Status</label>
+          <select id="f-status">
+            <option value="planning">Planejamento</option>
+            <option value="active">Em andamento</option>
+            <option value="paused">Pausada</option>
+            <option value="completed">Concluída</option>
+            <option value="cancelled">Cancelada</option>
+          </select>
+        </div>
+        <div class="field"><label>Tipo de Projeto</label>
+          <select id="f-type">
+            <option>Reforma</option><option>Construção</option><option>Acabamento</option>
+            <option>Decoração</option><option>Design de Interiores</option><option>Outro</option>
+          </select>
+        </div>
+        <div class="field"><label>Orçamento (US$)</label><input type="number" id="f-budget" placeholder="0" min="0"></div>
+        <div class="field"><label>Início</label><input type="date" id="f-start"></div>
+        <div class="field"><label>Previsão de Término</label><input type="date" id="f-end"></div>
+        <div class="field form-full"><label>Endereço</label><input id="f-address" placeholder="Endereço da obra"></div>
+        <div class="field"><label>Cidade</label><input id="f-city" placeholder="Miami, FL"></div>
+        <div class="field"><label>Estado</label><input id="f-state" placeholder="FL"></div>
+        <div class="field form-full"><label>Descrição</label><textarea id="f-desc" style="height:70px" placeholder="Detalhes da obra..."></textarea></div>
+      </div>
+
+      <div class="section-title">
+        Etapas da Obra
+        <button class="btn btn-outline btn-sm" onclick="addStage()">+ Etapa</button>
+      </div>
+      <div id="stages-editor"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-delete" onclick="deleteProject()" style="display:none;margin-right:auto">Excluir</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveProject()">Salvar Obra</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let projects = [], clients = [], editId = null;
+
+const statusLabel = { planning:'Planejamento', active:'Em andamento', paused:'Pausada', completed:'Concluída', cancelled:'Cancelada' };
+const statusClass = { planning:'b-planning', active:'b-active', paused:'b-paused', completed:'b-completed', cancelled:'b-cancelled' };
+
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { window.location.href = '/login.html'; return; }
+  const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuário';
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+  await Promise.all([loadClients(), loadProjects()]);
+}
+db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
+async function logout() { await db.auth.signOut(); }
+
+function fmtValor(v) { return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:0}); }
+function fmtDate(d) { if(!d)return'—'; const[y,m,dia]=d.split('-'); return`${dia}/${m}/${y}`; }
+function showToast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+type; setTimeout(()=>t.className='toast',2800); }
+
+async function loadClients() {
+  const { data } = await db.from('clients').select('id,name').order('name');
+  clients = data || [];
+  const sel = document.getElementById('f-client');
+  sel.innerHTML = '<option value="">Selecionar cliente...</option>' + clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+async function loadProjects() {
+  const { data } = await db.from('projects').select('*, clients(name), project_stages(*)').order('created_at', { ascending:false });
+  projects = data || [];
+  render();
+}
+
+function render() {
+  const s = document.getElementById('search').value.toLowerCase();
+  const fs = document.getElementById('filterStatus').value;
+  const filtered = projects.filter(p =>
+    (!s || p.name.toLowerCase().includes(s) || (p.clients?.name||'').toLowerCase().includes(s)) &&
+    (!fs || p.status === fs)
+  );
+
+  if (!filtered.length) {
+    document.getElementById('projects-wrap').innerHTML = `
+      <div class="empty"><div class="empty-icon">🏗️</div>
+      <h3>Nenhuma obra encontrada</h3><p>Clique em "Nova Obra" para começar.</p></div>`;
+    return;
+  }
+
+  document.getElementById('projects-wrap').innerHTML = `<div class="projects-grid">${filtered.map(p => {
+    const stages = p.project_stages || [];
+    const completed = stages.filter(s=>s.status==='completed').length;
+    const progress = stages.length ? Math.round((completed/stages.length)*100) : 0;
+    const activeStages = stages.filter(s=>s.status!=='completed').slice(0,3);
+
+    return `<div class="project-card" onclick="openModal('${p.id}')">
+      <div class="card-top">
+        <div class="card-number">${p.project_number||'OBRA'} · <span class="badge ${statusClass[p.status]}">${statusLabel[p.status]}</span></div>
+        <div class="card-name">${p.name}</div>
+        <div class="card-client">👤 ${p.clients?.name||'—'}</div>
+      </div>
+      ${stages.length ? `
+      <div class="progress-wrap">
+        <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
+        <div class="progress-label">${progress}% concluído · ${completed}/${stages.length} etapas</div>
+      </div>` : ''}
+      ${activeStages.length ? `
+      <div class="stages-wrap">
+        <div class="stages-label">Etapas</div>
+        <div class="stages-list">${activeStages.map(s=>`
+          <div class="stage-item">
+            <div class="stage-dot ${s.status}"></div>
+            <div class="stage-name">${s.name}</div>
+            <div class="stage-status">${s.status==='in_progress'?'Em andamento':s.status==='completed'?'✓ Concluída':'Pendente'}</div>
+          </div>`).join('')}
+        </div>
+      </div>` : ''}
+      <div class="card-meta">
+        <div class="card-location">📍 ${p.city||p.address||'—'}</div>
+        <div class="card-budget">${p.budget ? fmtValor(p.budget) : '—'}</div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// ─── STAGES EDITOR ────────────────────────────────────────────
+let stageCount = 0;
+function addStage(name='', status='pending') {
+  const id = 'stage-'+stageCount++;
+  const div = document.createElement('div');
+  div.className = 'stage-row'; div.id = id;
+  div.innerHTML = `
+    <input placeholder="Nome da etapa (ex: Demolição, Pintura...)" value="${name}">
+    <select>
+      <option value="pending" ${status==='pending'?'selected':''}>Pendente</option>
+      <option value="in_progress" ${status==='in_progress'?'selected':''}>Em andamento</option>
+      <option value="completed" ${status==='completed'?'selected':''}>Concluída</option>
+    </select>
+    <button class="item-del" onclick="document.getElementById('${id}').remove()">✕</button>`;
+  document.getElementById('stages-editor').appendChild(div);
+}
+
+function getStages() {
+  return [...document.getElementById('stages-editor').querySelectorAll('.stage-row')].map((row,i) => ({
+    name: row.querySelector('input').value.trim(),
+    status: row.querySelector('select').value,
+    sort_order: i
+  })).filter(s => s.name);
+}
+
+// ─── MODAL ────────────────────────────────────────────────────
+function openModal(id) {
+  editId = id || null;
+  const p = id ? projects.find(x=>x.id===id) : null;
+  document.getElementById('modal-title').textContent = p ? 'Editar Obra' : 'Nova Obra';
+  document.getElementById('f-name').value = p?.name || '';
+  document.getElementById('f-client').value = p?.client_id || '';
+  document.getElementById('f-status').value = p?.status || 'planning';
+  document.getElementById('f-type').value = p?.project_type || 'Reforma';
+  document.getElementById('f-budget').value = p?.budget || '';
+  document.getElementById('f-start').value = p?.start_date || '';
+  document.getElementById('f-end').value = p?.end_date || '';
+  document.getElementById('f-address').value = p?.address || '';
+  document.getElementById('f-city').value = p?.city || '';
+  document.getElementById('f-state').value = p?.state || '';
+  document.getElementById('f-desc').value = p?.description || '';
+  document.getElementById('btn-delete').style.display = p ? 'block' : 'none';
+  document.getElementById('stages-editor').innerHTML = '';
+  stageCount = 0;
+  if (p?.project_stages?.length) {
+    [...p.project_stages].sort((a,b)=>a.sort_order-b.sort_order).forEach(s => addStage(s.name, s.status));
+  } else {
+    addStage('Planejamento'); addStage('Execução'); addStage('Acabamento'); addStage('Entrega');
+  }
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('overlay').classList.remove('open'); editId=null; }
+function closeIfOutside(e) { if(e.target.id==='overlay') closeModal(); }
+
+// ─── SAVE ─────────────────────────────────────────────────────
+async function saveProject() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { showToast('Informe o nome da obra.','error'); return; }
+
+  const projectData = {
+    name,
+    client_id: document.getElementById('f-client').value || null,
+    status: document.getElementById('f-status').value,
+    project_type: document.getElementById('f-type').value,
+    budget: document.getElementById('f-budget').value || null,
+    start_date: document.getElementById('f-start').value || null,
+    end_date: document.getElementById('f-end').value || null,
+    address: document.getElementById('f-address').value.trim(),
+    city: document.getElementById('f-city').value.trim(),
+    state: document.getElementById('f-state').value.trim(),
+    description: document.getElementById('f-desc').value.trim(),
+  };
+
+  const stages = getStages();
+
+  try {
+    if (editId) {
+      await db.from('projects').update(projectData).eq('id', editId);
+      await db.from('project_stages').delete().eq('project_id', editId);
+      if (stages.length) await db.from('project_stages').insert(stages.map(s=>({...s, project_id:editId})));
+      showToast('Obra atualizada!','success');
+    } else {
+      projectData.project_number = 'OBR-'+String(Date.now()).slice(-5);
+      const { data: p } = await db.from('projects').insert(projectData).select().single();
+      if (stages.length && p) await db.from('project_stages').insert(stages.map(s=>({...s, project_id:p.id})));
+      showToast('Obra criada!','success');
+    }
+    closeModal();
+    await loadProjects();
+  } catch(err) { showToast('Erro ao salvar.','error'); }
+}
+
+async function deleteProject() {
+  if (!confirm('Excluir esta obra?')) return;
+  await db.from('project_stages').delete().eq('project_id', editId);
+  await db.from('projects').delete().eq('id', editId);
+  showToast('Excluída.','');
+  closeModal();
+  await loadProjects();
+}
+
+init();
+</script>
+</body>
+</html>
