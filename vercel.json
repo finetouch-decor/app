@@ -1,5 +1,5 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/finetouch-app.html" }
+    { "source": "/", "destination": "/finetouch_crm_app.html" }
   ]
 }
