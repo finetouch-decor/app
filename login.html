@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#102A4B">
+<title>Fine Touch — Login</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  :root {
+    --navy:#102A4B; --gold:#C69E63; --gold2:#C7B090;
+    --cream:#EAE6DA; --cream2:#F5F2EC; --white:#FFFFFF;
+    --border:#D8D2C4; --text:#1a1a1a; --muted:#7a7060;
+    --safe-top: env(safe-area-inset-top);
+    --safe-bottom: env(safe-area-inset-bottom);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; font-family:'Inter',sans-serif; }
+  body {
+    background:var(--navy);
+    display:flex; align-items:center; justify-content:center;
+    padding: calc(var(--safe-top) + 24px) 24px calc(var(--safe-bottom) + 24px);
+    min-height:100%;
+  }
+
+  .card {
+    background:var(--cream2);
+    border-radius:20px;
+    padding:40px 32px;
+    width:100%; max-width:400px;
+    box-shadow:0 24px 80px rgba(0,0,0,0.3);
+  }
+
+  .logo { text-align:center; margin-bottom:32px; }
+  .logo-icon { width:52px; height:52px; margin:0 auto 12px; }
+  .logo .fine { font-size:26px; font-weight:800; color:var(--navy); letter-spacing:1px; display:block; line-height:1; }
+  .logo .touch { font-size:26px; font-weight:800; color:var(--gold); letter-spacing:1px; display:block; line-height:1; }
+  .logo .sub { font-size:10px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-top:4px; display:block; }
+
+  h2 { font-size:18px; font-weight:700; color:var(--navy); text-align:center; margin-bottom:6px; }
+  .subtitle { font-size:13px; color:var(--muted); text-align:center; margin-bottom:28px; }
+
+  .btn-google {
+    width:100%; padding:13px; border-radius:10px;
+    border:1.5px solid var(--border);
+    background:var(--white); color:var(--text);
+    font-family:'Inter',sans-serif; font-size:14px; font-weight:600;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px;
+    transition:all .2s; margin-bottom:20px;
+  }
+  .btn-google:hover { border-color:var(--navy); background:var(--cream2); }
+  .btn-google svg { width:20px; height:20px; flex-shrink:0; }
+
+  .divider { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+  .divider::before, .divider::after { content:''; flex:1; height:1px; background:var(--border); }
+  .divider span { font-size:11px; color:var(--muted); font-weight:500; text-transform:uppercase; letter-spacing:1px; }
+
+  .field { margin-bottom:14px; }
+  .field label { display:block; font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+  .field input {
+    width:100%; padding:12px 14px;
+    border:1.5px solid var(--border); border-radius:10px;
+    background:var(--white); color:var(--text);
+    font-family:'Inter',sans-serif; font-size:15px; outline:none;
+    transition:border-color .2s;
+  }
+  .field input:focus { border-color:var(--gold); }
+
+  .btn-primary {
+    width:100%; padding:14px; border-radius:10px; border:none;
+    background:var(--navy); color:var(--cream);
+    font-family:'Inter',sans-serif; font-size:15px; font-weight:700;
+    cursor:pointer; transition:all .2s; margin-top:4px;
+  }
+  .btn-primary:hover { background:#1a3d6b; }
+  .btn-primary:disabled { opacity:0.6; cursor:not-allowed; }
+
+  .toggle { text-align:center; margin-top:20px; font-size:13px; color:var(--muted); }
+  .toggle a { color:var(--navy); font-weight:600; cursor:pointer; text-decoration:none; }
+  .toggle a:hover { color:var(--gold); }
+
+  .forgot { text-align:right; margin-top:-8px; margin-bottom:14px; }
+  .forgot a { font-size:12px; color:var(--muted); cursor:pointer; text-decoration:none; }
+  .forgot a:hover { color:var(--navy); }
+
+  .toast {
+    position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-10px);
+    background:var(--navy); color:var(--cream); padding:10px 20px;
+    border-radius:30px; font-size:13px; font-weight:600;
+    z-index:400; opacity:0; transition:all .3s; white-space:nowrap;
+  }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.success { background:#2e6b3e; }
+  .toast.error { background:#a03030; }
+
+  .mode-register .forgot { display:none; }
+</style>
+</head>
+<body>
+
+<div class="card" id="card">
+  <div class="logo">
+    <svg class="logo-icon" viewBox="0 0 52 52" fill="none">
+      <circle cx="26" cy="26" r="26" fill="#102A4B"/>
+      <rect x="8" y="8" width="16" height="3" fill="#EAE6DA"/>
+      <rect x="8" y="8" width="3" height="16" fill="#EAE6DA"/>
+      <rect x="8" y="15" width="10" height="2.5" fill="#EAE6DA"/>
+      <rect x="18" y="28" width="16" height="3" fill="#C69E63"/>
+      <rect x="23" y="28" width="3" height="16" fill="#C69E63"/>
+    </svg>
+    <span class="fine">FINE</span>
+    <span class="touch">TOUCH</span>
+    <span class="sub">Decor &amp; Design</span>
+  </div>
+
+  <h2 id="title">Bem-vindo de volta</h2>
+  <p class="subtitle" id="subtitle">Entre na sua conta para continuar</p>
+
+  <!-- Google -->
+  <button class="btn-google" onclick="loginGoogle()">
+    <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+    Continuar com Google
+  </button>
+
+  <div class="divider"><span>ou</span></div>
+
+  <!-- Email/senha -->
+  <div class="field">
+    <label>Email</label>
+    <input type="email" id="email" placeholder="seu@email.com" autocomplete="email">
+  </div>
+  <div class="field">
+    <label>Senha</label>
+    <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+  </div>
+  <div class="forgot"><a onclick="forgotPassword()">Esqueci minha senha</a></div>
+
+  <div class="field" id="field-name" style="display:none">
+    <label>Nome completo</label>
+    <input type="text" id="fullname" placeholder="Seu nome">
+  </div>
+
+  <button class="btn-primary" id="btn-submit" onclick="submitForm()">Entrar</button>
+
+  <div class="toggle">
+    <span id="toggle-text">Não tem conta?</span>
+    <a onclick="toggleMode()" id="toggle-link">Criar conta</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let isRegister = false;
+
+// Redirect if already logged in
+db.auth.getSession().then(({ data }) => {
+  if (data.session) window.location.href = '/finetouch_crm_app.html';
+});
+
+// Handle OAuth redirect
+db.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN' && session) {
+    window.location.href = '/finetouch_crm_app.html';
+  }
+});
+
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+function setLoading(loading) {
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = loading;
+  btn.textContent = loading ? 'Aguarde...' : (isRegister ? 'Criar conta' : 'Entrar');
+}
+
+async function loginGoogle() {
+  const { error } = await db.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + '/finetouch_crm_app.html' }
+  });
+  if (error) showToast('Erro ao conectar com Google.', 'error');
+}
+
+async function submitForm() {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  if (!email || !password) { showToast('Preencha email e senha.', 'error'); return; }
+
+  setLoading(true);
+
+  if (isRegister) {
+    const name = document.getElementById('fullname').value.trim();
+    const { error } = await db.auth.signUp({
+      email, password,
+      options: { data: { full_name: name } }
+    });
+    if (error) { showToast(error.message, 'error'); setLoading(false); return; }
+    showToast('Conta criada! Verifique seu email.', 'success');
+  } else {
+    const { error } = await db.auth.signInWithPassword({ email, password });
+    if (error) { showToast('Email ou senha incorretos.', 'error'); setLoading(false); return; }
+    window.location.href = '/finetouch_crm_app.html';
+  }
+  setLoading(false);
+}
+
+async function forgotPassword() {
+  const email = document.getElementById('email').value.trim();
+  if (!email) { showToast('Digite seu email primeiro.', 'error'); return; }
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/reset-password.html'
+  });
+  if (error) { showToast('Erro ao enviar email.', 'error'); return; }
+  showToast('Email de recuperação enviado!', 'success');
+}
+
+function toggleMode() {
+  isRegister = !isRegister;
+  document.getElementById('title').textContent = isRegister ? 'Criar conta' : 'Bem-vindo de volta';
+  document.getElementById('subtitle').textContent = isRegister ? 'Preencha os dados para começar' : 'Entre na sua conta para continuar';
+  document.getElementById('btn-submit').textContent = isRegister ? 'Criar conta' : 'Entrar';
+  document.getElementById('toggle-text').textContent = isRegister ? 'Já tem conta?' : 'Não tem conta?';
+  document.getElementById('toggle-link').textContent = isRegister ? 'Entrar' : 'Criar conta';
+  document.getElementById('field-name').style.display = isRegister ? 'block' : 'none';
+}
+
+// Enter key
+document.addEventListener('keydown', e => { if (e.key === 'Enter') submitForm(); });
+</script>
+</body>
+</html>

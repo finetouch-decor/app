@@ -600,8 +600,19 @@ function exportCSV() {
   showToast('Exportado com sucesso!', 'success');
 }
 
+// ─── AUTH GUARD ──────────────────────────────────────────────
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { window.location.href = '/login.html'; return; }
+  loadData();
+}
+
+db.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_OUT') window.location.href = '/login.html';
+});
+
 // ─── INIT ────────────────────────────────────────────────────
-loadData();
+init();
 </script>
 </body>
 </html>
