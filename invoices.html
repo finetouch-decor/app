@@ -187,7 +187,10 @@
   <main class="main">
     <div class="topbar">
       <h1>Invoices</h1>
-      <button class="btn btn-primary" onclick="openManualModal()">+ Nova Invoice</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:12px;color:var(--muted)">Invoice avulsa:</span>
+        <button class="btn btn-outline" onclick="openManualModal()">+ Customizada</button>
+      </div>
     </div>
     <div class="content">
       <!-- KPIs -->
@@ -229,17 +232,18 @@
       <button class="btn btn-outline btn-sm" onclick="closeOverlay('overlay-quote')">✕</button>
     </div>
     <div class="modal-body">
-      <!-- Resumo do orçamento -->
+      <!-- Resumo do orçamento + dados do cliente -->
       <div class="confirm-panel" id="quote-summary"></div>
 
       <!-- Divisão 50/50 -->
       <div class="split-info">
-        💡 <span>Invoice #1: <strong>50% de entrada</strong> — o cliente paga agora para iniciar a obra.<br>Invoice #2 será criada depois, quando definir a data de entrega.</span>
+        💡 <span><strong>Invoice #1 (Entrada):</strong> 50% do valor total do orçamento.<br>
+        <strong>Invoice #2 (Saldo):</strong> criada depois, quando definir a data de entrega.</span>
       </div>
 
       <div class="form-2col">
         <div class="field">
-          <label>Valor desta Invoice (US$)</label>
+          <label>Valor da Invoice #1 — Entrada (US$)</label>
           <input type="number" id="qf-amount" step="0.01" min="0">
         </div>
         <div class="field">
@@ -249,7 +253,7 @@
       </div>
       <div class="field">
         <label>Observações (aparece na invoice)</label>
-        <input id="qf-notes" placeholder="Ex: 50% de entrada conforme contrato">
+        <input id="qf-notes" placeholder="Ex: 50% de entrada conforme orçamento aprovado">
       </div>
     </div>
     <div class="modal-footer">
@@ -327,7 +331,7 @@ function genInvNum() { return 'INV-'+String(Date.now()).slice(-5); }
 async function loadAll() {
   const [{ data: inv }, { data: q }, { data: cl }] = await Promise.all([
     db.from('invoices').select('*, clients(name), quotes(quote_number,total)').order('created_at',{ascending:false}),
-    db.from('quotes').select('id,quote_number,total,client_id,clients(name)').eq('status','approved').order('created_at',{ascending:false}),
+    db.from('quotes').select('id,quote_number,total,client_id,clients(id,name,email,phone,city)').eq('status','approved').order('created_at',{ascending:false}),
     db.from('clients').select('id,name').order('name')
   ]);
   invoices = inv || [];
@@ -429,11 +433,18 @@ function openQuoteModal(quoteId) {
   document.getElementById('qf-due').value = due.toISOString().slice(0,10);
   document.getElementById('qf-notes').value = '50% de entrada conforme orçamento aprovado';
 
+  const c = selectedQuote.clients || {};
   document.getElementById('quote-summary').innerHTML = `
-    <div class="confirm-panel-title">Resumo do Orçamento</div>
-    <div class="confirm-row"><span class="label">Cliente</span><span class="val">${selectedQuote.clients?.name||'—'}</span></div>
-    <div class="confirm-row"><span class="label">Número</span><span class="val">${selectedQuote.quote_number||'—'}</span></div>
-    <div class="confirm-total"><span class="label">Valor Total do Orçamento</span><span class="val">${fmt(selectedQuote.total)}</span></div>`;
+    <div class="confirm-panel-title">✓ Orçamento Aprovado — Dados Confirmados</div>
+    <div class="confirm-row"><span class="label">Cliente</span><span class="val">${c.name||'—'}</span></div>
+    ${c.email ? `<div class="confirm-row"><span class="label">Email</span><span class="val">${c.email}</span></div>` : ''}
+    ${c.phone ? `<div class="confirm-row"><span class="label">Telefone</span><span class="val">${c.phone}</span></div>` : ''}
+    ${c.city  ? `<div class="confirm-row"><span class="label">Cidade</span><span class="val">${c.city}</span></div>`  : ''}
+    <div class="confirm-row"><span class="label">Orçamento</span><span class="val">${selectedQuote.quote_number||'—'}</span></div>
+    <div class="confirm-total">
+      <span class="label">Valor Total do Orçamento</span>
+      <span class="val">${fmt(selectedQuote.total)}</span>
+    </div>`;
 
   document.getElementById('overlay-quote').classList.add('open');
 }
