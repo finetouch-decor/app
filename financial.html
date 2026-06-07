@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#102A4B">
+<title>Fine Touch — Financeiro</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  :root {
+    --navy:#102A4B; --gold:#C69E63; --gold2:#C7B090;
+    --cream:#EAE6DA; --cream2:#F5F2EC; --white:#FFFFFF;
+    --border:#D8D2C4; --text:#1a1a1a; --muted:#7a7060;
+    --green:#2e6b3e; --red:#a03030;
+    --shadow:0 2px 12px rgba(16,42,75,0.08);
+    --safe-top:env(safe-area-inset-top); --safe-bottom:env(safe-area-inset-bottom);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; font-family:'Inter',sans-serif; background:var(--cream2); color:var(--text); }
+  .app { display:flex; height:100%; }
+
+  /* SIDEBAR */
+  .sidebar { width:220px; flex-shrink:0; background:var(--navy); display:flex; flex-direction:column; padding-top:calc(var(--safe-top)); }
+  .sidebar-logo { padding:24px 20px 20px; border-bottom:1px solid rgba(255,255,255,0.08); }
+  .logo-fine { font-size:20px; font-weight:800; color:var(--cream); letter-spacing:1px; line-height:1; }
+  .logo-touch { font-size:20px; font-weight:800; color:var(--gold); letter-spacing:1px; line-height:1; }
+  .logo-sub { font-size:9px; color:var(--gold2); letter-spacing:2px; text-transform:uppercase; margin-top:3px; }
+  .sidebar-nav { flex:1; padding:12px 0; overflow-y:auto; }
+  .nav-section { padding:12px 16px 6px; font-size:9px; font-weight:700; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1.5px; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 16px; color:rgba(255,255,255,0.6); font-size:13px; font-weight:500; cursor:pointer; border-left:3px solid transparent; transition:all .15s; text-decoration:none; }
+  .nav-item:hover { color:var(--cream); background:rgba(255,255,255,0.06); }
+  .nav-item.active { color:var(--gold); border-left-color:var(--gold); background:rgba(198,158,99,0.1); }
+  .nav-item .icon { font-size:16px; width:20px; text-align:center; flex-shrink:0; }
+  .sidebar-user { padding:14px 16px calc(14px + var(--safe-bottom)); border-top:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; gap:10px; }
+  .user-avatar { width:32px; height:32px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--navy); flex-shrink:0; }
+  .user-name { font-size:12px; font-weight:600; color:var(--cream); }
+  .user-role { font-size:10px; color:var(--gold2); }
+  .btn-logout { margin-left:auto; background:none; border:none; color:rgba(255,255,255,0.4); cursor:pointer; font-size:16px; }
+
+  /* MAIN */
+  .main { flex:1; overflow-y:auto; display:flex; flex-direction:column; min-width:0; }
+  .topbar { background:var(--white); border-bottom:1px solid var(--border); padding:calc(var(--safe-top)+16px) 28px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:12px; }
+  .topbar h1 { font-size:20px; font-weight:700; color:var(--navy); }
+  .topbar-actions { display:flex; gap:8px; }
+  .btn { padding:9px 16px; border-radius:8px; border:none; cursor:pointer; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; transition:all .2s; white-space:nowrap; }
+  .btn-primary { background:var(--navy); color:var(--cream); }
+  .btn-income { background:#2e6b3e; color:var(--white); }
+  .btn-expense { background:var(--red); color:var(--white); }
+  .btn-outline { background:transparent; color:var(--navy); border:1.5px solid var(--border); }
+  .btn-danger { background:#a0303010; color:var(--red); border:1.5px solid #a0303030; }
+  .btn-sm { padding:6px 12px; font-size:12px; }
+
+  /* CONTENT */
+  .content { padding:24px 28px; flex:1; }
+
+  /* KPI ROW */
+  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+  .kpi-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:16px 18px; box-shadow:var(--shadow); }
+  .kpi-label { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+  .kpi-value { font-size:24px; font-weight:800; line-height:1; }
+  .kpi-value.income { color:var(--green); }
+  .kpi-value.expense { color:var(--red); }
+  .kpi-value.profit { color:var(--navy); }
+  .kpi-value.neutral { color:var(--navy); }
+
+  /* FILTERS */
+  .filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; align-items:center; }
+  .filters input, .filters select { background:var(--white); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:13px; outline:none; }
+
+  /* TABLE */
+  .table-wrap { background:var(--white); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); }
+  table { width:100%; border-collapse:collapse; }
+  thead { background:var(--cream2); }
+  th { padding:11px 16px; text-align:left; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; border-bottom:1px solid var(--border); }
+  td { padding:13px 16px; font-size:13px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:var(--cream2); cursor:pointer; }
+
+  .type-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+  .type-income  { background:#2e6b3e18; color:var(--green); }
+  .type-expense { background:#a0303018; color:var(--red); }
+
+  .amount-income  { font-weight:700; color:var(--green); }
+  .amount-expense { font-weight:700; color:var(--red); }
+
+  .cat-badge { background:var(--cream2); border:1px solid var(--border); display:inline-block; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:600; color:var(--muted); }
+
+  /* MODAL */
+  .overlay { display:none; position:fixed; inset:0; background:rgba(16,42,75,0.5); z-index:200; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto; }
+  .overlay.open { display:flex; }
+  .modal { background:var(--cream2); border-radius:16px; width:100%; max-width:520px; margin:auto; box-shadow:0 24px 80px rgba(0,0,0,0.2); animation:fadeUp .25s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  .modal-header { padding:20px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .modal-header h2 { font-size:18px; font-weight:700; }
+  .modal-header h2.income { color:var(--green); }
+  .modal-header h2.expense { color:var(--red); }
+  .modal-body { padding:24px; }
+  .modal-footer { padding:16px 24px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .form-full { grid-column:1/-1; }
+  .field label { display:block; font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:5px; }
+  .field input, .field select, .field textarea { width:100%; background:var(--white); border:1.5px solid var(--border); color:var(--text); padding:10px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:14px; outline:none; }
+  .field input:focus, .field select:focus { border-color:var(--gold); }
+
+  .empty { text-align:center; color:var(--muted); padding:60px 20px; }
+  .empty-icon { font-size:40px; margin-bottom:12px; }
+  .empty h3 { font-size:16px; font-weight:600; margin-bottom:6px; }
+  .loading { text-align:center; color:var(--muted); padding:40px; }
+  .spinner { width:28px; height:28px; border:2px solid var(--border); border-top-color:var(--navy); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 8px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .toast { position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-10px); background:var(--navy); color:var(--cream); padding:10px 20px; border-radius:30px; font-size:13px; font-weight:600; z-index:400; opacity:0; transition:all .3s; white-space:nowrap; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.success { background:#2e6b3e; }
+  .toast.error { background:#a03030; }
+
+  @media(max-width:768px) {
+    .sidebar { display:none; }
+    .content { padding:16px; }
+    .topbar { padding:calc(var(--safe-top)+12px) 16px 12px; }
+    .kpi-row { grid-template-columns:1fr 1fr; }
+    .form-grid { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-fine">FINE</div>
+      <div class="logo-touch">TOUCH</div>
+      <div class="logo-sub">Decor &amp; Design</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Principal</div>
+      <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
+      <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
+      <div class="nav-section">Vendas</div>
+      <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
+      <a class="nav-item" href="#"><span class="icon">📄</span>Propostas</a>
+      <a class="nav-item" href="#"><span class="icon">📝</span>Contratos</a>
+      <div class="nav-section">Operacional</div>
+      <a class="nav-item" href="/projects"><span class="icon">🏗️</span>Obras</a>
+      <a class="nav-item" href="#"><span class="icon">🛒</span>Compras</a>
+      <a class="nav-item" href="#"><span class="icon">📚</span>Catálogo</a>
+      <div class="nav-section">Financeiro</div>
+      <a class="nav-item active" href="/financial"><span class="icon">💰</span>Financeiro</a>
+      <a class="nav-item" href="#"><span class="icon">🧾</span>Invoices</a>
+      <div class="nav-section">Outros</div>
+      <a class="nav-item" href="#"><span class="icon">📣</span>Marketing</a>
+      <a class="nav-item" href="#"><span class="icon">✅</span>Tarefas</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <div><div class="user-name" id="user-name">...</div><div class="user-role">Administrador</div></div>
+      <button class="btn-logout" onclick="logout()">⏏</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h1>Financeiro</h1>
+      <div class="topbar-actions">
+        <button class="btn btn-income" onclick="openModal('income')">+ Receita</button>
+        <button class="btn btn-expense" onclick="openModal('expense')">+ Despesa</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- KPIs -->
+      <div class="kpi-row" id="kpi-row">
+        <div class="kpi-card"><div class="kpi-label">Receitas</div><div class="kpi-value income" id="k-income">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Despesas</div><div class="kpi-value expense" id="k-expense">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Lucro</div><div class="kpi-value profit" id="k-profit">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Transações</div><div class="kpi-value neutral" id="k-count">—</div></div>
+      </div>
+
+      <!-- FILTERS -->
+      <div class="filters">
+        <input type="search" id="search" placeholder="🔍 Buscar..." oninput="render()">
+        <select id="filterType" onchange="render()">
+          <option value="">Todos</option>
+          <option value="income">Receitas</option>
+          <option value="expense">Despesas</option>
+        </select>
+        <select id="filterCat" onchange="render()">
+          <option value="">Todas as categorias</option>
+          <option value="labor">Mão de obra</option>
+          <option value="material">Material</option>
+          <option value="marketing">Marketing</option>
+          <option value="admin">Administrativo</option>
+          <option value="project">Projeto</option>
+          <option value="other">Outro</option>
+        </select>
+        <input type="month" id="filterMonth" onchange="render()">
+      </div>
+
+      <div class="table-wrap" id="table-wrap">
+        <div class="loading"><div class="spinner"></div><div>Carregando...</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="closeIfOutside(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title" class="income">Nova Receita</h2>
+      <button class="btn btn-outline btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field form-full"><label>Descrição</label><input id="f-desc" placeholder="Ex: Pagamento reforma Johnson"></div>
+        <div class="field"><label>Valor (US$)</label><input type="number" id="f-amount" placeholder="0.00" min="0" step="0.01"></div>
+        <div class="field"><label>Data</label><input type="date" id="f-date"></div>
+        <div class="field"><label>Categoria</label>
+          <select id="f-category">
+            <option value="project">Projeto</option>
+            <option value="labor">Mão de obra</option>
+            <option value="material">Material</option>
+            <option value="marketing">Marketing</option>
+            <option value="admin">Administrativo</option>
+            <option value="other">Outro</option>
+          </select>
+        </div>
+        <div class="field"><label>Obra (opcional)</label><select id="f-project"><option value="">Nenhuma</option></select></div>
+        <div class="field form-full"><label>Referência / Número</label><input id="f-ref" placeholder="Ex: INV-001, cheque #123..."></div>
+        <div class="field form-full"><label>Observações</label><input id="f-notes" placeholder="Detalhes adicionais..."></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-delete" onclick="deleteTransaction()" style="display:none;margin-right:auto">Excluir</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save" onclick="saveTransaction()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let transactions = [], projects = [], editId = null, currentType = 'income';
+
+const catLabel = { project:'Projeto', labor:'Mão de obra', material:'Material', marketing:'Marketing', admin:'Administrativo', other:'Outro' };
+
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { window.location.href = '/login.html'; return; }
+  const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuário';
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+
+  // Set current month filter
+  const now = new Date();
+  document.getElementById('filterMonth').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  await Promise.all([loadProjects(), loadTransactions()]);
+}
+db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
+async function logout() { await db.auth.signOut(); }
+
+function fmtValor(v) { return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2}); }
+function fmtDate(d) { if(!d)return'—'; const[y,m,dia]=d.split('-'); return`${dia}/${m}/${y}`; }
+function showToast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+type; setTimeout(()=>t.className='toast',2800); }
+
+async function loadProjects() {
+  const { data } = await db.from('projects').select('id,name').order('name');
+  projects = data || [];
+  const sel = document.getElementById('f-project');
+  sel.innerHTML = '<option value="">Nenhuma</option>' + projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+}
+
+async function loadTransactions() {
+  const { data, error } = await db
+    .from('transactions')
+    .select('*, projects(name)')
+    .order('date', { ascending: false });
+  if (error) { showToast('Erro ao carregar','error'); return; }
+  transactions = data || [];
+  render();
+}
+
+function render() {
+  const s = document.getElementById('search').value.toLowerCase();
+  const ft = document.getElementById('filterType').value;
+  const fc = document.getElementById('filterCat').value;
+  const fm = document.getElementById('filterMonth').value;
+
+  let filtered = transactions.filter(t =>
+    (!s || t.description.toLowerCase().includes(s) || (t.reference||'').toLowerCase().includes(s)) &&
+    (!ft || t.type === ft) &&
+    (!fc || t.category === fc) &&
+    (!fm || t.date?.startsWith(fm))
+  );
+
+  // KPIs from filtered
+  const income  = filtered.filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
+  const expense = filtered.filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
+  const profit  = income - expense;
+  document.getElementById('k-income').textContent  = fmtValor(income);
+  document.getElementById('k-expense').textContent = fmtValor(expense);
+  document.getElementById('k-profit').textContent  = fmtValor(profit);
+  document.getElementById('k-profit').style.color  = profit >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('k-count').textContent   = filtered.length;
+
+  if (!filtered.length) {
+    document.getElementById('table-wrap').innerHTML = `
+      <div class="empty"><div class="empty-icon">💰</div>
+      <h3>Nenhuma transação encontrada</h3><p>Clique em "+ Receita" ou "+ Despesa" para começar.</p></div>`;
+    return;
+  }
+
+  document.getElementById('table-wrap').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Data</th><th>Descrição</th><th>Tipo</th>
+        <th>Categoria</th><th>Obra</th><th>Valor</th>
+      </tr></thead>
+      <tbody>${filtered.map(t=>`
+        <tr onclick="openModal('${t.type}','${t.id}')">
+          <td style="color:var(--muted);font-size:12px">${fmtDate(t.date)}</td>
+          <td style="font-weight:600">${t.description}</td>
+          <td><span class="type-badge type-${t.type}">${t.type==='income'?'↑ Receita':'↓ Despesa'}</span></td>
+          <td><span class="cat-badge">${catLabel[t.category]||t.category||'—'}</span></td>
+          <td style="font-size:12px;color:var(--muted)">${t.projects?.name||'—'}</td>
+          <td class="amount-${t.type}">${fmtValor(t.amount)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function openModal(type, id) {
+  editId = id || null;
+  currentType = type;
+  const t = id ? transactions.find(x=>x.id===id) : null;
+  const isIncome = (t?.type||type) === 'income';
+
+  document.getElementById('modal-title').textContent = t ? (isIncome?'Editar Receita':'Editar Despesa') : (isIncome?'Nova Receita':'Nova Despesa');
+  document.getElementById('modal-title').className = isIncome ? 'income' : 'expense';
+  document.getElementById('btn-save').className = `btn ${isIncome?'btn-income':'btn-expense'}`;
+  document.getElementById('f-desc').value = t?.description || '';
+  document.getElementById('f-amount').value = t?.amount || '';
+  document.getElementById('f-date').value = t?.date || new Date().toISOString().slice(0,10);
+  document.getElementById('f-category').value = t?.category || 'project';
+  document.getElementById('f-project').value = t?.project_id || '';
+  document.getElementById('f-ref').value = t?.reference || '';
+  document.getElementById('f-notes').value = t?.notes || '';
+  document.getElementById('btn-delete').style.display = t ? 'block' : 'none';
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('overlay').classList.remove('open'); editId=null; }
+function closeIfOutside(e) { if(e.target.id==='overlay') closeModal(); }
+
+async function saveTransaction() {
+  const description = document.getElementById('f-desc').value.trim();
+  const amount = parseFloat(document.getElementById('f-amount').value);
+  if (!description) { showToast('Informe a descrição.','error'); return; }
+  if (!amount || amount <= 0) { showToast('Informe o valor.','error'); return; }
+
+  const data = {
+    type: currentType,
+    description,
+    amount,
+    date: document.getElementById('f-date').value,
+    category: document.getElementById('f-category').value,
+    project_id: document.getElementById('f-project').value || null,
+    reference: document.getElementById('f-ref').value.trim(),
+    notes: document.getElementById('f-notes').value.trim(),
+  };
+
+  try {
+    if (editId) {
+      await db.from('transactions').update(data).eq('id', editId);
+      showToast('Atualizado!','success');
+    } else {
+      await db.from('transactions').insert(data);
+      showToast(currentType==='income'?'Receita lançada!':'Despesa lançada!','success');
+    }
+    closeModal();
+    await loadTransactions();
+  } catch(err) { showToast('Erro ao salvar.','error'); }
+}
+
+async function deleteTransaction() {
+  if (!confirm('Excluir esta transação?')) return;
+  await db.from('transactions').delete().eq('id', editId);
+  showToast('Excluído.','');
+  closeModal();
+  await loadTransactions();
+}
+
+init();
+</script>
+</body>
+</html>

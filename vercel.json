@@ -4,6 +4,7 @@
     { "source": "/dashboard", "destination": "/dashboard.html" },
     { "source": "/app", "destination": "/finetouch_crm_app.html" },
     { "source": "/quotes", "destination": "/quotes.html" },
-    { "source": "/projects", "destination": "/projects.html" }
+    { "source": "/projects", "destination": "/projects.html" },
+    { "source": "/financial", "destination": "/financial.html" }
   ]
 }
