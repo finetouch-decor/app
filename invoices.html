@@ -164,8 +164,8 @@
       <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
       <div class="nav-section">Vendas</div>
       <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
-      <a class="nav-item" href="#"><span class="icon">📄</span>Propostas</a>
-      <a class="nav-item" href="#"><span class="icon">📝</span>Contratos</a>
+      <a class="nav-item" href="#" style="opacity:0.4;pointer-events:none;cursor:default"><span class="icon">📄</span>Propostas</a>
+      <a class="nav-item" href="#" style="opacity:0.4;pointer-events:none;cursor:default"><span class="icon">📝</span>Contratos</a>
       <div class="nav-section">Operacional</div>
       <a class="nav-item" href="/projects"><span class="icon">🏗️</span>Obras</a>
       <a class="nav-item" href="/financial"><span class="icon">🛒</span>Compras</a>
@@ -176,6 +176,8 @@
       <div class="nav-section">Outros</div>
       <a class="nav-item" href="/marketing"><span class="icon">📣</span>Marketing</a>
       <a class="nav-item" href="/tasks"><span class="icon">✅</span>Tarefas</a>
+      <div class="nav-section">Admin</div>
+      <a class="nav-item" id="nav-users" href="/users" style="display:none"><span class="icon">👥</span>Usuários</a>
     </nav>
     <div class="sidebar-user">
       <div class="user-avatar" id="user-avatar">?</div>
@@ -316,6 +318,7 @@ async function init() {
   if (!session) { window.location.href = '/login.html'; return; }
   const { data: prof } = await db.from('user_profiles').select('status,role').eq('id', session.user.id).single();
   if (!prof || (prof.status !== 'approved' && prof.role !== 'admin')) { window.location.href = '/pending.html'; return; }
+  if (prof.role === 'admin') { const ul = document.getElementById('nav-users'); if(ul) ul.style.display='flex'; }
   const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuário';
   document.getElementById('user-name').textContent = name;
   document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
