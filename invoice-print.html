@@ -85,9 +85,15 @@
   @media print {
     body { background:white; }
     .toolbar { display:none; }
-    .page-wrap { padding:0; max-width:100%; }
+    .page-wrap { padding:0; max-width:210mm; margin:0; }
     .invoice { box-shadow:none; border-radius:0; }
-    @page { margin:0; size:A4; }
+    @page { margin:0; size:A4 portrait; }
+    /* Força fonte menor para caber em A4 */
+    .inv-header { padding:24px 32px; }
+    .inv-logo .fine, .inv-logo .touch { font-size:22px; }
+    .inv-body { padding:24px 32px; }
+    .bill-row { margin-bottom:16px; }
+    .items-table { margin-bottom:16px; }
   }
 </style>
 </head>
@@ -96,6 +102,7 @@
 <div class="page-wrap">
   <div class="toolbar">
     <button class="btn-back" onclick="window.history.back()">← Voltar</button>
+    <button class="btn-email" onclick="sendEmail()" id="btn-email" style="background:#2e6b3e;color:#fff;display:none">✉ Enviar por Email</button>
     <button class="btn-print" onclick="window.print()">🖨️ Salvar como PDF</button>
   </div>
   <div id="invoice-wrap">
@@ -244,6 +251,41 @@ async function load() {
       </div>
     </div>
   </div>`;
+
+  // Mostra botão de email se cliente tiver email
+  if (client.email) {
+    const btn = document.getElementById('btn-email');
+    if (btn) btn.style.display = 'inline-block';
+    // Guarda dados para o email
+    window._invData = { inv, client, amount };
+  }
+}
+
+function sendEmail() {
+  const { inv, client, amount } = window._invData || {};
+  if (!client?.email) return;
+
+  const subject = encodeURIComponent(`Invoice ${inv.invoice_number} — Fine Touch Decor & Design`);
+  const body = encodeURIComponent(
+`Dear ${client.name},
+
+Please find below your invoice details from Fine Touch Decor & Design.
+
+Invoice Number: ${inv.invoice_number}
+Issue Date: ${inv.issue_date || '—'}
+Due Date: ${inv.due_date || '—'}
+Amount Due: $${Number(amount).toLocaleString('en-US', {minimumFractionDigits:2})}
+
+${inv.notes ? 'Notes: ' + inv.notes + '\n\n' : ''}To view your invoice, please contact us at contact@ftdecordesign.com.
+
+Thank you for your business!
+
+Best regards,
+Fine Touch Decor & Design
+www.ftdecordesign.com`
+  );
+
+  window.location.href = `mailto:${client.email}?subject=${subject}&body=${body}`;
 }
 
 load();
