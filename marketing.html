@@ -11,8 +11,8 @@
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
   :root {
     --navy:#102A4B; --gold:#C69E63; --gold2:#C7B090;
-    --cream:#EAE6DA; --cream2:#F5F2EC; --white:#FFFFFF;
-    --border:#D8D2C4; --text:#1a1a1a; --muted:#7a7060;
+    --cream:#EAE6DA; --cream2:#F0F2F5; --white:#FFFFFF;
+    --border:#D8D2C4; --text:#1a1a1a; --muted:#64748B;
     --green:#2e6b3e; --red:#a03030;
     --shadow:0 2px 12px rgba(16,42,75,0.08);
     --safe-top:env(safe-area-inset-top); --safe-bottom:env(safe-area-inset-bottom);
@@ -141,11 +141,9 @@
 <body>
 <div class="app">
   <aside class="sidebar">
-    <div class="sidebar-logo">
-      <div class="logo-fine">FINE</div>
-      <div class="logo-touch">TOUCH</div>
-      <div class="logo-sub">Decor &amp; Design</div>
-    </div>
+    <div class="sidebar-logo" style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.08);">
+    <img src="/logo-dark-bg.png" alt="Fine Touch" style="height:44px;width:auto;display:block;">
+  </div>
     <nav class="sidebar-nav">
       <div class="nav-section">Principal</div>
       <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
