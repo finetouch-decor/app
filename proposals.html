@@ -490,7 +490,7 @@ async function saveProposal() {
   } else {
     ({ error } = await db.from('proposals').insert(data));
   }
-  if (error) { showToast('Error saving proposal.','error'); return; }
+  if (error) { showToast('Error: ' + (error.message || error.code || JSON.stringify(error)), 'error'); console.error(error); return; }
   showToast(editId ? 'Proposal updated!' : 'Proposal created!', 'success');
   closeModal();
   await loadProposals();
