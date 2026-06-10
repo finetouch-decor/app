@@ -83,17 +83,13 @@
 
   /* PRINT STYLES */
   @media print {
-    body { background:white; }
-    .toolbar { display:none; }
-    .page-wrap { padding:0; max-width:210mm; margin:0; }
-    .invoice { box-shadow:none; border-radius:0; }
     @page { margin:0; size:A4 portrait; }
-    /* Força fonte menor para caber em A4 */
-    .inv-header { padding:24px 32px; }
-    .inv-logo .fine, .inv-logo .touch { font-size:22px; }
-    .inv-body { padding:24px 32px; }
-    .bill-row { margin-bottom:16px; }
-    .items-table { margin-bottom:16px; }
+    html, body { width:210mm; height:297mm; background:white; }
+    .toolbar { display:none !important; }
+    .page-wrap { padding:0; max-width:210mm; width:210mm; margin:0; }
+    .invoice { box-shadow:none !important; border-radius:0 !important; width:100%; }
+    .inv-header { padding:28px 36px; }
+    .inv-body { padding:28px 36px; }
   }
 </style>
 </head>
