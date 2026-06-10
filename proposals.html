@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fine Touch — Proposals</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+:root {
+  --navy:#102A4B; --navy2:#1a3d6e; --gold:#C69E63; --gold2:#C7B090;
+  --cream:#EAE6DA; --cream2:#F5F2EC; --cream3:#FAFAF8; --white:#FFFFFF;
+  --border:rgba(16,42,75,0.1); --text:#1a1a1a; --muted:#7a7060;
+  --green:#2e6b3e; --green-bg:#f0f7eb; --red:#a03030; --red-bg:#fdf0f0;
+  --shadow:0 1px 4px rgba(0,0,0,0.06); --sidebar:220px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);display:flex;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar);background:var(--navy);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;}
+.sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,0.08);}
+.logo-ft{font-size:20px;font-weight:800;color:var(--cream);letter-spacing:1px;line-height:1;}
+.logo-ft span{color:var(--gold);}
+.logo-sub{font-size:9px;color:var(--gold2);letter-spacing:2px;text-transform:uppercase;margin-top:3px;}
+.sidebar-nav{flex:1;padding:16px 0;overflow-y:auto;}
+.nav-section{padding:8px 20px 4px;font-size:9px;font-weight:700;color:rgba(234,230,218,0.35);letter-spacing:1.5px;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;color:rgba(234,230,218,0.6);font-size:13px;font-weight:500;text-decoration:none;transition:all .15s;border-left:3px solid transparent;}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:var(--cream);}
+.nav-item.active{background:rgba(198,158,99,0.15);color:var(--gold);border-left-color:var(--gold);}
+.nav-item .icon{font-size:15px;width:20px;text-align:center;}
+.sidebar-user{padding:16px 20px;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px;}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--navy);flex-shrink:0;}
+.user-name{font-size:13px;font-weight:600;color:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-role{font-size:10px;color:var(--gold2);text-transform:uppercase;letter-spacing:1px;}
+.logout-btn{margin-left:auto;background:none;border:none;color:rgba(234,230,218,0.4);cursor:pointer;font-size:16px;}
+
+/* MAIN */
+.main{margin-left:var(--sidebar);flex:1;padding:32px;min-height:100vh;}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;}
+.page-title{font-size:22px;font-weight:800;color:var(--navy);}
+.page-sub{font-size:13px;color:var(--muted);margin-top:4px;}
+.btn{padding:10px 18px;border-radius:9px;border:none;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;transition:all .15s;}
+.btn-primary{background:var(--navy);color:var(--gold);}
+.btn-primary:hover{background:var(--navy2);}
+.btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--navy);}
+.btn-outline:hover{border-color:var(--navy);}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:28px;}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:16px 20px;box-shadow:var(--shadow);}
+.stat-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+.stat-value{font-size:26px;font-weight:800;color:var(--navy);}
+
+/* TABLE */
+.section-label{font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.section-label::after{content:'';flex:1;height:1px;background:rgba(198,158,99,0.25);}
+.proposals-table{background:var(--white);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);}
+.trow{display:grid;grid-template-columns:1fr 1.2fr 0.8fr 0.8fr auto;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--border);}
+.trow:last-child{border-bottom:none;}
+.trow.header{background:rgba(16,42,75,0.03);padding:10px 20px;}
+.trow.header span{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.trow:not(.header):hover{background:var(--cream2);cursor:pointer;}
+.p-title{font-size:14px;font-weight:600;color:var(--navy);}
+.p-client{font-size:12px;color:var(--muted);margin-top:2px;}
+.p-date{font-size:12px;color:var(--muted);}
+.p-value{font-size:14px;font-weight:700;color:var(--navy);}
+.badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+.badge-draft{background:rgba(16,42,75,0.08);color:var(--navy);}
+.badge-sent{background:rgba(198,158,99,0.2);color:#7a5c2e;}
+.badge-accepted{background:var(--green-bg);color:var(--green);}
+.badge-rejected{background:var(--red-bg);color:var(--red);}
+.row-actions{display:flex;gap:6px;}
+.btn-icon{padding:6px 10px;border-radius:7px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:13px;transition:all .15s;}
+.btn-icon:hover{border-color:var(--navy);background:var(--cream2);}
+.empty{text-align:center;padding:40px;color:var(--muted);font-size:13px;}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:200;display:none;align-items:center;justify-content:center;padding:20px;}
+.overlay.open{display:flex;}
+.modal{background:var(--white);border-radius:18px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.25);}
+.modal-header{padding:24px 28px 0;display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:18px;font-weight:800;color:var(--navy);}
+.modal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;line-height:1;}
+.modal-body{padding:20px 28px 28px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+.field input,.field select,.field textarea{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:9px;background:var(--cream2);color:var(--navy);font-family:'Inter',sans-serif;font-size:14px;outline:none;transition:border-color .15s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--gold);}
+.field textarea{resize:vertical;min-height:80px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.scope-item-row{display:flex;gap:8px;margin-bottom:8px;align-items:center;}
+.scope-item-row input{flex:1;}
+.scope-item-row button{padding:6px 10px;border-radius:7px;border:1.5px solid var(--border);background:transparent;cursor:pointer;color:var(--muted);font-size:14px;}
+.scope-item-row button:hover{background:var(--red-bg);border-color:var(--red);color:var(--red);}
+.btn-add-item{padding:8px 14px;border-radius:8px;border:1.5px dashed var(--gold2);background:transparent;color:var(--gold);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;width:100%;margin-top:4px;}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;padding:0 28px 28px;}
+
+/* TOAST */
+.toast{position:fixed;top:20px;right:20px;background:var(--navy);color:var(--cream);padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:all .3s;transform:translateY(-10px);}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.success{background:var(--green);}
+.toast.error{background:var(--red);}
+
+/* ─── PRINT / PROPOSAL VIEW ─────────────────────────────── */
+.print-overlay{position:fixed;inset:0;background:#e8e4da;z-index:300;display:none;overflow-y:auto;}
+.print-overlay.open{display:block;}
+.print-toolbar{background:var(--navy);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+.print-toolbar span{color:var(--cream);font-size:14px;font-weight:600;}
+.print-toolbar-btns{display:flex;gap:10px;}
+.btn-print{padding:8px 18px;border-radius:8px;border:none;background:var(--gold);color:var(--navy);font-weight:700;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;}
+.btn-close-print{padding:8px 18px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.3);background:transparent;color:var(--cream);font-weight:600;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;}
+
+/* PROPOSAL DOCUMENT */
+.proposal-doc{width:816px;min-height:1056px;margin:28px auto;background:#fff;position:relative;overflow:hidden;font-family:'Inter',sans-serif;box-shadow:0 8px 40px rgba(0,0,0,0.18);}
+
+/* Background texture */
+.proposal-doc::before{content:'';position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,rgba(198,158,99,0.03) 0px,rgba(198,158,99,0.03) 1px,transparent 1px,transparent 8px);pointer-events:none;}
+
+/* Right decorative element */
+.doc-deco{position:absolute;top:0;right:0;width:90px;height:100%;pointer-events:none;}
+.doc-deco svg{width:100%;height:100%;}
+
+/* Header */
+.doc-header{padding:36px 48px 28px;display:flex;align-items:flex-start;justify-content:space-between;position:relative;z-index:1;}
+.doc-logo{display:flex;align-items:center;gap:12px;}
+.doc-logo-icon{width:52px;height:52px;}
+.doc-logo-text .fine{font-size:22px;font-weight:900;color:var(--navy);letter-spacing:1px;line-height:1;display:block;}
+.doc-logo-text .touch{font-size:22px;font-weight:900;color:var(--gold);letter-spacing:1px;line-height:1;display:block;}
+.doc-logo-text .sub{font-size:8px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:2px;display:block;}
+.doc-title-block{text-align:right;}
+.doc-title-block .proposal-word{font-size:42px;font-weight:900;color:var(--navy);letter-spacing:2px;line-height:1;display:block;}
+.doc-title-block .proposal-date{font-size:13px;font-weight:700;color:var(--navy);margin-top:4px;display:block;}
+.doc-title-block .proposal-client{font-size:13px;font-weight:700;color:var(--navy);display:block;}
+
+/* Header divider */
+.doc-divider{margin:0 48px 28px;height:1.5px;background:linear-gradient(to right,var(--navy),rgba(16,42,75,0.1));position:relative;z-index:1;}
+
+/* Body */
+.doc-body{padding:0 48px 48px;position:relative;z-index:1;}
+.doc-section-title{font-size:15px;font-weight:800;color:var(--navy);margin-bottom:8px;margin-top:28px;}
+.doc-text{font-size:14px;color:#2a2a2a;line-height:1.7;}
+.doc-bullet{font-size:14px;color:#2a2a2a;line-height:1.8;padding-left:4px;}
+.doc-bullet::before{content:'• ';color:var(--navy);font-weight:700;}
+.doc-cost{font-size:15px;color:#2a2a2a;line-height:1.7;}
+.doc-note{font-size:14px;color:#2a2a2a;line-height:1.7;margin-top:20px;}
+.doc-thanks{font-size:14px;color:#2a2a2a;line-height:1.7;margin-top:24px;}
+
+/* Acceptance */
+.doc-acceptance{margin-top:40px;padding-top:28px;}
+.doc-acceptance-title{font-size:14px;font-weight:600;color:#2a2a2a;margin-bottom:16px;}
+.doc-sig-line{display:flex;align-items:flex-end;gap:12px;margin-bottom:12px;}
+.doc-sig-label{font-size:13px;color:#2a2a2a;white-space:nowrap;}
+.doc-sig-underline{flex:1;border-bottom:1.5px solid #2a2a2a;max-width:280px;}
+
+/* Footer */
+.doc-footer{position:absolute;bottom:28px;left:48px;right:120px;}
+.doc-footer a{font-size:12px;color:var(--navy);text-decoration:none;}
+.doc-footer a span{font-weight:700;}
+
+@media print {
+  .print-toolbar{display:none!important;}
+  .print-overlay{position:static;background:#fff;}
+  .proposal-doc{margin:0;box-shadow:none;width:100%;}
+  body{background:#fff;}
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-ft">FINE <span>TOUCH</span></div>
+    <div class="logo-sub">Decor &amp; Design</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Principal</div>
+    <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
+    <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
+    <div class="nav-section">Vendas</div>
+    <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
+    <a class="nav-item active" href="/proposals"><span class="icon">📄</span>Propostas</a>
+    <a class="nav-item" href="#" style="opacity:0.4;pointer-events:none;cursor:default"><span class="icon">📝</span>Contratos</a>
+    <div class="nav-section">Operacional</div>
+    <a class="nav-item" href="/projects"><span class="icon">🏗️</span>Obras</a>
+    <a class="nav-item" href="/financial"><span class="icon">🛒</span>Compras</a>
+    <a class="nav-item" href="/catalog"><span class="icon">📚</span>Catálogo</a>
+    <div class="nav-section">Financeiro</div>
+    <a class="nav-item" href="/financial"><span class="icon">💰</span>Financeiro</a>
+    <a class="nav-item" href="/invoices"><span class="icon">🧾</span>Invoices</a>
+    <div class="nav-section">Outros</div>
+    <a class="nav-item" href="/marketing"><span class="icon">📣</span>Marketing</a>
+    <a class="nav-item" href="/tasks"><span class="icon">✅</span>Tarefas</a>
+    <div class="nav-section">Admin</div>
+    <a class="nav-item" id="nav-users" href="/users" style="display:none"><span class="icon">👥</span>Usuários</a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-avatar" id="user-avatar">F</div>
+    <div>
+      <div class="user-name" id="user-name">...</div>
+      <div class="user-role">Fine Touch</div>
+    </div>
+    <button class="logout-btn" onclick="logout()">⏻</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Proposals</div>
+      <div class="page-sub">Create and manage client proposals</div>
+    </div>
+    <button class="btn btn-primary" onclick="openModal()">+ New Proposal</button>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value" id="s-total">—</div></div>
+    <div class="stat-card"><div class="stat-label">Sent</div><div class="stat-value" id="s-sent">—</div></div>
+    <div class="stat-card"><div class="stat-label">Accepted</div><div class="stat-value" id="s-accepted">—</div></div>
+    <div class="stat-card"><div class="stat-label">Value (accepted)</div><div class="stat-value" id="s-value">—</div></div>
+  </div>
+
+  <div class="section-label">All Proposals</div>
+  <div class="proposals-table" id="proposals-table">
+    <div class="empty">Loading...</div>
+  </div>
+</main>
+
+<!-- CREATE/EDIT MODAL -->
+<div class="overlay" id="overlay-form" onclick="closeIfOutside(event,'overlay-form')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">New Proposal</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="field"><label>Client Name</label><input type="text" id="f-client" placeholder="e.g. Tony & Doreen"></div>
+        <div class="field"><label>Project Name</label><input type="text" id="f-project" placeholder="e.g. Dining Room Trim"></div>
+      </div>
+      <div class="field"><label>Proposal Title</label><input type="text" id="f-title" placeholder="e.g. DECORATIVE WALL TRIM INSTALLATION"></div>
+      <div class="form-row">
+        <div class="field"><label>Date</label><input type="date" id="f-date"></div>
+        <div class="field"><label>Total Cost (USD)</label><input type="number" id="f-cost" placeholder="0.00" min="0" step="0.01"></div>
+      </div>
+      <div class="field"><label>Project Scope</label><textarea id="f-scope" placeholder="Brief description of the overall project scope..."></textarea></div>
+      <div class="field">
+        <label>Scope of Work (bullet points)</label>
+        <div id="scope-items"></div>
+        <button class="btn-add-item" onclick="addScopeItem()">+ Add item</button>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Project Duration</label><input type="text" id="f-duration" placeholder="e.g. 1–2 working days"></div>
+        <div class="field"><label>Status</label>
+          <select id="f-status">
+            <option value="draft">Draft</option>
+            <option value="sent">Sent</option>
+            <option value="accepted">Accepted</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProposal()">Save Proposal</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRINT VIEW -->
+<div class="print-overlay" id="print-overlay">
+  <div class="print-toolbar">
+    <span>Proposal Preview</span>
+    <div class="print-toolbar-btns">
+      <button class="btn-print" onclick="window.print()">🖨️ Print / Save PDF</button>
+      <button class="btn-close-print" onclick="closePrint()">✕ Close</button>
+    </div>
+  </div>
+  <div class="proposal-doc" id="proposal-doc">
+    <!-- Decorative right element -->
+    <div class="doc-deco">
+      <svg viewBox="0 0 90 1056" fill="none" preserveAspectRatio="none">
+        <path d="M90 0 C50 200, 20 400, 60 600 C90 750, 80 900, 90 1056 L90 0Z" fill="#C69E63" opacity="0.35"/>
+        <path d="M90 0 C65 150, 40 350, 75 550 C95 700, 85 850, 90 1056 L90 0Z" fill="#102A4B" opacity="0.6"/>
+        <path d="M90 80 C60 220, 35 420, 70 620 C92 760, 82 900, 90 1000" stroke="#C69E63" stroke-width="2.5" fill="none" opacity="0.7"/>
+      </svg>
+    </div>
+
+    <!-- Header -->
+    <div class="doc-header">
+      <div class="doc-logo">
+        <svg class="doc-logo-icon" viewBox="0 0 52 52" fill="none">
+          <circle cx="26" cy="26" r="26" fill="#102A4B"/>
+          <rect x="8" y="8" width="16" height="3" fill="#EAE6DA"/>
+          <rect x="8" y="8" width="3" height="16" fill="#EAE6DA"/>
+          <rect x="8" y="15" width="10" height="2.5" fill="#EAE6DA"/>
+          <rect x="18" y="28" width="16" height="3" fill="#C69E63"/>
+          <rect x="23" y="28" width="3" height="16" fill="#C69E63"/>
+        </svg>
+        <div class="doc-logo-text">
+          <span class="fine">FINE</span>
+          <span class="touch">TOUCH</span>
+          <span class="sub">Decor &amp; Design</span>
+        </div>
+      </div>
+      <div class="doc-title-block">
+        <span class="proposal-word">PROPOSAL</span>
+        <span class="proposal-date" id="doc-date"></span>
+        <span class="proposal-client" id="doc-client"></span>
+      </div>
+    </div>
+
+    <div class="doc-divider"></div>
+
+    <div class="doc-body">
+      <div class="doc-section-title" id="doc-title-text"></div>
+
+      <div class="doc-section-title" style="margin-top:24px;">Project Scope:</div>
+      <div class="doc-text" id="doc-scope"></div>
+
+      <div class="doc-section-title">Scope of Work:</div>
+      <div id="doc-items"></div>
+
+      <div class="doc-section-title">Project Duration:</div>
+      <div class="doc-text" id="doc-duration"></div>
+
+      <div class="doc-section-title">Investment:</div>
+      <div class="doc-cost" id="doc-cost"></div>
+
+      <div class="doc-note">This proposal includes all labor and materials necessary to complete the project as described above.</div>
+      <div class="doc-thanks">Thank you for the opportunity to work on your home.</div>
+
+      <div class="doc-acceptance">
+        <div class="doc-acceptance-title">Acceptance of Proposal</div>
+        <div class="doc-sig-line"><span class="doc-sig-label">Client Signature:</span><div class="doc-sig-underline"></div></div>
+        <div class="doc-sig-line"><span class="doc-sig-label">Date:</span><div class="doc-sig-underline" style="max-width:200px;"></div></div>
+      </div>
+    </div>
+
+    <div class="doc-footer">
+      <a href="http://www.ftdecordesign.com">www.<span>ftdecordesign</span>.com</a>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let proposals = [], editId = null, itemCount = 0;
+
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { window.location.href = '/login.html'; return; }
+  const { data: prof } = await db.from('user_profiles').select('status,role').eq('id', session.user.id).single();
+  if (!prof || (prof.status !== 'approved' && prof.role !== 'admin')) { window.location.href = '/pending.html'; return; }
+  if (prof.role === 'admin') { const ul = document.getElementById('nav-users'); if(ul) ul.style.display='flex'; }
+  const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User';
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+  await loadProposals();
+}
+
+db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
+async function logout() { await db.auth.signOut(); }
+
+async function loadProposals() {
+  const { data } = await db.from('proposals').select('*').order('created_at', {ascending:false});
+  proposals = data || [];
+  render();
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d+'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+}
+function fmtDateShort(d) {
+  if (!d) return '';
+  const dt = new Date(d+'T00:00:00');
+  return dt.toLocaleDateString('en-US', {month:'short', year:'numeric'}).toUpperCase();
+}
+function fmt(v) { return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2}); }
+
+const statusLabel = { draft:'Draft', sent:'Sent', accepted:'Accepted', rejected:'Rejected' };
+const statusBadge = { draft:'badge-draft', sent:'badge-sent', accepted:'badge-accepted', rejected:'badge-rejected' };
+
+function render() {
+  const total    = proposals.length;
+  const sent     = proposals.filter(p=>p.status==='sent').length;
+  const accepted = proposals.filter(p=>p.status==='accepted').length;
+  const value    = proposals.filter(p=>p.status==='accepted').reduce((s,p)=>s+Number(p.total_cost||0),0);
+
+  document.getElementById('s-total').textContent    = total;
+  document.getElementById('s-sent').textContent     = sent;
+  document.getElementById('s-accepted').textContent = accepted;
+  document.getElementById('s-value').textContent    = '$'+Math.round(value/1000)+'k';
+
+  if (!proposals.length) {
+    document.getElementById('proposals-table').innerHTML = '<div class="empty">No proposals yet. Create your first one!</div>';
+    return;
+  }
+
+  const header = `<div class="trow header">
+    <span>Proposal</span><span>Client / Project</span><span>Date</span><span>Value</span><span>Actions</span>
+  </div>`;
+
+  document.getElementById('proposals-table').innerHTML = header + proposals.map(p => `
+    <div class="trow" onclick="openPrint('${p.id}')">
+      <div><div class="p-title">${p.title||'Untitled'}</div></div>
+      <div><div class="p-title">${p.client_name||'—'}</div><div class="p-client">${p.project_name||''}</div></div>
+      <div class="p-date">${fmtDate(p.date)}</div>
+      <div class="p-value">${fmt(p.total_cost)}</div>
+      <div class="row-actions" onclick="event.stopPropagation()">
+        <span class="badge ${statusBadge[p.status]||'badge-draft'}">${statusLabel[p.status]||p.status}</span>
+        <button class="btn-icon" onclick="openEdit('${p.id}')" title="Edit">✏️</button>
+        <button class="btn-icon" onclick="openPrint('${p.id}')" title="Preview">👁️</button>
+        <button class="btn-icon" onclick="deleteProposal('${p.id}')" title="Delete">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+// ─── MODAL ───────────────────────────────────────────────────
+function openModal(data=null) {
+  editId = data ? data.id : null;
+  document.getElementById('modal-title').textContent = data ? 'Edit Proposal' : 'New Proposal';
+  document.getElementById('f-client').value   = data?.client_name || '';
+  document.getElementById('f-project').value  = data?.project_name || '';
+  document.getElementById('f-title').value    = data?.title || '';
+  document.getElementById('f-date').value     = data?.date || new Date().toISOString().slice(0,10);
+  document.getElementById('f-cost').value     = data?.total_cost || '';
+  document.getElementById('f-scope').value    = data?.project_scope || '';
+  document.getElementById('f-duration').value = data?.duration || '';
+  document.getElementById('f-status').value   = data?.status || 'draft';
+
+  // Scope items
+  const items = data?.scope_items || [];
+  document.getElementById('scope-items').innerHTML = '';
+  itemCount = 0;
+  if (items.length) { items.forEach(t => addScopeItem(t)); }
+  else { addScopeItem(); addScopeItem(); }
+
+  document.getElementById('overlay-form').classList.add('open');
+}
+
+function openEdit(id) {
+  const p = proposals.find(x=>x.id===id);
+  if (p) openModal(p);
+}
+
+function closeModal() { document.getElementById('overlay-form').classList.remove('open'); }
+function closeIfOutside(e, id) { if(e.target.id===id) closeModal(); }
+
+function addScopeItem(text='') {
+  const id = 'si-'+itemCount++;
+  const row = document.createElement('div');
+  row.className='scope-item-row'; row.id=id;
+  row.innerHTML=`<input type="text" placeholder="e.g. Supply and installation of trim boards" value="${text}">
+    <button onclick="document.getElementById('${id}').remove()">✕</button>`;
+  document.getElementById('scope-items').appendChild(row);
+}
+
+function getScopeItems() {
+  return [...document.querySelectorAll('.scope-item-row input')]
+    .map(i=>i.value.trim()).filter(Boolean);
+}
+
+async function saveProposal() {
+  const data = {
+    client_name:   document.getElementById('f-client').value.trim(),
+    project_name:  document.getElementById('f-project').value.trim(),
+    title:         document.getElementById('f-title').value.trim(),
+    date:          document.getElementById('f-date').value,
+    total_cost:    parseFloat(document.getElementById('f-cost').value)||0,
+    project_scope: document.getElementById('f-scope').value.trim(),
+    scope_items:   getScopeItems(),
+    duration:      document.getElementById('f-duration').value.trim(),
+    status:        document.getElementById('f-status').value,
+  };
+  if (!data.client_name || !data.title) { showToast('Fill in client name and title.','error'); return; }
+
+  let error;
+  if (editId) {
+    ({ error } = await db.from('proposals').update(data).eq('id', editId));
+  } else {
+    ({ error } = await db.from('proposals').insert(data));
+  }
+  if (error) { showToast('Error saving proposal.','error'); return; }
+  showToast(editId ? 'Proposal updated!' : 'Proposal created!', 'success');
+  closeModal();
+  await loadProposals();
+}
+
+async function deleteProposal(id) {
+  if (!confirm('Delete this proposal?')) return;
+  await db.from('proposals').delete().eq('id', id);
+  showToast('Proposal deleted.','');
+  await loadProposals();
+}
+
+// ─── PRINT VIEW ──────────────────────────────────────────────
+function openPrint(id) {
+  const p = proposals.find(x=>x.id===id);
+  if (!p) return;
+
+  document.getElementById('doc-date').textContent   = fmtDateShort(p.date);
+  document.getElementById('doc-client').textContent = (p.client_name||'') + (p.project_name?' – '+p.project_name:'');
+  document.getElementById('doc-title-text').textContent = 'PROPOSAL – ' + (p.title||'').toUpperCase();
+  document.getElementById('doc-scope').textContent  = p.project_scope||'';
+  document.getElementById('doc-duration').textContent = 'Estimated completion time: ' + (p.duration||'—');
+  document.getElementById('doc-cost').textContent   = 'Total Project Cost: ' + fmt(p.total_cost);
+
+  const items = p.scope_items || [];
+  document.getElementById('doc-items').innerHTML = items.map(t=>`<div class="doc-bullet">${t}</div>`).join('');
+
+  document.getElementById('print-overlay').classList.add('open');
+}
+
+function closePrint() { document.getElementById('print-overlay').classList.remove('open'); }
+
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',3000);
+}
+
+init();
+</script>
+</body>
+</html>

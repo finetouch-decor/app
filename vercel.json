@@ -11,6 +11,7 @@
     { "source": "/invoice-print", "destination": "/invoice-print.html" },
     { "source": "/marketing", "destination": "/marketing.html" },
     { "source": "/catalog", "destination": "/catalog.html" },
+    { "source": "/proposals", "destination": "/proposals.html" },
     { "source": "/pending", "destination": "/pending.html" },
     { "source": "/users", "destination": "/users.html" }
   ]
