@@ -405,6 +405,8 @@ function render() {
       <div class="p-value">${fmt(p.total_cost)}</div>
       <div class="row-actions" onclick="event.stopPropagation()">
         <span class="badge ${statusBadge[p.status]||'badge-draft'}">${statusLabel[p.status]||p.status}</span>
+        ${p.status!=='accepted'&&p.status!=='rejected' ? `<button class="btn-icon" style="background:#f0fdf4;border-color:#16a34a;color:#16a34a;font-size:11px;font-weight:700;padding:5px 10px;" onclick="approveProposal('${p.id}')" title="Aprovar proposta">✅ Aprovar</button>` : ''}
+        ${p.status==='accepted' ? `<button class="btn-icon" style="background:#eff6ff;border-color:#2563eb;color:#2563eb;font-size:11px;font-weight:700;padding:5px 10px;" onclick="generateInvoice('${p.id}')" title="Gerar Invoice">🧾 Invoice</button>` : ''}
         <button class="btn-icon" onclick="openEdit('${p.id}')" title="Edit">✏️</button>
         <button class="btn-icon" onclick="openPrint('${p.id}')" title="Preview">👁️</button>
         <button class="btn-icon" onclick="deleteProposal('${p.id}')" title="Delete">🗑️</button>
@@ -488,6 +490,47 @@ async function deleteProposal(id) {
   await db.from('proposals').delete().eq('id', id);
   showToast('Proposal deleted.','');
   await loadProposals();
+}
+
+// ─── APROVAR PROPOSTA ────────────────────────────────────────
+async function approveProposal(id) {
+  const p = proposals.find(x=>x.id===id);
+  if (!p) return;
+  if (!confirm(`Aprovar a proposta "${p.title||p.client_name}"?\n\nIsso vai marcar como aceita e liberar a geração de Invoice.`)) return;
+  const { error } = await db.from('proposals').update({ status:'accepted' }).eq('id', id);
+  if (error) { showToast('Erro ao aprovar: '+error.message, 'error'); return; }
+  showToast('✅ Proposta aprovada!', 'success');
+  await loadProposals();
+}
+
+// ─── GERAR INVOICE ────────────────────────────────────────────
+async function generateInvoice(id) {
+  const p = proposals.find(x=>x.id===id);
+  if (!p) return;
+
+  // Busca cliente pelo nome para pegar o client_id
+  const { data: clients } = await db.from('clients').select('id,name').ilike('name', p.client_name||'');
+  const clientId = clients?.[0]?.id || null;
+
+  const today = new Date();
+  const due   = new Date(today); due.setDate(due.getDate()+30);
+
+  const invNum = 'INV-' + Date.now().toString().slice(-5);
+  const payload = {
+    invoice_number: invNum,
+    client_id:      clientId,
+    status:         'sent',
+    issue_date:     today.toISOString().slice(0,10),
+    due_date:       due.toISOString().slice(0,10),
+    subtotal:       Number(p.total_cost)||0,
+    total:          Number(p.total_cost)||0,
+    notes:          `Invoice referente à proposta: ${p.title||p.client_name||''}`,
+  };
+
+  const { error } = await db.from('invoices').insert(payload);
+  if (error) { showToast('Erro ao gerar invoice: '+error.message, 'error'); return; }
+  showToast('🧾 Invoice criada! Redirecionando...', 'success');
+  setTimeout(()=>window.location.href='/invoices', 1500);
 }
 
 // ─── PRINT VIEW ──────────────────────────────────────────────
