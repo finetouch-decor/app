@@ -424,7 +424,10 @@ function render() {
         <div class="inv-amount">${fmt(amount)}</div>
         <div class="inv-amount-label">${i.quotes?.quote_number?'de '+fmt(i.quotes.total):''}</div>
       </div>
-      <button class="btn btn-outline btn-sm" onclick="printInvoice('${i.id}')" title="Gerar PDF" style="flex-shrink:0">🖨️ PDF</button>
+      <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
+        ${i.status!=='paid' ? `<button class="btn btn-sm" onclick="markPaid('${i.id}')" style="background:#f0fdf4;border:1px solid #16a34a;color:#16a34a;font-weight:700;">✅ Recebido</button>` : `<span style="font-size:11px;color:#16a34a;font-weight:700;">✓ Pago em ${fmtDate(i.paid_date)}</span>`}
+        <button class="btn btn-outline btn-sm" onclick="printInvoice('${i.id}')" title="Gerar PDF" style="flex-shrink:0">🖨️ PDF</button>
+      </div>
     </div>`;
   }).join('')}</div>`;
 }
@@ -546,6 +549,37 @@ async function saveManualInvoice() {
     closeOverlay('overlay-manual');
     await loadAll();
   } catch(err) { showToast('Erro ao salvar.','error'); }
+}
+
+// ─── MARCAR COMO PAGA ────────────────────────────────────────
+async function markPaid(id) {
+  const inv = invoices.find(i=>i.id===id);
+  if (!inv) return;
+  const clientName = inv.clients?.name || inv.invoice_number;
+  if (!confirm(`Confirmar recebimento de ${fmt(Number(inv.total||inv.subtotal||0))} de ${clientName}?`)) return;
+
+  const today = new Date().toISOString().slice(0,10);
+
+  // 1. Atualiza invoice para paga
+  const { error } = await db.from('invoices').update({
+    status: 'paid',
+    paid_date: today
+  }).eq('id', id);
+
+  if (error) { showToast('Erro: '+error.message, 'error'); return; }
+
+  // 2. Lança automaticamente no financeiro (transactions)
+  await db.from('transactions').insert({
+    type:        'income',
+    amount:      Number(inv.total||inv.subtotal||0),
+    date:        today,
+    category:    'Projeto',
+    description: `Recebimento invoice ${inv.invoice_number} — ${clientName}`,
+    reference:   inv.invoice_number,
+  });
+
+  showToast('✅ Invoice marcada como paga e lançada no financeiro!', 'success');
+  await loadAll();
 }
 
 async function deleteInvoice() {
