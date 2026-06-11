@@ -2,249 +2,307 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#102A4B">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fine Touch — Obras</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-  :root {
-    --navy:#102A4B; --gold:#C69E63; --gold2:#C7B090;
-    --cream:#EAE6DA; --cream2:#F7F8FA; --white:#FFFFFF;
-    --border:#D8D2C4; --text:#1a1a1a; --muted:#64748B;
-    --green:#2e6b3e; --red:#a03030;
-    --shadow:0 2px 12px rgba(16,42,75,0.08);
-    --safe-top:env(safe-area-inset-top); --safe-bottom:env(safe-area-inset-bottom);
-  }
-  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body { height:100%; font-family:'Inter',sans-serif; background:var(--cream2); color:var(--text); }
-  .app { display:flex; height:100%; }
-
-  /* SIDEBAR */
-  .sidebar { width:220px; flex-shrink:0; background:var(--navy); display:flex; flex-direction:column; padding-top:calc(var(--safe-top)); }
-  .sidebar-logo { padding:24px 20px 20px; border-bottom:1px solid rgba(255,255,255,0.08); }
-  .logo-fine { font-size:20px; font-weight:800; color:var(--cream); letter-spacing:1px; line-height:1; }
-  .logo-touch { font-size:20px; font-weight:800; color:var(--gold); letter-spacing:1px; line-height:1; }
-  .logo-sub { font-size:9px; color:var(--gold2); letter-spacing:2px; text-transform:uppercase; margin-top:3px; }
-  .sidebar-nav { flex:1; padding:12px 0; overflow-y:auto; }
-  .nav-section { padding:12px 16px 6px; font-size:9px; font-weight:700; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1.5px; }
-  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 16px; color:rgba(255,255,255,0.6); font-size:13px; font-weight:500; cursor:pointer; border-left:3px solid transparent; transition:all .15s; text-decoration:none; }
-  .nav-item:hover { color:var(--cream); background:rgba(255,255,255,0.06); }
-  .nav-item.active { color:var(--gold); border-left-color:var(--gold); background:rgba(198,158,99,0.1); }
-  .nav-item .icon { font-size:16px; width:20px; text-align:center; flex-shrink:0; }
-  .sidebar-user { padding:14px 16px calc(14px + var(--safe-bottom)); border-top:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; gap:10px; }
-  .user-avatar { width:32px; height:32px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--navy); flex-shrink:0; }
-  .user-name { font-size:12px; font-weight:600; color:var(--cream); }
-  .user-role { font-size:10px; color:var(--gold2); }
-  .btn-logout { margin-left:auto; background:none; border:none; color:rgba(255,255,255,0.4); cursor:pointer; font-size:16px; }
-
-  /* MAIN */
-  .main { flex:1; overflow-y:auto; display:flex; flex-direction:column; min-width:0; }
-  .topbar { background:var(--white); border-bottom:1px solid var(--border); padding:calc(var(--safe-top) + 16px) 28px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
-  .topbar h1 { font-size:20px; font-weight:700; color:var(--navy); }
-  .btn { padding:9px 16px; border-radius:8px; border:none; cursor:pointer; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; transition:all .2s; white-space:nowrap; }
-  .btn-primary { background:var(--navy); color:var(--cream); }
-  .btn-outline { background:transparent; color:var(--navy); border:1.5px solid var(--border); }
-  .btn-danger { background:#a0303010; color:var(--red); border:1.5px solid #a0303030; }
-  .btn-sm { padding:6px 12px; font-size:12px; }
-  .btn-gold { background:var(--gold); color:var(--white); }
-
-  /* CONTENT */
-  .content { padding:24px 28px; flex:1; }
-  .filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
-  .filters input, .filters select { background:var(--white); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:13px; outline:none; }
-  .filters input { min-width:200px; }
-
-  /* CARDS GRID */
-  .projects-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
-  .project-card { background:var(--white); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); cursor:pointer; transition:all .2s; }
-  .project-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(16,42,75,0.12); }
-  .card-top { padding:16px 18px 12px; }
-  .card-number { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
-  .card-name { font-size:16px; font-weight:700; color:var(--navy); margin-bottom:4px; }
-  .card-client { font-size:12px; color:var(--muted); }
-  .card-meta { padding:10px 18px; border-top:1px solid var(--border); background:var(--cream2); display:flex; justify-content:space-between; align-items:center; }
-  .card-location { font-size:12px; color:var(--muted); }
-  .card-budget { font-size:14px; font-weight:700; color:var(--navy); }
-
-  /* STAGES */
-  .stages-wrap { padding:12px 18px; border-top:1px solid var(--border); }
-  .stages-label { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; margin-bottom:8px; }
-  .stages-list { display:flex; flex-direction:column; gap:5px; }
-  .stage-item { display:flex; align-items:center; gap:8px; font-size:12px; }
-  .stage-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-  .stage-dot.pending { background:var(--border); }
-  .stage-dot.in_progress { background:var(--gold); }
-  .stage-dot.completed { background:var(--green); }
-  .stage-name { color:var(--text); flex:1; }
-  .stage-status { font-size:10px; font-weight:600; color:var(--muted); }
-
-  /* BADGES */
-  .badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
-  .b-planning  { background:#102A4B15; color:var(--navy); }
-  .b-active    { background:#C69E6318; color:#8a6520; }
-  .b-paused    { background:#88888815; color:#666; }
-  .b-completed { background:#2e6b3e18; color:var(--green); }
-  .b-cancelled { background:#a0303018; color:var(--red); }
-
-  /* EMPTY */
-  .empty { text-align:center; color:var(--muted); padding:60px 20px; }
-  .empty-icon { font-size:40px; margin-bottom:12px; }
-  .empty h3 { font-size:16px; font-weight:600; margin-bottom:6px; }
-
-  /* MODAL */
-  .overlay { display:none; position:fixed; inset:0; background:rgba(16,42,75,0.5); z-index:200; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto; }
-  .overlay.open { display:flex; }
-  .modal { background:var(--cream2); border-radius:16px; width:100%; max-width:680px; margin:auto; box-shadow:0 24px 80px rgba(0,0,0,0.2); animation:fadeUp .25s ease; }
-  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-  .modal-header { padding:20px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-  .modal-header h2 { font-size:18px; font-weight:700; color:var(--navy); }
-  .modal-body { padding:24px; }
-  .modal-footer { padding:16px 24px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; }
-
-  /* FORM */
-  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  .form-full { grid-column:1/-1; }
-  .field label { display:block; font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:5px; }
-  .field input, .field select, .field textarea { width:100%; background:var(--white); border:1.5px solid var(--border); color:var(--text); padding:10px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:14px; outline:none; }
-  .field input:focus, .field select:focus, .field textarea:focus { border-color:var(--gold); }
-  .section-title { font-size:13px; font-weight:700; color:var(--navy); margin:20px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-
-  /* STAGES EDITOR */
-  .stage-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-  .stage-row input { flex:1; background:var(--white); border:1.5px solid var(--border); border-radius:8px; padding:8px 10px; font-family:'Inter',sans-serif; font-size:13px; outline:none; }
-  .stage-row input:focus { border-color:var(--gold); }
-  .stage-row select { background:var(--white); border:1.5px solid var(--border); border-radius:8px; padding:8px 10px; font-family:'Inter',sans-serif; font-size:13px; outline:none; color:var(--text); }
-  .stage-row .item-del { background:none; border:none; color:var(--muted); cursor:pointer; font-size:16px; padding:4px; }
-  .stage-row .item-del:hover { color:var(--red); }
-
-  /* PROGRESS BAR */
-  .progress-wrap { padding:0 18px 14px; }
-  .progress-bar { background:var(--cream2); border-radius:4px; height:5px; overflow:hidden; }
-  .progress-fill { height:100%; background:var(--gold); border-radius:4px; transition:width .4s; }
-  .progress-label { font-size:10px; color:var(--muted); margin-top:4px; }
-
-  .loading { text-align:center; color:var(--muted); padding:40px; }
-  .spinner { width:28px; height:28px; border:2px solid var(--border); border-top-color:var(--navy); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 8px; }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  .toast { position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-10px); background:var(--navy); color:var(--cream); padding:10px 20px; border-radius:30px; font-size:13px; font-weight:600; z-index:400; opacity:0; transition:all .3s; white-space:nowrap; }
-  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
-  .toast.success { background:#2e6b3e; }
-  .toast.error { background:#a03030; }
-
-  @media(max-width:768px) {
-    .sidebar { display:none; }
-    .content { padding:16px; }
-    .topbar { padding:calc(var(--safe-top)+12px) 16px 12px; }
-    .form-grid { grid-template-columns:1fr; }
-  }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+:root {
+  --navy:#102A4B; --gold:#C69E63; --gold2:#C7B090;
+  --white:#FFFFFF; --bg:#F7F8FA; --border:rgba(15,23,42,0.08);
+  --text:#0F172A; --muted:#64748B;
+  --green:#16a34a; --green-bg:#f0fdf4;
+  --red:#dc2626;   --red-bg:#fef2f2;
+  --amber:#d97706; --amber-bg:#fffbeb;
+  --blue:#2563eb;  --blue-bg:#eff6ff;
+  --shadow:0 1px 3px rgba(0,0,0,0.06);
+  --sidebar:240px; --radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;}
+.sidebar{width:var(--sidebar);background:var(--navy);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto;}
+.sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,0.1);}
+.sidebar-logo img{width:100%;max-width:180px;height:auto;display:block;}
+.sidebar-nav{flex:1;padding:12px 0;}
+.nav-section{padding:16px 20px 6px;font-size:9px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:2px;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;color:rgba(255,255,255,0.55);font-size:13px;font-weight:500;text-decoration:none;transition:all .15s;}
+.nav-item:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.9);}
+.nav-item.active{background:rgba(198,158,99,0.15);color:var(--gold);border-right:3px solid var(--gold);}
+.nav-item.dim{opacity:0.3;pointer-events:none;}
+.nav-item .icon{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+.sidebar-user{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px;}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--navy);flex-shrink:0;}
+.user-info{flex:1;min-width:0;}
+.user-name{font-size:12px;font-weight:600;color:rgba(255,255,255,0.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-role{font-size:10px;color:var(--gold2);text-transform:uppercase;letter-spacing:1px;}
+.btn-logout{background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:15px;padding:4px;}
+.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
+.topbar h1{font-size:18px;font-weight:700;color:var(--navy);}
+.topbar p{font-size:12px;color:var(--muted);margin-top:1px;}
+.content{padding:28px 32px;flex:1;}
+.btn{padding:9px 18px;border-radius:8px;border:none;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;}
+.btn-primary{background:var(--navy);color:var(--white);}
+.btn-primary:hover{background:#1a3d6e;}
+.btn-gold{background:var(--gold);color:var(--white);}
+.btn-gold:hover{background:#b8883a;}
+.btn-sm{padding:6px 12px;font-size:12px;}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+.btn-ghost:hover{background:var(--bg);}
+.btn-success{background:var(--green-bg);color:var(--green);border:1px solid rgba(22,163,74,.2);font-weight:700;}
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+.kpi{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);}
+.kpi-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+.kpi-value{font-size:22px;font-weight:800;color:var(--navy);}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.kpi.t-navy{border-top:3px solid var(--navy);}
+.kpi.t-amber{border-top:3px solid var(--amber);}
+.kpi.t-green{border-top:3px solid var(--green);}
+.kpi.t-gold{border-top:3px solid var(--gold);}
+.toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.toolbar-left{display:flex;gap:10px;}
+.search-input{padding:9px 14px;border:1px solid var(--border);border-radius:8px;background:var(--white);font-size:13px;font-family:'Inter',sans-serif;outline:none;width:220px;}
+.search-input:focus{border-color:var(--gold);}
+.filter-select{padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white);font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--text);cursor:pointer;}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;}
+.project-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);transition:box-shadow .15s;}
+.project-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08);}
+.pc-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.pc-name{font-size:14px;font-weight:700;color:var(--navy);}
+.pc-client{font-size:11px;color:var(--muted);margin-top:2px;}
+.pc-body{padding:14px 16px;}
+.pc-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px;border-bottom:1px solid var(--border);}
+.pc-row:last-child{border-bottom:none;}
+.pc-row .label{color:var(--muted);}
+.pc-row .val{font-weight:700;color:var(--navy);}
+.resultado-box{margin:12px 16px;border-radius:10px;padding:12px 14px;}
+.resultado-box.lucro{background:var(--green-bg);border:1px solid rgba(22,163,74,.2);}
+.resultado-box.prejuizo{background:var(--red-bg);border:1px solid rgba(220,38,38,.15);}
+.resultado-box.aberta{background:var(--amber-bg);border:1px solid rgba(217,119,6,.2);}
+.resultado-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+.resultado-val{font-size:22px;font-weight:800;}
+.resultado-box.lucro .resultado-label,.resultado-box.lucro .resultado-val{color:var(--green);}
+.resultado-box.prejuizo .resultado-label,.resultado-box.prejuizo .resultado-val{color:var(--red);}
+.resultado-box.aberta .resultado-label,.resultado-box.aberta .resultado-val{color:var(--amber);}
+.pc-footer{padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px;background:var(--bg);align-items:center;}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.b-planning{background:#F1F5F9;color:#475569;}
+.b-active{background:var(--blue-bg);color:var(--blue);}
+.b-completed{background:var(--green-bg);color:var(--green);}
+.b-paused{background:var(--amber-bg);color:var(--amber);}
+.b-cancelled{background:var(--red-bg);color:var(--red);}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--white);border-radius:16px;width:100%;max-width:700px;margin:auto;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.2);}
+.modal-header{background:var(--navy);padding:20px 28px;display:flex;align-items:center;justify-content:space-between;}
+.modal-header h2{font-size:16px;font-weight:700;color:var(--white);}
+.modal-header p{font-size:12px;color:var(--gold2);margin-top:2px;}
+.modal-close{background:none;border:none;color:rgba(255,255,255,0.5);font-size:20px;cursor:pointer;padding:4px;}
+.modal-close:hover{color:var(--white);}
+.modal-body{padding:24px 28px;max-height:82vh;overflow-y:auto;}
+.modal-footer{padding:16px 28px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;background:var(--bg);}
+.form-section{margin-bottom:22px;}
+.form-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:14px;}
+.form-grid{display:grid;gap:12px;}
+.col-2{grid-template-columns:1fr 1fr;}
+.col-3{grid-template-columns:1fr 1fr 1fr;}
+label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;}
+input,select,textarea{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white);font-family:'Inter',sans-serif;font-size:13px;color:var(--text);outline:none;transition:border-color .15s;}
+input:focus,select:focus,textarea:focus{border-color:var(--gold);}
+textarea{resize:vertical;min-height:60px;}
+.fechamento-box{background:var(--navy);border-radius:12px;padding:20px;margin-top:4px;}
+.fech-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.08);}
+.fech-row:last-child{border-bottom:none;}
+.fech-row .fl{color:rgba(255,255,255,0.55);}
+.fech-row .fv{font-weight:700;color:var(--white);}
+.fech-row.result{margin-top:8px;padding-top:12px;border-top:2px solid rgba(255,255,255,0.2)!important;border-bottom:none!important;}
+.fech-row.result .fl{font-weight:700;color:var(--gold2);text-transform:uppercase;font-size:11px;letter-spacing:1px;}
+.fech-row.result .fv{font-size:24px;font-weight:800;}
+.fech-row.result .fv.pos{color:#4ade80;}
+.fech-row.result .fv.neg{color:#f87171;}
+.fech-margin{text-align:right;margin-top:6px;font-size:11px;color:rgba(255,255,255,0.35);}
+.empty{text-align:center;padding:60px 24px;color:var(--muted);}
+.empty .ico{font-size:40px;margin-bottom:12px;}
+.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .8s linear infinite;margin:40px auto;display:block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:500;transform:translateY(10px);opacity:0;transition:all .3s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{background:#1a3d6e;color:var(--white);}
+.toast.error{background:var(--red);color:var(--white);}
 </style>
 </head>
 <body>
-<div class="app">
-  <aside class="sidebar">
-    <div class="sidebar-logo" style="padding:20px 16px 16px;border-bottom:1px solid rgba(255,255,255,0.08);">
-    <img src="/logo-dark-bg.png" alt="Fine Touch" style="height:64px;width:auto;display:block;max-width:100%;">
+<aside class="sidebar">
+  <div class="sidebar-logo"><img src="/logo-dark-bg.png" alt="Fine Touch"></div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Principal</div>
+    <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
+    <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
+    <div class="nav-section">Vendas</div>
+    <a class="nav-item" href="/proposals"><span class="icon">📄</span>Propostas</a>
+    <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
+    <a class="nav-item dim"><span class="icon">📝</span>Contratos</a>
+    <div class="nav-section">Operacional</div>
+    <a class="nav-item active" href="/projects"><span class="icon">🏗️</span>Obras</a>
+    <a class="nav-item" href="/purchases"><span class="icon">🛒</span>Compras</a>
+    <a class="nav-item" href="/catalog"><span class="icon">📚</span>Catálogo</a>
+    <div class="nav-section">Financeiro</div>
+    <a class="nav-item" href="/financial"><span class="icon">💰</span>Financeiro</a>
+    <a class="nav-item" href="/invoices"><span class="icon">🧾</span>Invoices</a>
+    <div class="nav-section">Outros</div>
+    <a class="nav-item" href="/marketing"><span class="icon">📣</span>Marketing</a>
+    <a class="nav-item" href="/tasks"><span class="icon">✅</span>Tarefas</a>
+    <div class="nav-section">Admin</div>
+    <a class="nav-item" id="nav-users" href="/users" style="display:none"><span class="icon">👥</span>Usuários</a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-avatar" id="user-avatar">?</div>
+    <div class="user-info">
+      <div class="user-name" id="user-name">...</div>
+      <div class="user-role" id="user-role">Usuário</div>
+    </div>
+    <button class="btn-logout" onclick="logout()">⏻</button>
   </div>
-    <nav class="sidebar-nav">
-      <div class="nav-section">Principal</div>
-      <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
-      <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
-      <div class="nav-section">Vendas</div>
-      <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
-      <a class="nav-item" href="/proposals"><span class="icon">📄</span>Propostas</a>
-      <a class="nav-item" href="#" style="opacity:0.4;pointer-events:none;cursor:default"><span class="icon">📝</span>Contratos</a>
-      <div class="nav-section">Operacional</div>
-      <a class="nav-item active" href="/projects"><span class="icon">🏗️</span>Obras</a>
-      <a class="nav-item" href="/financial"><span class="icon">🛒</span>Compras</a>
-      <a class="nav-item" href="/catalog"><span class="icon">📚</span>Catálogo</a>
-      <div class="nav-section">Financeiro</div>
-      <a class="nav-item" href="/financial"><span class="icon">💰</span>Financeiro</a>
-      <a class="nav-item" href="/invoices"><span class="icon">🧾</span>Invoices</a>
-      <div class="nav-section">Outros</div>
-      <a class="nav-item" href="/marketing"><span class="icon">📣</span>Marketing</a>
-      <a class="nav-item" href="/tasks"><span class="icon">✅</span>Tarefas</a>
-      <div class="nav-section">Admin</div>
-      <a class="nav-item" id="nav-users" href="/users" style="display:none"><span class="icon">👥</span>Usuários</a>
-    </nav>
-    <div class="sidebar-user">
-      <div class="user-avatar" id="user-avatar">?</div>
-      <div><div class="user-name" id="user-name">...</div><div class="user-role">Administrador</div></div>
-      <button class="btn-logout" onclick="logout()">⏏</button>
-    </div>
-  </aside>
+</aside>
 
-  <main class="main">
-    <div class="topbar">
+<div class="main">
+  <div class="topbar">
+    <div>
       <h1>Obras</h1>
-      <button class="btn btn-primary" onclick="openModal()">+ Nova Obra</button>
+      <p>Acompanhamento e fechamento de projetos executados</p>
     </div>
-    <div class="content">
-      <div class="filters">
-        <input type="search" id="search" placeholder="🔍 Buscar obra ou cliente..." oninput="render()">
-        <select id="filterStatus" onchange="render()">
+    <button class="btn btn-primary" onclick="openModalObra()">+ Nova Obra</button>
+  </div>
+  <div class="content">
+    <div class="kpi-strip" id="kpi-strip">
+      <div class="kpi t-navy"><div class="kpi-label">Total Obras</div><div class="spinner"></div></div>
+      <div class="kpi t-amber"><div class="kpi-label">Em Andamento</div><div class="spinner"></div></div>
+      <div class="kpi t-green"><div class="kpi-label">Concluídas</div><div class="spinner"></div></div>
+      <div class="kpi t-gold"><div class="kpi-label">Lucro Real Total</div><div class="spinner"></div></div>
+    </div>
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <input class="search-input" type="text" placeholder="Buscar obra ou cliente..." id="search-input" oninput="renderCards()">
+        <select class="filter-select" id="filter-status" onchange="renderCards()">
           <option value="">Todos os status</option>
           <option value="planning">Planejamento</option>
           <option value="active">Em andamento</option>
-          <option value="paused">Pausada</option>
           <option value="completed">Concluída</option>
-          <option value="cancelled">Cancelada</option>
+          <option value="paused">Pausada</option>
         </select>
       </div>
-      <div id="projects-wrap">
-        <div class="loading"><div class="spinner"></div><div>Carregando...</div></div>
-      </div>
     </div>
-  </main>
+    <div class="cards-grid" id="cards-grid">
+      <div style="grid-column:1/-1"><div class="spinner"></div></div>
+    </div>
+  </div>
 </div>
 
-<!-- MODAL -->
-<div class="overlay" id="overlay" onclick="closeIfOutside(event)">
+<!-- MODAL OBRA -->
+<div class="modal-overlay" id="modal-obra">
   <div class="modal">
     <div class="modal-header">
-      <h2 id="modal-title">Nova Obra</h2>
-      <button class="btn btn-outline btn-sm" onclick="closeModal()">✕ Fechar</button>
+      <div><h2 id="modal-obra-title">Nova Obra</h2><p>Registre um projeto em execução</p></div>
+      <button class="modal-close" onclick="closeModal('obra')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="form-grid">
-        <div class="field form-full"><label>Nome da Obra</label><input id="f-name" placeholder="Ex: Reforma Apt. Johnson"></div>
-        <div class="field"><label>Cliente</label><select id="f-client"></select></div>
-        <div class="field"><label>Orçamento Aprovado</label><select id="f-quote"><option value="">Nenhum</option></select></div>
-        <div class="field"><label>Status</label>
-          <select id="f-status">
-            <option value="planning">Planejamento</option>
-            <option value="active">Em andamento</option>
-            <option value="paused">Pausada</option>
-            <option value="completed">Concluída</option>
-            <option value="cancelled">Cancelada</option>
-          </select>
+      <div class="form-section">
+        <div class="form-section-title">Dados da Obra</div>
+        <div class="form-grid col-2">
+          <div><label>Nome da Obra</label><input type="text" id="o-name" placeholder="Ex: Apartamento Jardins"></div>
+          <div><label>Cliente</label><select id="o-client"><option value="">Selecionar...</option></select></div>
         </div>
-        <div class="field"><label>Tipo de Projeto</label>
-          <select id="f-type">
-            <option>Reforma</option><option>Construção</option><option>Acabamento</option>
-            <option>Decoração</option><option>Design de Interiores</option><option>Outro</option>
-          </select>
+        <div class="form-grid col-3" style="margin-top:10px">
+          <div><label>Início</label><input type="date" id="o-start"></div>
+          <div><label>Previsão fim</label><input type="date" id="o-end"></div>
+          <div><label>Status</label>
+            <select id="o-status">
+              <option value="planning">Planejamento</option>
+              <option value="active">Em andamento</option>
+              <option value="paused">Pausada</option>
+              <option value="completed">Concluída</option>
+            </select>
+          </div>
         </div>
-        <div class="field"><label>Orçamento (US$)</label><input type="number" id="f-budget" placeholder="0" min="0"></div>
-        <div class="field"><label>Início</label><input type="date" id="f-start"></div>
-        <div class="field"><label>Previsão de Término</label><input type="date" id="f-end"></div>
-        <div class="field form-full"><label>Endereço</label><input id="f-address" placeholder="Endereço da obra"></div>
-        <div class="field"><label>Cidade</label><input id="f-city" placeholder="Miami, FL"></div>
-        <div class="field"><label>Estado</label><input id="f-state" placeholder="FL"></div>
-        <div class="field form-full"><label>Descrição</label><textarea id="f-desc" style="height:70px" placeholder="Detalhes da obra..."></textarea></div>
       </div>
-
-      <div class="section-title">
-        Etapas da Obra
-        <button class="btn btn-outline btn-sm" onclick="addStage()">+ Etapa</button>
+      <div class="form-section">
+        <div class="form-section-title">Financeiro Estimado</div>
+        <div class="form-grid col-2">
+          <div><label>Orçamento / Valor de venda ($)</label><input type="number" id="o-budget" min="0" step="0.01" placeholder="0.00"></div>
+          <div><label>Tipo</label>
+            <select id="o-type">
+              <option value="residential">Residencial</option>
+              <option value="commercial">Comercial</option>
+              <option value="corporate">Corporativo</option>
+            </select>
+          </div>
+        </div>
       </div>
-      <div id="stages-editor"></div>
+      <div class="form-section">
+        <div class="form-section-title">Endereço</div>
+        <div class="form-grid col-2">
+          <div><label>Cidade</label><input type="text" id="o-city" placeholder="São Paulo"></div>
+          <div><label>Estado</label><input type="text" id="o-state" placeholder="SP" maxlength="2"></div>
+        </div>
+        <div style="margin-top:10px"><label>Endereço</label><input type="text" id="o-address" placeholder="Rua, número..."></div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Descrição</div>
+        <textarea id="o-desc" placeholder="Detalhes da obra..."></textarea>
+      </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-danger" id="btn-delete" onclick="deleteProject()" style="display:none;margin-right:auto">Excluir</button>
-      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveProject()">Salvar Obra</button>
+      <button class="btn btn-ghost" onclick="closeModal('obra')">Cancelar</button>
+      <button class="btn btn-gold" id="btn-save-obra" onclick="saveObra()">💾 Salvar Obra</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FECHAMENTO -->
+<div class="modal-overlay" id="modal-fech">
+  <div class="modal">
+    <div class="modal-header">
+      <div><h2 id="fech-obra-name">Fechamento de Obra</h2><p>Apure o lucro real deste projeto</p></div>
+      <button class="modal-close" onclick="closeModal('fech')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-section">
+        <div class="form-section-title">Receita Real</div>
+        <div class="form-grid col-2">
+          <div><label>Total recebido ($)</label><input type="number" id="f-revenue" min="0" step="0.01" placeholder="0.00" oninput="recalcFech()"></div>
+          <div><label>Data de conclusão</label><input type="date" id="f-closed-at"></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Custos Reais</div>
+        <div class="form-grid col-2">
+          <div><label>Materiais ($)</label><input type="number" id="f-mat" min="0" step="0.01" placeholder="0.00" oninput="recalcFech()"></div>
+          <div><label>Mão de obra ($)</label><input type="number" id="f-labor" min="0" step="0.01" placeholder="0.00" oninput="recalcFech()"></div>
+          <div><label>Deslocamento / diárias ($)</label><input type="number" id="f-travel" min="0" step="0.01" placeholder="0.00" oninput="recalcFech()"></div>
+          <div><label>Outros custos ($)</label><input type="number" id="f-other" min="0" step="0.01" placeholder="0.00" oninput="recalcFech()"></div>
+        </div>
+      </div>
+      <div class="fechamento-box">
+        <div class="fech-row"><span class="fl">Receita recebida</span><span class="fv" id="fv-rev">$0.00</span></div>
+        <div class="fech-row"><span class="fl">— Materiais</span><span class="fv" id="fv-mat">$0.00</span></div>
+        <div class="fech-row"><span class="fl">— Mão de obra</span><span class="fv" id="fv-lab">$0.00</span></div>
+        <div class="fech-row"><span class="fl">— Deslocamento / diárias</span><span class="fv" id="fv-trv">$0.00</span></div>
+        <div class="fech-row"><span class="fl">— Outros custos</span><span class="fv" id="fv-oth">$0.00</span></div>
+        <div class="fech-row"><span class="fl">Custo total</span><span class="fv" id="fv-cost">$0.00</span></div>
+        <div class="fech-row result">
+          <span class="fl">LUCRO REAL</span>
+          <span class="fv pos" id="fv-profit">$0.00</span>
+        </div>
+        <div class="fech-margin" id="fv-margin">Margem: 0%</div>
+      </div>
+      <div style="margin-top:16px">
+        <label>Observações do fechamento</label>
+        <textarea id="f-notes" placeholder="Lições aprendidas, anotações finais..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('fech')">Cancelar</button>
+      <button class="btn btn-success" id="btn-fech" onclick="saveFechamento()">✅ Fechar Obra</button>
     </div>
   </div>
 </div>
@@ -255,203 +313,231 @@
 const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-let projects = [], clients = [], editId = null;
-
-const statusLabel = { planning:'Planejamento', active:'Em andamento', paused:'Pausada', completed:'Concluída', cancelled:'Cancelada' };
-const statusClass = { planning:'b-planning', active:'b-active', paused:'b-paused', completed:'b-completed', cancelled:'b-cancelled' };
+let allProjects = [], clients = [], editingId = null, fechId = null;
 
 async function init() {
   const { data: { session } } = await db.auth.getSession();
-  if (!session) { window.location.href = '/login.html'; return; }
-  const { data: prof } = await db.from('user_profiles').select('status,role').eq('id', session.user.id).single();
-  if (!prof || (prof.status !== 'approved' && prof.role !== 'admin')) { window.location.href = '/pending.html'; return; }
-  if (prof.role === 'admin') { const ul = document.getElementById('nav-users'); if(ul) ul.style.display='flex'; }
-  const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuário';
+  if (!session) { window.location.href = '/'; return; }
+  const { data: prof } = await db.from('user_profiles').select('status,role,full_name').eq('id', session.user.id).single();
+  if (!prof || (prof.status !== 'approved' && prof.role !== 'admin')) { window.location.href = '/pending'; return; }
+  if (prof.role === 'admin') { const u = document.getElementById('nav-users'); if(u) u.style.display = 'flex'; }
+  const name = prof.full_name || session.user.email?.split('@')[0] || 'Usuário';
   document.getElementById('user-name').textContent = name;
   document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
-  await Promise.all([loadClients(), loadQuotes(), loadProjects()]);
+  document.getElementById('user-role').textContent = prof.role === 'admin' ? 'Administrador' : 'Usuário';
+  await loadClients();
+  await loadProjects();
 }
-db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
+db.auth.onAuthStateChange((e,s) => { if (e === 'SIGNED_OUT') window.location.href = '/'; });
 async function logout() { await db.auth.signOut(); }
-
-function fmtValor(v) { return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:0}); }
-function fmtDate(d) { if(!d)return'—'; const[y,m,dia]=d.split('-'); return`${dia}/${m}/${y}`; }
-function showToast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+type; setTimeout(()=>t.className='toast',2800); }
 
 async function loadClients() {
   const { data } = await db.from('clients').select('id,name').order('name');
   clients = data || [];
-  const sel = document.getElementById('f-client');
-  sel.innerHTML = '<option value="">Selecionar cliente...</option>' + clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
-}
-
-async function loadQuotes() {
-  const { data } = await db.from('quotes').select('id,quote_number,total,clients(name)').eq('status','approved').order('created_at',{ascending:false});
-  const sel = document.getElementById('f-quote');
-  sel.innerHTML = '<option value="">Nenhum</option>' + (data||[]).map(q=>`<option value="${q.id}">${q.quote_number||'ORC'} — ${q.clients?.name||'?'} — $${Number(q.total).toLocaleString('en-US')}</option>`).join('');
+  const sel = document.getElementById('o-client');
+  sel.innerHTML = '<option value="">Selecionar cliente...</option>' +
+    clients.map(c => '<option value="'+c.id+'">'+c.name+'</option>').join('');
 }
 
 async function loadProjects() {
-  const { data } = await db.from('projects').select('*, clients(name), project_stages(*)').order('created_at', { ascending:false });
-  projects = data || [];
-  render();
+  const { data, error } = await db.from('projects').select('*,clients(name)').order('created_at',{ascending:false});
+  if (error) { showToast('Erro ao carregar obras', 'error'); return; }
+  allProjects = data || [];
+  renderKPIs();
+  renderCards();
 }
 
-function render() {
-  const s = document.getElementById('search').value.toLowerCase();
-  const fs = document.getElementById('filterStatus').value;
-  const filtered = projects.filter(p =>
-    (!s || p.name.toLowerCase().includes(s) || (p.clients?.name||'').toLowerCase().includes(s)) &&
-    (!fs || p.status === fs)
-  );
+function renderKPIs() {
+  const total  = allProjects.length;
+  const active = allProjects.filter(p => p.status === 'active').length;
+  const done   = allProjects.filter(p => p.status === 'completed').length;
+  const lucro  = allProjects.reduce((s,p) => s + (Number(p.profit_real)||0), 0);
+  document.getElementById('kpi-strip').innerHTML =
+    '<div class="kpi t-navy"><div class="kpi-label">Total Obras</div><div class="kpi-value">'+total+'</div><div class="kpi-sub">registradas</div></div>' +
+    '<div class="kpi t-amber"><div class="kpi-label">Em Andamento</div><div class="kpi-value">'+active+'</div><div class="kpi-sub">em execução</div></div>' +
+    '<div class="kpi t-green"><div class="kpi-label">Concluídas</div><div class="kpi-value">'+done+'</div><div class="kpi-sub">finalizadas</div></div>' +
+    '<div class="kpi t-gold"><div class="kpi-label">Lucro Real Total</div><div class="kpi-value">'+fmt(lucro)+'</div><div class="kpi-sub">obras fechadas</div></div>';
+}
 
-  if (!filtered.length) {
-    document.getElementById('projects-wrap').innerHTML = `
-      <div class="empty"><div class="empty-icon">🏗️</div>
-      <h3>Nenhuma obra encontrada</h3><p>Clique em "Nova Obra" para começar.</p></div>`;
+function renderCards() {
+  const q  = document.getElementById('search-input').value.toLowerCase();
+  const st = document.getElementById('filter-status').value;
+  const rows = allProjects.filter(p => {
+    const txt = ((p.name||'') + (p.clients?.name||'')).toLowerCase();
+    if (q && !txt.includes(q)) return false;
+    if (st && p.status !== st) return false;
+    return true;
+  });
+  const grid = document.getElementById('cards-grid');
+  if (!rows.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1"><div class="empty"><div class="ico">🏗️</div><p>Nenhuma obra encontrada.</p></div></div>';
     return;
   }
-
-  document.getElementById('projects-wrap').innerHTML = `<div class="projects-grid">${filtered.map(p => {
-    const stages = p.project_stages || [];
-    const completed = stages.filter(s=>s.status==='completed').length;
-    const progress = stages.length ? Math.round((completed/stages.length)*100) : 0;
-    const activeStages = stages.filter(s=>s.status!=='completed').slice(0,3);
-
-    return `<div class="project-card" onclick="openModal('${p.id}')">
-      <div class="card-top">
-        <div class="card-number">${p.project_number||'OBRA'} · <span class="badge ${statusClass[p.status]}">${statusLabel[p.status]}</span></div>
-        <div class="card-name">${p.name}</div>
-        <div class="card-client">👤 ${p.clients?.name||'—'}</div>
-      </div>
-      ${stages.length ? `
-      <div class="progress-wrap">
-        <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
-        <div class="progress-label">${progress}% concluído · ${completed}/${stages.length} etapas</div>
-      </div>` : ''}
-      ${activeStages.length ? `
-      <div class="stages-wrap">
-        <div class="stages-label">Etapas</div>
-        <div class="stages-list">${activeStages.map(s=>`
-          <div class="stage-item">
-            <div class="stage-dot ${s.status}"></div>
-            <div class="stage-name">${s.name}</div>
-            <div class="stage-status">${s.status==='in_progress'?'Em andamento':s.status==='completed'?'✓ Concluída':'Pendente'}</div>
-          </div>`).join('')}
-        </div>
-      </div>` : ''}
-      <div class="card-meta">
-        <div class="card-location">📍 ${p.city||p.address||'—'}</div>
-        <div class="card-budget">${p.budget ? fmtValor(p.budget) : '—'}</div>
-      </div>
-    </div>`;
-  }).join('')}</div>`;
-}
-
-// ─── STAGES EDITOR ────────────────────────────────────────────
-let stageCount = 0;
-function addStage(name='', status='pending') {
-  const id = 'stage-'+stageCount++;
-  const div = document.createElement('div');
-  div.className = 'stage-row'; div.id = id;
-  div.innerHTML = `
-    <input placeholder="Nome da etapa (ex: Demolição, Pintura...)" value="${name}">
-    <select>
-      <option value="pending" ${status==='pending'?'selected':''}>Pendente</option>
-      <option value="in_progress" ${status==='in_progress'?'selected':''}>Em andamento</option>
-      <option value="completed" ${status==='completed'?'selected':''}>Concluída</option>
-    </select>
-    <button class="item-del" onclick="document.getElementById('${id}').remove()">✕</button>`;
-  document.getElementById('stages-editor').appendChild(div);
-}
-
-function getStages() {
-  return [...document.getElementById('stages-editor').querySelectorAll('.stage-row')].map((row,i) => ({
-    name: row.querySelector('input').value.trim(),
-    status: row.querySelector('select').value,
-    sort_order: i
-  })).filter(s => s.name);
-}
-
-// ─── MODAL ────────────────────────────────────────────────────
-function openModal(id) {
-  editId = id || null;
-  const p = id ? projects.find(x=>x.id===id) : null;
-  document.getElementById('modal-title').textContent = p ? 'Editar Obra' : 'Nova Obra';
-  document.getElementById('f-name').value = p?.name || '';
-  document.getElementById('f-client').value = p?.client_id || '';
-  document.getElementById('f-quote').value = p?.quote_id || '';
-  document.getElementById('f-status').value = p?.status || 'planning';
-  document.getElementById('f-type').value = p?.project_type || 'Reforma';
-  document.getElementById('f-budget').value = p?.budget || '';
-  document.getElementById('f-start').value = p?.start_date || '';
-  document.getElementById('f-end').value = p?.end_date || '';
-  document.getElementById('f-address').value = p?.address || '';
-  document.getElementById('f-city').value = p?.city || '';
-  document.getElementById('f-state').value = p?.state || '';
-  document.getElementById('f-desc').value = p?.description || '';
-  document.getElementById('btn-delete').style.display = p ? 'block' : 'none';
-  document.getElementById('stages-editor').innerHTML = '';
-  stageCount = 0;
-  if (p?.project_stages?.length) {
-    [...p.project_stages].sort((a,b)=>a.sort_order-b.sort_order).forEach(s => addStage(s.name, s.status));
-  } else {
-    addStage('Planejamento'); addStage('Execução'); addStage('Acabamento'); addStage('Entrega');
-  }
-  document.getElementById('overlay').classList.add('open');
-}
-function closeModal() { document.getElementById('overlay').classList.remove('open'); editId=null; }
-function closeIfOutside(e) { if(e.target.id==='overlay') closeModal(); }
-
-// ─── SAVE ─────────────────────────────────────────────────────
-async function saveProject() {
-  const name = document.getElementById('f-name').value.trim();
-  if (!name) { showToast('Informe o nome da obra.','error'); return; }
-
-  const projectData = {
-    name,
-    client_id: document.getElementById('f-client').value || null,
-    quote_id: document.getElementById('f-quote').value || null,
-    status: document.getElementById('f-status').value,
-    project_type: document.getElementById('f-type').value,
-    budget: document.getElementById('f-budget').value || null,
-    start_date: document.getElementById('f-start').value || null,
-    end_date: document.getElementById('f-end').value || null,
-    address: document.getElementById('f-address').value.trim(),
-    city: document.getElementById('f-city').value.trim(),
-    state: document.getElementById('f-state').value.trim(),
-    description: document.getElementById('f-desc').value.trim(),
-  };
-
-  const stages = getStages();
-
-  try {
-    if (editId) {
-      await db.from('projects').update(projectData).eq('id', editId);
-      await db.from('project_stages').delete().eq('project_id', editId);
-      if (stages.length) await db.from('project_stages').insert(stages.map(s=>({...s, project_id:editId})));
-      showToast('Obra atualizada!','success');
+  grid.innerHTML = rows.map(p => {
+    const isClosed = p.status === 'completed';
+    const budget   = Number(p.budget)||0;
+    const revenue  = Number(p.actual_revenue)||0;
+    const cost     = Number(p.actual_cost)||0;
+    const profit   = Number(p.profit_real)||0;
+    const margin   = revenue > 0 ? Math.round(profit / revenue * 100) : 0;
+    let rbox;
+    if (isClosed) {
+      const cls = profit >= 0 ? 'lucro' : 'prejuizo';
+      const ico = profit >= 0 ? '📈' : '📉';
+      rbox = '<div class="resultado-box '+cls+'"><div class="resultado-label">'+ico+' '+(profit>=0?'Lucro Real':'Prejuízo')+'</div>' +
+             '<div class="resultado-val">'+fmt(profit)+'</div>' +
+             '<div style="font-size:11px;margin-top:2px;opacity:.7">Margem '+margin+'% · Receita '+fmt(revenue)+' · Custo '+fmt(cost)+'</div></div>';
     } else {
-      projectData.project_number = 'OBR-'+String(Date.now()).slice(-5);
-      const { data: p } = await db.from('projects').insert(projectData).select().single();
-      if (stages.length && p) await db.from('project_stages').insert(stages.map(s=>({...s, project_id:p.id})));
-      showToast('Obra criada!','success');
+      rbox = '<div class="resultado-box aberta"><div class="resultado-label">⏳ Em execução</div>' +
+             '<div class="resultado-val">'+(budget?fmt(budget):'—')+'</div>' +
+             '<div style="font-size:11px;margin-top:2px;opacity:.7">Orçamento estimado</div></div>';
     }
-    closeModal();
-    await loadProjects();
-  } catch(err) { showToast('Erro ao salvar.','error'); }
+    const footer = isClosed
+      ? '<button class="btn btn-sm btn-ghost" onclick="openModalObra(\''+p.id+'\')">✏️ Editar</button><span style="font-size:11px;color:var(--green);font-weight:600;margin-left:auto;">✅ Fechada em '+fmtDate(p.closed_at)+'</span>'
+      : '<button class="btn btn-sm btn-ghost" onclick="openModalObra(\''+p.id+'\')">✏️ Editar</button><button class="btn btn-sm btn-success" onclick="openFechamento(\''+p.id+'\')">📊 Fechar Obra</button>';
+    return '<div class="project-card">' +
+      '<div class="pc-header"><div><div class="pc-name">'+(p.name||'—')+'</div><div class="pc-client">'+(p.clients?.name||'—')+(p.city?' · '+p.city:'')+'</div></div>' +
+      '<span class="badge b-'+(p.status||'planning')+'">'+statusLbl(p.status)+'</span></div>' +
+      '<div class="pc-body">' +
+        '<div class="pc-row"><span class="label">Início</span><span class="val">'+fmtDate(p.start_date)+'</span></div>' +
+        '<div class="pc-row"><span class="label">'+(isClosed?'Conclusão':'Previsão fim')+'</span><span class="val">'+fmtDate(isClosed?(p.closed_at||p.end_date):p.end_date)+'</span></div>' +
+        '<div class="pc-row"><span class="label">Tipo</span><span class="val">'+typeLbl(p.project_type)+'</span></div>' +
+      '</div>' +
+      rbox +
+      '<div class="pc-footer">'+footer+'</div>' +
+    '</div>';
+  }).join('');
 }
 
-async function deleteProject() {
-  if (!confirm('Excluir esta obra?')) return;
-  await db.from('project_stages').delete().eq('project_id', editId);
-  await db.from('projects').delete().eq('id', editId);
-  showToast('Excluída.','');
-  closeModal();
+function statusLbl(s){ return {planning:'Planejamento',active:'Em andamento',completed:'Concluída',paused:'Pausada',cancelled:'Cancelada'}[s]||s||'—'; }
+function typeLbl(s)  { return {residential:'Residencial',commercial:'Comercial',corporate:'Corporativo'}[s]||s||'—'; }
+function fmt(v)      { if(!v && v!==0) return '—'; return '$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtN(v)     { return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtDate(d)  { if(!d) return '—'; const p=(d+'').split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+
+function openModalObra(id) {
+  editingId = id||null;
+  document.getElementById('modal-obra-title').textContent = id ? 'Editar Obra' : 'Nova Obra';
+  if (id) {
+    const p = allProjects.find(x => x.id === id); if(!p) return;
+    document.getElementById('o-name').value    = p.name||'';
+    document.getElementById('o-client').value  = p.client_id||'';
+    document.getElementById('o-start').value   = p.start_date||'';
+    document.getElementById('o-end').value     = p.end_date||'';
+    document.getElementById('o-status').value  = p.status||'planning';
+    document.getElementById('o-budget').value  = p.budget||'';
+    document.getElementById('o-type').value    = p.project_type||'residential';
+    document.getElementById('o-city').value    = p.city||'';
+    document.getElementById('o-state').value   = p.state||'';
+    document.getElementById('o-address').value = p.address||'';
+    document.getElementById('o-desc').value    = p.description||'';
+  } else {
+    ['o-name','o-budget','o-city','o-state','o-address','o-desc'].forEach(i => document.getElementById(i).value='');
+    document.getElementById('o-client').value = '';
+    document.getElementById('o-status').value = 'active';
+    document.getElementById('o-type').value   = 'residential';
+    document.getElementById('o-start').value  = new Date().toISOString().slice(0,10);
+    document.getElementById('o-end').value    = '';
+  }
+  document.getElementById('modal-obra').classList.add('open');
+}
+
+function closeModal(t){ document.getElementById('modal-'+t).classList.remove('open'); }
+
+async function saveObra() {
+  const btn = document.getElementById('btn-save-obra');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  const payload = {
+    name:        document.getElementById('o-name').value.trim(),
+    client_id:   document.getElementById('o-client').value||null,
+    start_date:  document.getElementById('o-start').value||null,
+    end_date:    document.getElementById('o-end').value||null,
+    status:      document.getElementById('o-status').value,
+    budget:      parseFloat(document.getElementById('o-budget').value)||0,
+    project_type:document.getElementById('o-type').value,
+    city:        document.getElementById('o-city').value.trim(),
+    state:       document.getElementById('o-state').value.trim(),
+    address:     document.getElementById('o-address').value.trim(),
+    description: document.getElementById('o-desc').value.trim(),
+  };
+  if (!payload.name) { showToast('Nome da obra obrigatório','error'); btn.disabled=false; btn.innerHTML='💾 Salvar Obra'; return; }
+  let error;
+  if (editingId) {
+    ({error} = await db.from('projects').update(payload).eq('id',editingId));
+  } else {
+    const num = 'OBR-'+Date.now().toString().slice(-5);
+    ({error} = await db.from('projects').insert({...payload,project_number:num}));
+  }
+  if (error) { showToast('Erro: '+error.message,'error'); }
+  else { showToast('✅ Obra salva!','success'); closeModal('obra'); }
   await loadProjects();
+  btn.disabled=false; btn.innerHTML='💾 Salvar Obra';
 }
 
+function openFechamento(id) {
+  fechId = id;
+  const p = allProjects.find(x => x.id === id); if(!p) return;
+  document.getElementById('fech-obra-name').textContent = p.name || 'Fechamento de Obra';
+  document.getElementById('f-revenue').value  = p.actual_revenue || p.budget || '';
+  document.getElementById('f-mat').value      = p.actual_cost || '';
+  document.getElementById('f-labor').value    = '';
+  document.getElementById('f-travel').value   = '';
+  document.getElementById('f-other').value    = '';
+  document.getElementById('f-closed-at').value= new Date().toISOString().slice(0,10);
+  document.getElementById('f-notes').value    = p.closing_notes||'';
+  recalcFech();
+  document.getElementById('modal-fech').classList.add('open');
+}
+
+function recalcFech() {
+  const rev  = parseFloat(document.getElementById('f-revenue').value)||0;
+  const mat  = parseFloat(document.getElementById('f-mat').value)||0;
+  const lab  = parseFloat(document.getElementById('f-labor').value)||0;
+  const trv  = parseFloat(document.getElementById('f-travel').value)||0;
+  const oth  = parseFloat(document.getElementById('f-other').value)||0;
+  const cost = mat+lab+trv+oth;
+  const profit = rev-cost;
+  const margin = rev>0 ? Math.round(profit/rev*100) : 0;
+  document.getElementById('fv-rev').textContent  = fmtN(rev);
+  document.getElementById('fv-mat').textContent  = fmtN(mat);
+  document.getElementById('fv-lab').textContent  = fmtN(lab);
+  document.getElementById('fv-trv').textContent  = fmtN(trv);
+  document.getElementById('fv-oth').textContent  = fmtN(oth);
+  document.getElementById('fv-cost').textContent = fmtN(cost);
+  const el = document.getElementById('fv-profit');
+  el.textContent = fmtN(profit);
+  el.className = 'fv '+(profit>=0?'pos':'neg');
+  document.getElementById('fv-margin').textContent = 'Margem: '+margin+'%';
+}
+
+async function saveFechamento() {
+  const btn = document.getElementById('btn-fech');
+  btn.disabled=true; btn.textContent='Fechando...';
+  const rev  = parseFloat(document.getElementById('f-revenue').value)||0;
+  const mat  = parseFloat(document.getElementById('f-mat').value)||0;
+  const lab  = parseFloat(document.getElementById('f-labor').value)||0;
+  const trv  = parseFloat(document.getElementById('f-travel').value)||0;
+  const oth  = parseFloat(document.getElementById('f-other').value)||0;
+  const cost = mat+lab+trv+oth;
+  const profit = rev-cost;
+  const closedAt = document.getElementById('f-closed-at').value||new Date().toISOString().slice(0,10);
+  const {error} = await db.from('projects').update({
+    status:'completed', actual_revenue:rev, actual_cost:cost, profit_real:profit,
+    closed_at:closedAt, end_date:closedAt,
+    closing_notes:document.getElementById('f-notes').value.trim(),
+  }).eq('id',fechId);
+  if (error) { showToast('Erro: '+error.message,'error'); btn.disabled=false; btn.innerHTML='✅ Fechar Obra'; return; }
+  showToast('🎉 Obra fechada com sucesso!','success');
+  closeModal('fech');
+  await loadProjects();
+  btn.disabled=false; btn.innerHTML='✅ Fechar Obra';
+}
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',3500);
+}
 init();
 </script>
 </body>
