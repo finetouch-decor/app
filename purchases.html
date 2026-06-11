@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fine Touch — Compras</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+:root {
+  --navy:#102A4B; --gold:#C69E63; --gold2:#C7B090;
+  --white:#FFFFFF; --bg:#F7F8FA; --border:rgba(15,23,42,0.08);
+  --text:#0F172A; --muted:#64748B;
+  --green:#16a34a; --green-bg:#f0fdf4;
+  --red:#dc2626;   --red-bg:#fef2f2;
+  --amber:#d97706; --amber-bg:#fffbeb;
+  --blue:#2563eb;  --blue-bg:#eff6ff;
+  --shadow:0 1px 3px rgba(0,0,0,0.06);
+  --sidebar:240px; --radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;}
+
+.sidebar{width:var(--sidebar);background:var(--navy);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto;}
+.sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,0.1);}
+.sidebar-logo img{width:100%;max-width:180px;height:auto;display:block;}
+.sidebar-nav{flex:1;padding:12px 0;}
+.nav-section{padding:16px 20px 6px;font-size:9px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:2px;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;color:rgba(255,255,255,0.55);font-size:13px;font-weight:500;text-decoration:none;transition:all .15s;}
+.nav-item:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.9);}
+.nav-item.active{background:rgba(198,158,99,0.15);color:var(--gold);border-right:3px solid var(--gold);}
+.nav-item.dim{opacity:0.3;pointer-events:none;}
+.nav-item .icon{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+.sidebar-user{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px;}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--navy);flex-shrink:0;}
+.user-info{flex:1;min-width:0;}
+.user-name{font-size:12px;font-weight:600;color:rgba(255,255,255,0.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-role{font-size:10px;color:var(--gold2);text-transform:uppercase;letter-spacing:1px;}
+.btn-logout{background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:15px;padding:4px;}
+
+.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
+.topbar h1{font-size:18px;font-weight:700;color:var(--navy);}
+.topbar p{font-size:12px;color:var(--muted);margin-top:1px;}
+.content{padding:28px 32px;flex:1;}
+
+.btn{padding:9px 18px;border-radius:8px;border:none;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;}
+.btn-primary{background:var(--navy);color:var(--white);}
+.btn-primary:hover{background:#1a3d6e;}
+.btn-gold{background:var(--gold);color:var(--white);}
+.btn-gold:hover{background:#b8883a;}
+.btn-sm{padding:6px 12px;font-size:12px;}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+.btn-ghost:hover{background:var(--bg);}
+.btn-green{background:var(--green-bg);color:var(--green);border:1px solid rgba(22,163,74,.2);font-weight:700;}
+.btn-red{background:var(--red-bg);color:var(--red);border:1px solid rgba(220,38,38,.15);}
+
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+.kpi{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);}
+.kpi-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+.kpi-value{font-size:22px;font-weight:800;color:var(--navy);}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.kpi.g{border-top:3px solid var(--green);}
+.kpi.a{border-top:3px solid var(--amber);}
+.kpi.b{border-top:3px solid var(--blue);}
+.kpi.n{border-top:3px solid var(--navy);}
+
+.toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.toolbar-left{display:flex;gap:10px;}
+.search-input{padding:9px 14px;border:1px solid var(--border);border-radius:8px;background:var(--white);font-size:13px;font-family:'Inter',sans-serif;outline:none;width:240px;color:var(--text);}
+.search-input:focus{border-color:var(--gold);}
+.filter-select{padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white);font-size:13px;font-family:'Inter',sans-serif;outline:none;color:var(--text);cursor:pointer;}
+
+.table-wrap{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:var(--bg);}
+th{padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:12px 14px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:#FAFBFC;}
+.td-num{font-weight:700;color:var(--navy);}
+.td-muted{color:var(--muted);font-size:12px;}
+.td-actions{display:flex;gap:6px;justify-content:flex-end;}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.b-pending  {background:var(--amber-bg);color:var(--amber);}
+.b-ordered  {background:var(--blue-bg);color:var(--blue);}
+.b-received {background:var(--green-bg);color:var(--green);}
+.b-cancelled{background:var(--red-bg);color:var(--red);}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--white);border-radius:16px;width:100%;max-width:780px;margin:auto;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.2);}
+.modal-header{background:var(--navy);padding:20px 28px;display:flex;align-items:center;justify-content:space-between;}
+.modal-header h2{font-size:16px;font-weight:700;color:var(--white);}
+.modal-header p{font-size:12px;color:var(--gold2);margin-top:2px;}
+.modal-close{background:none;border:none;color:rgba(255,255,255,0.5);font-size:20px;cursor:pointer;padding:4px;}
+.modal-close:hover{color:var(--white);}
+.modal-body{padding:24px 28px;max-height:80vh;overflow-y:auto;}
+.modal-footer{padding:16px 28px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;background:var(--bg);}
+
+.form-section{margin-bottom:22px;}
+.form-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.form-grid{display:grid;gap:12px;}
+.col-2{grid-template-columns:1fr 1fr;}
+.col-3{grid-template-columns:1fr 1fr 1fr;}
+label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;}
+input,select,textarea{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--white);font-family:'Inter',sans-serif;font-size:13px;color:var(--text);outline:none;transition:border-color .15s;}
+input:focus,select:focus,textarea:focus{border-color:var(--gold);}
+input[readonly]{background:var(--bg);color:var(--muted);}
+textarea{resize:vertical;min-height:60px;}
+
+.items-block{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+.items-table{width:100%;border-collapse:collapse;margin-bottom:8px;}
+.items-table th{font-size:10px;font-weight:700;color:var(--muted);text-align:left;padding:4px 8px;text-transform:uppercase;letter-spacing:.5px;}
+.items-table td{padding:4px 6px;}
+.items-table input{padding:7px 10px;font-size:12px;}
+.td-total-cell{font-size:12px;font-weight:700;color:var(--navy);padding:7px 10px;background:var(--white);border:1px solid var(--border);border-radius:6px;text-align:right;white-space:nowrap;}
+.btn-add-row{font-size:11px;color:var(--gold);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:4px;}
+.btn-remove-row{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;}
+.btn-remove-row:hover{color:var(--red);background:var(--red-bg);}
+
+.total-bar{background:var(--navy);border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-top:14px;}
+.total-bar span{font-size:12px;color:var(--gold2);font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+.total-bar strong{font-size:22px;font-weight:800;color:var(--gold);}
+
+.empty{text-align:center;padding:60px 24px;color:var(--muted);}
+.empty .ico{font-size:40px;margin-bottom:12px;}
+.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .8s linear infinite;margin:40px auto;display:block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:500;transform:translateY(10px);opacity:0;transition:all .3s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{background:#1a3d6e;color:var(--white);}
+.toast.error{background:var(--red);color:var(--white);}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo"><img src="/logo-dark-bg.png" alt="Fine Touch"></div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Principal</div>
+    <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
+    <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
+    <div class="nav-section">Vendas</div>
+    <a class="nav-item" href="/proposals"><span class="icon">📄</span>Propostas</a>
+    <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
+    <a class="nav-item dim"><span class="icon">📝</span>Contratos</a>
+    <div class="nav-section">Operacional</div>
+    <a class="nav-item" href="/projects"><span class="icon">🏗️</span>Obras</a>
+    <a class="nav-item active" href="/purchases"><span class="icon">🛒</span>Compras</a>
+    <a class="nav-item" href="/catalog"><span class="icon">📚</span>Catálogo</a>
+    <div class="nav-section">Financeiro</div>
+    <a class="nav-item" href="/financial"><span class="icon">💰</span>Financeiro</a>
+    <a class="nav-item" href="/invoices"><span class="icon">🧾</span>Invoices</a>
+    <div class="nav-section">Outros</div>
+    <a class="nav-item" href="/marketing"><span class="icon">📣</span>Marketing</a>
+    <a class="nav-item" href="/tasks"><span class="icon">✅</span>Tarefas</a>
+    <div class="nav-section">Admin</div>
+    <a class="nav-item" id="nav-users" href="/users" style="display:none"><span class="icon">👥</span>Usuários</a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-avatar" id="user-avatar">?</div>
+    <div class="user-info">
+      <div class="user-name" id="user-name">...</div>
+      <div class="user-role" id="user-role">Usuário</div>
+    </div>
+    <button class="btn-logout" onclick="logout()">⏻</button>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div>
+      <h1>Compras de Material</h1>
+      <p>Registre o que foi comprado para cada obra</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModal()">+ Nova Compra</button>
+  </div>
+
+  <div class="content">
+    <div class="kpi-strip" id="kpi-strip">
+      <div class="kpi n"><div class="kpi-label">Total Compras</div><div class="spinner"></div></div>
+      <div class="kpi a"><div class="kpi-label">Aguardando</div><div class="spinner"></div></div>
+      <div class="kpi g"><div class="kpi-label">Recebido</div><div class="spinner"></div></div>
+      <div class="kpi b"><div class="kpi-label">Total Gasto</div><div class="spinner"></div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <input class="search-input" type="text" placeholder="🔍  Buscar fornecedor ou obra..." id="search-input" oninput="renderTable()">
+        <select class="filter-select" id="filter-status" onchange="renderTable()">
+          <option value="">Todos os status</option>
+          <option value="pending">Pendente</option>
+          <option value="ordered">Pedido feito</option>
+          <option value="received">Recebido</option>
+          <option value="cancelled">Cancelado</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Nº</th><th>Fornecedor</th><th>Obra / Projeto</th>
+            <th>Data Pedido</th><th>Prev. Entrega</th>
+            <th>Total</th><th>Status</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="table-body"><tr><td colspan="8"><div class="spinner"></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2 id="modal-title">Nova Compra de Material</h2>
+        <p>🛒 Registre materiais comprados para a obra</p>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="form-section">
+        <div class="form-section-title">📌 Informações da Compra</div>
+        <div class="form-grid col-2">
+          <div>
+            <label>Fornecedor</label>
+            <input type="text" id="f-supplier" placeholder="Ex: Leroy Merlin, Tok&Stok...">
+          </div>
+          <div>
+            <label>Obra / Projeto</label>
+            <select id="f-project">
+              <option value="">Selecionar projeto...</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid col-3" style="margin-top:10px">
+          <div>
+            <label>Data do Pedido</label>
+            <input type="date" id="f-order-date">
+          </div>
+          <div>
+            <label>Previsão de Entrega</label>
+            <input type="date" id="f-expected-date">
+          </div>
+          <div>
+            <label>Status</label>
+            <select id="f-status">
+              <option value="pending">Pendente</option>
+              <option value="ordered">Pedido feito</option>
+              <option value="received">Recebido</option>
+              <option value="cancelled">Cancelado</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">🪵 Itens da Compra</div>
+        <div class="items-block">
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th style="width:40%">Descrição</th>
+                <th style="width:12%">Qtd</th>
+                <th style="width:12%">Unid.</th>
+                <th style="width:18%">Preço Unit.</th>
+                <th style="width:13%">Total</th>
+                <th style="width:5%"></th>
+              </tr>
+            </thead>
+            <tbody id="items-body"></tbody>
+          </table>
+          <button class="btn-add-row" onclick="addItemRow()">＋ Adicionar item</button>
+        </div>
+
+        <div class="total-bar">
+          <span>Total da Compra</span>
+          <strong id="total-display">$0.00</strong>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">📝 Observações</div>
+        <textarea id="f-notes" placeholder="NF, condições de pagamento, observações..."></textarea>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-gold" onclick="savePurchase()" id="btn-save">💾 Salvar Compra</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let allPurchases=[], projects=[], editingId=null, itemRowIds=[];
+
+// ── AUTH ───────────────────────────────────────────────────
+async function init() {
+  const {data:{session}} = await db.auth.getSession();
+  if (!session) { window.location.href='/'; return; }
+  const {data:prof} = await db.from('user_profiles').select('status,role,full_name').eq('id',session.user.id).single();
+  if (!prof||(prof.status!=='approved'&&prof.role!=='admin')) { window.location.href='/pending'; return; }
+  if (prof.role==='admin') { const u=document.getElementById('nav-users'); if(u) u.style.display='flex'; }
+  const name=prof.full_name||session.user.email?.split('@')[0]||'Usuário';
+  document.getElementById('user-name').textContent=name;
+  document.getElementById('user-avatar').textContent=name.charAt(0).toUpperCase();
+  document.getElementById('user-role').textContent=prof.role==='admin'?'Administrador':'Usuário';
+  await loadProjects();
+  await loadPurchases();
+}
+db.auth.onAuthStateChange((e,s)=>{if(e==='SIGNED_OUT')window.location.href='/';});
+async function logout(){await db.auth.signOut();}
+
+// ── LOAD ───────────────────────────────────────────────────
+async function loadProjects() {
+  const {data} = await db.from('projects').select('id,name').order('name');
+  projects = data||[];
+  const sel = document.getElementById('f-project');
+  sel.innerHTML = '<option value="">Selecionar projeto...</option>' +
+    projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+}
+
+async function loadPurchases() {
+  const {data,error} = await db.from('purchases')
+    .select('*, purchase_items(*), projects(name)')
+    .order('created_at',{ascending:false});
+  if (error) { showToast('Erro ao carregar','error'); return; }
+  allPurchases = data||[];
+  renderKPIs();
+  renderTable();
+}
+
+// ── KPIs ───────────────────────────────────────────────────
+function renderKPIs() {
+  const total    = allPurchases.length;
+  const waiting  = allPurchases.filter(p=>p.status==='pending'||p.status==='ordered').length;
+  const received = allPurchases.filter(p=>p.status==='received').length;
+  const spent    = allPurchases.reduce((s,p)=>s+(Number(p.total)||0),0);
+  document.getElementById('kpi-strip').innerHTML=`
+    <div class="kpi n"><div class="kpi-label">Total Compras</div><div class="kpi-value">${total}</div><div class="kpi-sub">registradas</div></div>
+    <div class="kpi a"><div class="kpi-label">Aguardando</div><div class="kpi-value">${waiting}</div><div class="kpi-sub">pendente + pedido</div></div>
+    <div class="kpi g"><div class="kpi-label">Recebido</div><div class="kpi-value">${received}</div><div class="kpi-sub">entregues</div></div>
+    <div class="kpi b"><div class="kpi-label">Total Gasto</div><div class="kpi-value">${fmt(spent)}</div><div class="kpi-sub">em materiais</div></div>`;
+}
+
+// ── TABLE ──────────────────────────────────────────────────
+function renderTable() {
+  const q=document.getElementById('search-input').value.toLowerCase();
+  const st=document.getElementById('filter-status').value;
+  const rows=allPurchases.filter(p=>{
+    const txt=((p.supplier_name||'')+(p.projects?.name||'')).toLowerCase();
+    if(q&&!txt.includes(q))return false;
+    if(st&&p.status!==st)return false;
+    return true;
+  });
+  const tb=document.getElementById('table-body');
+  if(!rows.length){tb.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="ico">🛒</div><p>Nenhuma compra encontrada.</p></div></td></tr>`;return;}
+  tb.innerHTML=rows.map(p=>`<tr>
+    <td class="td-num">${p.purchase_number||'—'}</td>
+    <td><div style="font-weight:600">${p.supplier_name||'—'}</div><div class="td-muted">${(p.purchase_items||[]).length} itens</div></td>
+    <td class="td-muted">${p.projects?.name||'—'}</td>
+    <td class="td-muted">${p.order_date||'—'}</td>
+    <td class="td-muted">${p.expected_date||'—'}</td>
+    <td class="td-num">${fmt(p.total)}</td>
+    <td><span class="badge b-${p.status||'pending'}">${statusLbl(p.status)}</span></td>
+    <td><div class="td-actions">
+      ${p.status==='ordered'?`<button class="btn btn-sm btn-green" onclick="markReceived('${p.id}')">📦 Recebido</button>`:''}
+      <button class="btn btn-sm btn-ghost" onclick="openModal('${p.id}')">✏️ Editar</button>
+    </div></td>
+  </tr>`).join('');
+}
+
+function statusLbl(s){return{pending:'Pendente',ordered:'Pedido',received:'Recebido',cancelled:'Cancelado'}[s]||s||'Pendente';}
+function fmt(v){if(!v&&v!==0)return'—';return'$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtN(v){return'$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+// ── MODAL ──────────────────────────────────────────────────
+function openModal(id) {
+  editingId=id||null; itemRowIds=[];
+  document.getElementById('items-body').innerHTML='';
+  document.getElementById('modal-title').textContent=id?'Editar Compra':'Nova Compra de Material';
+
+  if(id) {
+    const p=allPurchases.find(x=>x.id===id);
+    if(!p) return;
+    document.getElementById('f-supplier').value    = p.supplier_name||'';
+    document.getElementById('f-project').value     = p.project_id||'';
+    document.getElementById('f-order-date').value  = p.order_date||'';
+    document.getElementById('f-expected-date').value = p.expected_date||'';
+    document.getElementById('f-status').value      = p.status||'pending';
+    document.getElementById('f-notes').value       = p.notes||'';
+    (p.purchase_items||[]).forEach(i=>addItemRow(i.description,i.quantity,i.unit||'un',i.unit_price));
+  } else {
+    ['f-supplier','f-notes'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('f-project').value='';
+    document.getElementById('f-status').value='pending';
+    document.getElementById('f-order-date').value=new Date().toISOString().slice(0,10);
+    document.getElementById('f-expected-date').value='';
+  }
+  if(!itemRowIds.length) addItemRow();
+  recalc();
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+
+// ── ITEM ROWS ──────────────────────────────────────────────
+function addItemRow(desc='',qty='',unit='un',price='') {
+  const rid='r'+Date.now()+Math.floor(Math.random()*9999);
+  itemRowIds.push(rid);
+  const tr=document.createElement('tr');
+  tr.id='item-'+rid;
+  tr.innerHTML=`
+    <td><input type="text" placeholder="Ex: Porcelanato 60x60 Branco" value="${esc(desc)}" oninput="recalc()"></td>
+    <td><input type="number" min="0" step="0.01" placeholder="1" value="${qty||''}" oninput="recalc()" style="text-align:center;"></td>
+    <td><input type="text" placeholder="un" value="${esc(unit)}" style="text-align:center;max-width:60px;"></td>
+    <td><input type="number" min="0" step="0.01" placeholder="0.00" value="${price||''}" oninput="recalc()"></td>
+    <td><div class="td-total-cell" id="it-${rid}">$0.00</div></td>
+    <td><button class="btn-remove-row" onclick="removeRow('${rid}')">✕</button></td>`;
+  document.getElementById('items-body').appendChild(tr);
+  recalc();
+}
+function removeRow(rid){
+  const el=document.getElementById('item-'+rid); if(el)el.remove();
+  itemRowIds=itemRowIds.filter(x=>x!==rid); recalc();
+}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');}
+
+// ── RECALC ─────────────────────────────────────────────────
+function recalc() {
+  let total=0;
+  itemRowIds.forEach(rid=>{
+    const tr=document.getElementById('item-'+rid); if(!tr) return;
+    const inputs=tr.querySelectorAll('input');
+    const qty=parseFloat(inputs[1]?.value)||0;
+    const price=parseFloat(inputs[3]?.value)||0;
+    const t=qty*price; total+=t;
+    const el=document.getElementById('it-'+rid); if(el)el.textContent=fmtN(t);
+  });
+  document.getElementById('total-display').textContent=fmtN(total);
+}
+
+// ── SAVE ───────────────────────────────────────────────────
+async function savePurchase() {
+  const btn=document.getElementById('btn-save');
+  btn.disabled=true; btn.textContent='Salvando...';
+
+  const items=itemRowIds.map(rid=>{
+    const tr=document.getElementById('item-'+rid); if(!tr) return null;
+    const inputs=tr.querySelectorAll('input');
+    const desc=inputs[0]?.value?.trim();
+    const qty=parseFloat(inputs[1]?.value)||0;
+    const unit=inputs[2]?.value?.trim()||'un';
+    const price=parseFloat(inputs[3]?.value)||0;
+    if(!desc&&!price) return null;
+    return{description:desc||'Item',quantity:qty,unit,unit_price:price,total:qty*price};
+  }).filter(Boolean);
+
+  const total=items.reduce((s,i)=>s+i.total,0);
+  const projectId=document.getElementById('f-project').value||null;
+  const status=document.getElementById('f-status').value;
+
+  const payload={
+    supplier_name:  document.getElementById('f-supplier').value.trim(),
+    project_id:     projectId,
+    status,
+    order_date:     document.getElementById('f-order-date').value||null,
+    expected_date:  document.getElementById('f-expected-date').value||null,
+    subtotal:       total,
+    total,
+    notes:          document.getElementById('f-notes').value.trim(),
+  };
+
+  let purchaseId=editingId;
+
+  if(editingId) {
+    const {error}=await db.from('purchases').update(payload).eq('id',editingId);
+    if(error){showToast('Erro: '+error.message,'error');btn.disabled=false;btn.textContent='💾 Salvar Compra';return;}
+    await db.from('purchase_items').delete().eq('purchase_id',editingId);
+  } else {
+    const num='CMP-'+Date.now().toString().slice(-5);
+    const {data,error}=await db.from('purchases').insert({...payload,purchase_number:num}).select().single();
+    if(error){showToast('Erro: '+error.message,'error');btn.disabled=false;btn.textContent='💾 Salvar Compra';return;}
+    purchaseId=data.id;
+    // lança despesa no financeiro
+    await db.from('transactions').insert({
+      type:'expense', amount:total, date:payload.order_date||new Date().toISOString().slice(0,10),
+      category:'Material', description:`Compra ${num} — ${payload.supplier_name||'Fornecedor'}`,
+      reference:num,
+    });
+  }
+
+  if(items.length) {
+    await db.from('purchase_items').insert(items.map(i=>({...i,purchase_id:purchaseId})));
+  }
+
+  showToast('Compra salva!','success');
+  closeModal();
+  await loadPurchases();
+  btn.disabled=false; btn.textContent='💾 Salvar Compra';
+}
+
+// ── MARCAR RECEBIDO ────────────────────────────────────────
+async function markReceived(id) {
+  const p=allPurchases.find(x=>x.id===id);
+  if(!p) return;
+  if(!confirm(`Confirmar recebimento dos materiais de "${p.supplier_name||'fornecedor'}"?`)) return;
+  const {error}=await db.from('purchases').update({
+    status:'received',
+    received_date:new Date().toISOString().slice(0,10)
+  }).eq('id',id);
+  if(error){showToast('Erro: '+error.message,'error');return;}
+  showToast('📦 Materiais marcados como recebidos!','success');
+  await loadPurchases();
+}
+
+function showToast(msg,type='success'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',3500);
+}
+
+init();
+</script>
+</body>
+</html>
