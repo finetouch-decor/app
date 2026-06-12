@@ -425,7 +425,7 @@ function render() {
         <div class="inv-amount-label">${i.quotes?.quote_number?'de '+fmt(i.quotes.total):''}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
-        ${i.status!=='paid' ? `<button class="btn btn-sm" onclick="markPaid('${i.id}')" style="background:#f0fdf4;border:1px solid #16a34a;color:#16a34a;font-weight:700;">✅ Recebido</button>` : `<span style="font-size:11px;color:#16a34a;font-weight:700;">✓ Pago em ${fmtDate(i.paid_date)}</span>`}
+        ${i.status!=='paid' ? `<button class="btn btn-sm" onclick="markPaid('${i.id}')" style="background:#fff;border:1px solid var(--border);color:var(--muted);font-weight:600;">💰 Marcar Recebido</button>` : `<span style="font-size:11px;color:#16a34a;font-weight:700;">✅ Recebido em ${fmtDate(i.paid_date)}</span>`}
         <button class="btn btn-outline btn-sm" onclick="printInvoice('${i.id}')" title="Gerar PDF" style="flex-shrink:0">🖨️ PDF</button>
       </div>
     </div>`;
