@@ -115,8 +115,10 @@
   .col-fechado h3 { color:var(--green); } .col-fechado .kanban-count { background:#2e6b3e18; color:var(--green); }
   .col-perdido .kanban-col-header { border-color:var(--red); }
   .col-perdido h3 { color:var(--red); } .col-perdido .kanban-count { background:#a0303018; color:var(--red); }
-  .kanban-card { background:var(--cream2); border:1px solid var(--border); border-radius:9px; padding:12px; margin-bottom:8px; cursor:pointer; transition:all .15s; }
-  .kanban-card:hover { border-color:var(--gold); }
+  .kanban-card { background:var(--cream2); border:1px solid var(--border); border-radius:9px; padding:12px; margin-bottom:8px; cursor:grab; transition:all .15s; user-select:none; }
+  .kanban-card:hover { border-color:var(--gold); box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+  .kanban-card.dragging { opacity:0.4; cursor:grabbing; transform:rotate(1.5deg); }
+  .kanban-cards.drag-over { background:rgba(198,158,99,0.08); border-radius:8px; outline:2px dashed var(--gold); }
   .kanban-card h4 { font-size:13px; font-weight:600; color:var(--navy); margin-bottom:3px; }
   .kanban-card .meta { font-size:11px; color:var(--muted); }
   .kanban-card .valor { font-size:13px; color:var(--navy); font-weight:700; margin-top:5px; }
@@ -254,11 +256,11 @@
   <div class="content">
     <div id="view-lista"></div>
     <div id="view-kanban" class="kanban-view" style="display:none">
-      <div class="kanban-col col-lead"><div class="kanban-col-header"><h3>Lead</h3><span class="kanban-count" id="kc-lead">0</span></div><div class="kanban-cards" id="kl-lead"></div></div>
-      <div class="kanban-col col-visita"><div class="kanban-col-header"><h3>Visita</h3><span class="kanban-count" id="kc-visita">0</span></div><div class="kanban-cards" id="kl-visita"></div></div>
-      <div class="kanban-col col-proposta"><div class="kanban-col-header"><h3>Proposta</h3><span class="kanban-count" id="kc-proposta">0</span></div><div class="kanban-cards" id="kl-proposta"></div></div>
-      <div class="kanban-col col-fechado"><div class="kanban-col-header"><h3>Fechado</h3><span class="kanban-count" id="kc-fechado">0</span></div><div class="kanban-cards" id="kl-fechado"></div></div>
-      <div class="kanban-col col-perdido"><div class="kanban-col-header"><h3>Perdido</h3><span class="kanban-count" id="kc-perdido">0</span></div><div class="kanban-cards" id="kl-perdido"></div></div>
+      <div class="kanban-col col-lead"><div class="kanban-col-header"><h3>Lead</h3><span class="kanban-count" id="kc-lead">0</span></div><div class="kanban-cards" id="kl-lead" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'lead')"></div></div>
+      <div class="kanban-col col-visita"><div class="kanban-col-header"><h3>Visita</h3><span class="kanban-count" id="kc-visita">0</span></div><div class="kanban-cards" id="kl-visita" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'visita')"></div></div>
+      <div class="kanban-col col-proposta"><div class="kanban-col-header"><h3>Proposta</h3><span class="kanban-count" id="kc-proposta">0</span></div><div class="kanban-cards" id="kl-proposta" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'proposta')"></div></div>
+      <div class="kanban-col col-fechado"><div class="kanban-col-header"><h3>Fechado</h3><span class="kanban-count" id="kc-fechado">0</span></div><div class="kanban-cards" id="kl-fechado" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'fechado')"></div></div>
+      <div class="kanban-col col-perdido"><div class="kanban-col-header"><h3>Perdido</h3><span class="kanban-count" id="kc-perdido">0</span></div><div class="kanban-cards" id="kl-perdido" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'perdido')"></div></div>
     </div>
     <div id="view-retornos" style="display:none"></div>
   </div>
@@ -417,14 +419,53 @@ function renderKanban() {
     const kc=document.getElementById('kc-'+s); if(kc) kc.textContent=list.length;
     const kl=document.getElementById('kl-'+s); if(!kl)return;
     kl.innerHTML=list.length?list.map(c=>`
-      <div class="kanban-card" onclick="openModal('${c.id}')">
+      <div class="kanban-card"
+           draggable="true"
+           data-id="${c.id}"
+           ondragstart="dragStart(event,'${c.id}')"
+           ondragend="dragEnd(event)"
+           onclick="openModal('${c.id}')">
         <h4>${c.nome}</h4>
         <div class="meta">${[c.tipo,c.local].filter(Boolean).join(' · ')}</div>
         ${c.valor?`<div class="valor">${fmtValor(c.valor)}</div>`:''}
         ${c.retorno?`<div style="font-size:11px;margin-top:4px" class="${retornoClass(c.retorno)}">${retornoLabel(c.retorno)}</div>`:''}
+        <div style="font-size:10px;color:var(--muted);margin-top:6px;opacity:.5">⠿ arrastar</div>
       </div>`).join('')
     :'<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px;border:1.5px dashed var(--border);border-radius:8px">Vazio</div>';
   });
+}
+
+// ── DRAG & DROP ───────────────────────────────────────────
+let dragId = null;
+function dragStart(e, id) {
+  dragId = id;
+  setTimeout(() => e.target.classList.add('dragging'), 0);
+  e.dataTransfer.effectAllowed = 'move';
+}
+function dragEnd(e) {
+  e.target.classList.remove('dragging');
+  document.querySelectorAll('.kanban-cards').forEach(c => c.classList.remove('drag-over'));
+}
+function dragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+function dragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+async function drop(e, newStatus) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!dragId) return;
+  const rec = records.find(r => r.id === dragId);
+  if (!rec || rec.status === newStatus) return;
+  rec.status = newStatus;
+  renderKanban();
+  const { error } = await db.from('leads').update({ status: newStatus }).eq('id', dragId);
+  if (error) { showToast('Erro ao mover card', 'error'); await loadData(); }
+  else showToast('✅ Status atualizado!');
+  dragId = null;
 }
 
 function renderRetornos() {

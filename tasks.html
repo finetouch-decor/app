@@ -78,9 +78,11 @@
   .col-body { padding:12px; min-height:200px; }
 
   /* TASK CARDS */
-  .task-card { background:var(--cream2); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:8px; cursor:pointer; transition:all .15s; }
-  .task-card:hover { border-color:var(--gold); }
+  .task-card { background:var(--cream2); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:8px; cursor:grab; transition:all .15s; user-select:none; }
+  .task-card:hover { border-color:var(--gold); box-shadow:0 2px 8px rgba(0,0,0,0.08); }
   .task-card.done { opacity:0.6; }
+  .task-card.dragging { opacity:0.4; cursor:grabbing; transform:rotate(1.5deg); }
+  .col-body.drag-over { background:rgba(198,158,99,0.08); border-radius:8px; outline:2px dashed var(--gold); }
   .task-title { font-size:13px; font-weight:600; color:var(--navy); margin-bottom:6px; }
   .task-title.done { text-decoration:line-through; }
   .task-meta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
@@ -186,15 +188,15 @@
       <div class="kanban">
         <div class="col col-todo">
           <div class="col-header"><span class="col-title">A Fazer</span><span class="col-count" id="c-todo">0</span></div>
-          <div class="col-body" id="col-todo"></div>
+          <div class="col-body" id="col-todo" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'todo')"></div>
         </div>
         <div class="col col-progress">
           <div class="col-header"><span class="col-title">Em Andamento</span><span class="col-count" id="c-progress">0</span></div>
-          <div class="col-body" id="col-progress"></div>
+          <div class="col-body" id="col-progress" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'in_progress')"></div>
         </div>
         <div class="col col-done">
           <div class="col-header"><span class="col-title">Concluídas</span><span class="col-count" id="c-done">0</span></div>
-          <div class="col-body" id="col-done"></div>
+          <div class="col-body" id="col-done" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'done')"></div>
         </div>
       </div>
     </div>
@@ -315,7 +317,12 @@ function renderCol(id, items, t) {
     const isToday   = x.due_date === t;
     const dueClass  = isOverdue ? 'overdue' : isToday ? 'today' : 'future';
     const dueLabel  = x.due_date ? (isOverdue ? '⚠ '+fmtDate(x.due_date) : isToday ? '● Hoje' : '📅 '+fmtDate(x.due_date)) : '';
-    return `<div class="task-card ${isDone?'done':''}" onclick="openModal('${x.id}')">
+    return `<div class="task-card ${isDone?'done':''}"
+      draggable="true"
+      data-id="${x.id}"
+      ondragstart="dragStart(event,'${x.id}')"
+      ondragend="dragEnd(event)"
+      onclick="openModal('${x.id}')">
       <div class="task-title ${isDone?'done':''}">${x.title}</div>
       <div class="task-meta">
         <div class="priority-dot p-${x.priority||'medium'}"></div>
@@ -327,6 +334,39 @@ function renderCol(id, items, t) {
 }
 
 function fmtDate(d) { if(!d)return''; const[y,m,dia]=d.split('-'); return`${dia}/${m}`; }
+
+// ── DRAG & DROP ───────────────────────────────────────────
+let dragId = null;
+function dragStart(e, id) {
+  dragId = id;
+  setTimeout(() => e.target.classList.add('dragging'), 0);
+  e.dataTransfer.effectAllowed = 'move';
+}
+function dragEnd(e) {
+  e.target.classList.remove('dragging');
+  document.querySelectorAll('.col-body').forEach(c => c.classList.remove('drag-over'));
+}
+function dragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+function dragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+async function drop(e, newStatus) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!dragId) return;
+  const task = tasks.find(t => t.id === dragId);
+  if (!task || task.status === newStatus) return;
+  task.status = newStatus;
+  render();
+  const { error } = await db.from('tasks').update({ status: newStatus }).eq('id', dragId);
+  if (error) { showToast('Erro ao mover tarefa', 'error'); await loadTasks(); }
+  else showToast('✅ Tarefa movida!');
+  dragId = null;
+}
 
 function openModal(id) {
   editId = id || null;
