@@ -396,7 +396,7 @@ function renderCards() {
     const footer = isClosed
       ? '<button class="btn btn-sm btn-ghost" onclick="openModalObra(\''+p.id+'\')">✏️ Editar</button><span style="font-size:11px;color:var(--green);font-weight:600;margin-left:auto;">✅ Fechada em '+fmtDate(p.closed_at)+'</span>'
       : '<button class="btn btn-sm btn-ghost" onclick="openModalObra(\''+p.id+'\')">✏️ Editar</button><button class="btn btn-sm btn-success" onclick="openFechamento(\''+p.id+'\')">📊 Fechar Obra</button>';
-    return '<div class="project-card">' +
+    return '<div class="project-card" style="cursor:pointer;" onclick="openDetalhe(\''+p.id+'\')">' +
       '<div class="pc-header"><div><div class="pc-name">'+(p.name||'—')+'</div><div class="pc-client">'+(p.clients?.name||'—')+(p.city?' · '+p.city:'')+'</div></div>' +
       '<span class="badge b-'+(p.status||'planning')+'">'+statusLbl(p.status)+'</span></div>' +
       '<div class="pc-body">' +
@@ -539,7 +539,152 @@ function showToast(msg, type='success') {
   t.textContent=msg; t.className='toast show '+type;
   setTimeout(()=>t.className='toast',3500);
 }
+
+// ── MODAL DETALHE DA OBRA ──────────────────────────────────
+async function openDetalhe(id) {
+  const p = allProjects.find(x => x.id === id);
+  if (!p) return;
+
+  // abre modal com loading
+  document.getElementById('det-title').textContent = p.name || 'Obra';
+  document.getElementById('det-client').textContent = p.clients?.name || '—';
+  document.getElementById('det-body').innerHTML = '<div class="spinner"></div>';
+  document.getElementById('modal-detalhe').classList.add('open');
+
+  // busca invoices e compras em paralelo
+  const [invRes, purRes] = await Promise.all([
+    db.from('invoices').select('invoice_number,total,subtotal,status,paid_date,due_date').eq('client_id', p.client_id).order('due_date'),
+    db.from('purchases').select('id,supplier_name,total_amount,status,order_date,purchase_items(description,quantity,unit,unit_price)').eq('project_id', id).order('order_date'),
+  ]);
+
+  const invs  = invRes.data  || [];
+  const purs  = purRes.data  || [];
+
+  const receitaTotal  = invs.filter(i=>i.status==='paid').reduce((s,i)=>s+Number(i.total||i.subtotal||0),0);
+  const receitaPend   = invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+Number(i.total||i.subtotal||0),0);
+  const custoMaterial = purs.reduce((s,pu)=>s+Number(pu.total_amount||0),0);
+  const custoSalvo    = Number(p.actual_cost)||0;
+  const custoTotal    = custoMaterial || custoSalvo;
+  const lucro         = receitaTotal - custoTotal;
+  const margin        = receitaTotal > 0 ? Math.round(lucro/receitaTotal*100) : 0;
+  const budget        = Number(p.budget)||0;
+  const isClosed      = p.status === 'completed';
+
+  // monta HTML
+  let html = '';
+
+  // ── RESUMO FINANCEIRO ──
+  html += `<div style="background:var(--navy);border-radius:14px;padding:20px;margin-bottom:20px;">
+    <div style="font-size:10px;font-weight:700;color:var(--gold2);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">💰 Resumo Financeiro</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div style="background:rgba(255,255,255,0.06);border-radius:10px;padding:12px;">
+        <div style="font-size:10px;color:rgba(255,255,255,.45);margin-bottom:4px;">Orçamento</div>
+        <div style="font-size:18px;font-weight:800;color:var(--gold);">${fmt(budget)}</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.06);border-radius:10px;padding:12px;">
+        <div style="font-size:10px;color:rgba(255,255,255,.45);margin-bottom:4px;">Recebido</div>
+        <div style="font-size:18px;font-weight:800;color:#4ade80;">${fmt(receitaTotal)}</div>
+        ${receitaPend>0?`<div style="font-size:10px;color:rgba(255,255,255,.35);margin-top:2px;">+${fmt(receitaPend)} pendente</div>`:''}
+      </div>
+      <div style="background:rgba(255,255,255,0.06);border-radius:10px;padding:12px;">
+        <div style="font-size:10px;color:rgba(255,255,255,.45);margin-bottom:4px;">Custo Material</div>
+        <div style="font-size:18px;font-weight:800;color:#f87171;">${fmt(custoTotal)}</div>
+      </div>
+    </div>
+    <div style="border-top:1px solid rgba(255,255,255,.12);padding-top:14px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--gold2);text-transform:uppercase;letter-spacing:1px;">Lucro Real</div>
+        <div style="font-size:28px;font-weight:800;color:${lucro>=0?'#4ade80':'#f87171'};">${fmt(lucro)}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;color:rgba(255,255,255,.4);">Margem</div>
+        <div style="font-size:24px;font-weight:800;color:${lucro>=0?'#4ade80':'#f87171'};">${margin}%</div>
+      </div>
+    </div>
+  </div>`;
+
+  // ── INVOICES ──
+  html += `<div style="margin-bottom:20px;">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">🧾 Invoices <span style="font-size:10px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:1px 8px;">${invs.length}</span></div>`;
+  if (!invs.length) {
+    html += `<div style="color:var(--muted);font-size:12px;padding:12px;background:var(--bg);border-radius:8px;">Nenhuma invoice vinculada.</div>`;
+  } else {
+    html += invs.map(i => {
+      const isPaid = i.status==='paid';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--white);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--navy);">${i.invoice_number}</div>
+          <div style="font-size:11px;color:var(--muted);">Venc: ${fmtDate(i.due_date)}${isPaid?' · Pago: '+fmtDate(i.paid_date):''}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:14px;font-weight:800;color:var(--navy);">${fmt(Number(i.total||i.subtotal||0))}</div>
+          <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;${isPaid?'background:var(--green-bg);color:var(--green)':'background:var(--amber-bg);color:var(--amber)'}">${isPaid?'✅ Pago':'⏳ Pendente'}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  html += '</div>';
+
+  // ── COMPRAS ──
+  html += `<div style="margin-bottom:20px;">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">🛒 Compras de Material <span style="font-size:10px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:1px 8px;">${purs.length}</span></div>`;
+  if (!purs.length) {
+    html += `<div style="color:var(--muted);font-size:12px;padding:12px;background:var(--bg);border-radius:8px;">Nenhuma compra registrada para esta obra. <a href="/purchases" style="color:var(--gold);font-weight:600;">Registrar compra →</a></div>`;
+  } else {
+    purs.forEach(pu => {
+      html += `<div style="background:var(--white);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--navy);">${pu.supplier_name||'Fornecedor'}</div>
+            <div style="font-size:11px;color:var(--muted);">${fmtDate(pu.order_date)}</div>
+          </div>
+          <div style="font-size:14px;font-weight:800;color:var(--navy);">${fmt(Number(pu.total_amount||0))}</div>
+        </div>`;
+      if (pu.purchase_items?.length) {
+        html += `<div style="padding:8px 14px;">`;
+        pu.purchase_items.forEach(it => {
+          html += `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:2px 0;">
+            <span>${it.description||'—'} (${it.quantity||1} ${it.unit||'un'})</span>
+            <span style="font-weight:600;color:var(--text);">${fmt(Number(it.unit_price||0)*Number(it.quantity||1))}</span>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+      html += `</div>`;
+    });
+  }
+  html += '</div>';
+
+  // ── BOTÕES DE AÇÃO ──
+  if (!isClosed) {
+    html += `<div style="padding:14px;background:var(--amber-bg);border:1px solid rgba(217,119,6,.2);border-radius:10px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:12px;color:var(--amber);font-weight:600;">Obra em andamento — quando concluir, feche para apurar o lucro final.</div>
+      <button class="btn btn-success btn-sm" onclick="closeModal('detalhe');openFechamento('${id}')">📊 Fechar Obra</button>
+    </div>`;
+  } else {
+    html += `<div style="padding:14px;background:var(--green-bg);border:1px solid rgba(22,163,74,.2);border-radius:10px;text-align:center;font-size:12px;color:var(--green);font-weight:700;">✅ Obra concluída em ${fmtDate(p.closed_at)}</div>`;
+  }
+
+  document.getElementById('det-body').innerHTML = html;
+}
+
 init();
 </script>
+
+<!-- MODAL DETALHE -->
+<div class="modal-overlay" id="modal-detalhe">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header">
+      <div>
+        <h2 id="det-title">Detalhe da Obra</h2>
+        <p id="det-client" style="color:var(--gold2);font-size:12px;margin-top:2px;"></p>
+      </div>
+      <button class="modal-close" onclick="closeModal('detalhe')">✕</button>
+    </div>
+    <div class="modal-body" id="det-body" style="padding:24px 28px;max-height:82vh;overflow-y:auto;">
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
