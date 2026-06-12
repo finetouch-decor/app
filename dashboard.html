@@ -382,7 +382,7 @@ async function loadAll() {
     db.from('invoices').select('id,status,total,subtotal,issue_date,due_date,paid_date,clients(name)').order('created_at',{ascending:false}),
     db.from('proposals').select('id,status,total_cost,date,client_name').order('created_at',{ascending:false}),
     db.from('quotes').select('id,status,total,created_at,clients(name)').order('created_at',{ascending:false}),
-    db.from('lancamentos').select('id,tipo,valor,data,categoria').order('data',{ascending:false})
+    db.from('transactions').select('id,type,amount,date,category,description').order('date',{ascending:false})
   ]);
 
   const leads   = leadsRes.data  || [];
@@ -536,11 +536,11 @@ function renderInvoices(invs) {
 // ─── FINANCEIRO ──────────────────────────────────────────
 function renderFinancial(lancs) {
   const m = thisMonth();
-  const recMes  = lancs.filter(l=>l.tipo==='receita'&&l.data?.startsWith(m)).reduce((s,l)=>s+(Number(l.valor)||0),0);
-  const despMes = lancs.filter(l=>l.tipo==='despesa'&&l.data?.startsWith(m)).reduce((s,l)=>s+(Number(l.valor)||0),0);
+  const recMes  = lancs.filter(l=>l.type==='income'&&l.date?.startsWith(m)).reduce((s,l)=>s+(Number(l.amount)||0),0);
+  const despMes = lancs.filter(l=>l.type==='expense'&&l.date?.startsWith(m)).reduce((s,l)=>s+(Number(l.amount)||0),0);
   const saldo   = recMes - despMes;
   const months  = last6Months();
-  const proj6   = months.reduce((s,mo)=>s+lancs.filter(l=>l.tipo==='receita'&&l.data?.startsWith(mo)).reduce((a,l)=>a+(Number(l.valor)||0),0),0);
+  const proj6   = months.reduce((s,mo)=>s+lancs.filter(l=>l.type==='income'&&l.date?.startsWith(mo)).reduce((a,l)=>a+(Number(l.amount)||0),0),0);
 
   document.getElementById('kpi-financial').innerHTML = `
     <div class="kpi accent-green"><div class="kpi-label">Receitas (mês)</div><div class="kpi-value">${fmt(recMes)}</div><div class="kpi-sub">mês atual</div></div>
@@ -549,8 +549,8 @@ function renderFinancial(lancs) {
     <div class="kpi accent-blue"><div class="kpi-label">Total 6 meses</div><div class="kpi-value">${fmt(proj6)}</div><div class="kpi-sub">receitas acumuladas</div></div>
   `;
 
-  const recData  = months.map(mo=>lancs.filter(l=>l.tipo==='receita'&&l.data?.startsWith(mo)).reduce((s,l)=>s+(Number(l.valor)||0),0));
-  const despData = months.map(mo=>lancs.filter(l=>l.tipo==='despesa'&&l.data?.startsWith(mo)).reduce((s,l)=>s+(Number(l.valor)||0),0));
+  const recData  = months.map(mo=>lancs.filter(l=>l.type==='income'&&l.date?.startsWith(mo)).reduce((s,l)=>s+(Number(l.amount)||0),0));
+  const despData = months.map(mo=>lancs.filter(l=>l.type==='expense'&&l.date?.startsWith(mo)).reduce((s,l)=>s+(Number(l.amount)||0),0));
   new Chart(document.getElementById('chart-financial'),{type:'bar',data:{labels:months.map(monthLabel),datasets:[{label:'Receitas',data:recData,backgroundColor:'rgba(22,163,74,0.7)',borderRadius:4,borderSkipped:false},{label:'Despesas',data:despData,backgroundColor:'rgba(220,38,38,0.6)',borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:10,font:{size:11}}}},scales:{y:{ticks:{callback:v=>'$'+Number(v).toLocaleString('en-US',{notation:'compact'})},grid:{color:'rgba(0,0,0,0.04)'}},x:{grid:{display:false}}}}});
 }
 
