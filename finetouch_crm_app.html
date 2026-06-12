@@ -246,16 +246,16 @@
       <option value="perdido">Perdido</option>
     </select>
     <div class="view-tabs">
-      <button class="view-tab active" id="tab-lista" onclick="setView('lista')">☰ Lista</button>
-      <button class="view-tab" id="tab-kanban" onclick="setView('kanban')">⊞ Kanban</button>
+      <button class="view-tab" id="tab-lista" onclick="setView('lista')">☰ Lista</button>
+      <button class="view-tab active" id="tab-kanban" onclick="setView('kanban')">⊞ Kanban</button>
       <button class="view-tab" id="tab-retornos" onclick="setView('retornos')">📅 Retornos</button>
     </div>
   </div>
 
   <!-- CONTENT -->
   <div class="content">
-    <div id="view-lista"></div>
-    <div id="view-kanban" class="kanban-view" style="display:none">
+    <div id="view-lista" style="display:none"></div>
+    <div id="view-kanban" class="kanban-view">
       <div class="kanban-col col-lead"><div class="kanban-col-header"><h3>Lead</h3><span class="kanban-count" id="kc-lead">0</span></div><div class="kanban-cards" id="kl-lead" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'lead')"></div></div>
       <div class="kanban-col col-visita"><div class="kanban-col-header"><h3>Visita</h3><span class="kanban-count" id="kc-visita">0</span></div><div class="kanban-cards" id="kl-visita" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'visita')"></div></div>
       <div class="kanban-col col-proposta"><div class="kanban-col-header"><h3>Proposta</h3><span class="kanban-count" id="kc-proposta">0</span></div><div class="kanban-cards" id="kl-proposta" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'proposta')"></div></div>
