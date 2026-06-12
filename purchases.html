@@ -237,7 +237,7 @@ textarea{resize:vertical;min-height:60px;}
           </div>
           <div>
             <label>Obra / Projeto</label>
-            <select id="f-project">
+            <select id="f-project" onchange="onProjectChange(this.value)">
               <option value="">Selecionar projeto...</option>
             </select>
           </div>
@@ -418,6 +418,38 @@ function openModal(id) {
   document.getElementById('modal').classList.add('open');
 }
 function closeModal(){document.getElementById('modal').classList.remove('open');}
+
+// ── PRÉ-PREENCHER DO ORÇAMENTO ─────────────────────────────
+async function onProjectChange(projectId) {
+  if (!projectId || editingId) return; // só pré-preenche em novas compras
+  const hasItems = itemRowIds.length > 0 &&
+    document.querySelector('#items-body td input')?.value?.trim();
+  if (hasItems) {
+    if (!confirm('Pré-preencher itens do orçamento vinculado a esta obra? Os itens atuais serão substituídos.')) return;
+  }
+
+  // busca o projeto para pegar o quote_id
+  const { data: proj } = await db.from('projects')
+    .select('id,name,quote_id').eq('id', projectId).single();
+  if (!proj?.quote_id) return; // sem orçamento vinculado
+
+  // busca os itens do orçamento
+  const { data: qItems } = await db.from('quote_items')
+    .select('description,quantity,unit,unit_price,category')
+    .eq('quote_id', proj.quote_id)
+    .order('id');
+
+  if (!qItems || !qItems.length) return;
+
+  // limpa e preenche
+  document.getElementById('items-body').innerHTML = '';
+  itemRowIds = [];
+  qItems.forEach(item => {
+    addItemRow(item.description || '', item.quantity || 1, item.unit || 'un', item.unit_price || 0);
+  });
+  recalc();
+  showToast(`✅ ${qItems.length} itens do orçamento pré-preenchidos — ajuste os valores reais!`, 'success');
+}
 
 // ── ITEM ROWS ──────────────────────────────────────────────
 function addItemRow(desc='',qty='',unit='un',price='') {

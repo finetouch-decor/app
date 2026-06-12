@@ -562,24 +562,45 @@ async function markPaid(id) {
   const today = new Date().toISOString().slice(0,10);
 
   // 1. Atualiza invoice para paga
-  const { error } = await db.from('invoices').update({
-    status: 'paid',
-    paid_date: today
-  }).eq('id', id);
-
+  const { error } = await db.from('invoices').update({ status:'paid', paid_date:today }).eq('id', id);
   if (error) { showToast('Erro: '+error.message, 'error'); return; }
 
-  // 2. Lança automaticamente no financeiro (transactions)
+  // 2. Lança automaticamente no financeiro
   await db.from('transactions').insert({
-    type:        'income',
-    amount:      Number(inv.total||inv.subtotal||0),
-    date:        today,
-    category:    'Projeto',
-    description: `Recebimento invoice ${inv.invoice_number} — ${clientName}`,
-    reference:   inv.invoice_number,
+    type:'income', amount:Number(inv.total||inv.subtotal||0), date:today,
+    category:'Projeto',
+    description:`Recebimento invoice ${inv.invoice_number} — ${clientName}`,
+    reference:inv.invoice_number,
   });
 
-  showToast('✅ Invoice marcada como paga e lançada no financeiro!', 'success');
+  // 3. Verifica se já existe obra para este cliente/invoice — se não, cria
+  const { data: existingProjects } = await db.from('projects')
+    .select('id').eq('client_id', inv.client_id).limit(1);
+
+  if (!existingProjects || existingProjects.length === 0) {
+    // Busca o orçamento vinculado para pegar o nome do projeto
+    let projectName = `Projeto — ${clientName}`;
+    let quoteId = inv.quote_id || null;
+    if (quoteId) {
+      const { data: q } = await db.from('quotes').select('project_name').eq('id', quoteId).single();
+      if (q?.project_name) projectName = q.project_name;
+    }
+    const num = 'OBR-' + Date.now().toString().slice(-5);
+    await db.from('projects').insert({
+      project_number: num,
+      name:           projectName,
+      client_id:      inv.client_id || null,
+      status:         'active',
+      start_date:     today,
+      budget:         Number(inv.total||inv.subtotal||0),
+      quote_id:       quoteId,
+      description:    `Obra criada automaticamente ao receber invoice ${inv.invoice_number}`,
+    });
+    showToast('✅ Recebido! Obra criada automaticamente em /projects 🏗️', 'success');
+  } else {
+    showToast('✅ Invoice marcada como paga e lançada no financeiro!', 'success');
+  }
+
   await loadAll();
 }
 
