@@ -227,6 +227,57 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
   </div>
 </main>
 
+<!-- MODAL PARCELAMENTO -->
+<div class="overlay" id="overlay-parcelas" onclick="closeIfOutside(event,'overlay-parcelas')" style="display:none;align-items:center;">
+  <div class="modal" style="max-width:600px;width:100%;">
+    <div class="modal-header" style="background:var(--navy);">
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <div class="modal-title" style="color:#fff;">🧾 Gerar Invoices</div>
+        <div style="font-size:12px;color:var(--gold2);" id="parc-subtitle">Defina as parcelas do pagamento</div>
+      </div>
+      <button class="modal-close" onclick="closeParcelas()" style="color:rgba(255,255,255,.5);">×</button>
+    </div>
+    <div class="modal-body" style="padding:20px 24px;">
+
+      <!-- TOTAL + ALERTA -->
+      <div style="background:#f0f7eb;border:1px solid rgba(46,107,62,.2);border-radius:10px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Valor Total da Proposta</div>
+          <div style="font-size:22px;font-weight:800;color:var(--navy);" id="parc-total-display">$0.00</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Distribuído</div>
+          <div style="font-size:18px;font-weight:800;" id="parc-distribuido">$0.00</div>
+          <div style="font-size:11px;margin-top:2px;" id="parc-restante"></div>
+        </div>
+      </div>
+
+      <!-- ATALHOS RÁPIDOS -->
+      <div style="margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Atalhos rápidos</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline" style="font-size:11px;padding:5px 12px;" onclick="applyTemplate([50,50])">50% / 50%</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:5px 12px;" onclick="applyTemplate([50,30,20])">50% / 30% / 20%</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:5px 12px;" onclick="applyTemplate([33,33,34])">3× iguais</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:5px 12px;" onclick="applyTemplate([40,30,30])">40% / 30% / 30%</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:5px 12px;" onclick="applyTemplate([100])">100% único</button>
+        </div>
+      </div>
+
+      <!-- LINHAS DE PARCELA -->
+      <div id="parcelas-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
+
+      <button onclick="addParcela()" style="background:none;border:1.5px dashed var(--border);border-radius:8px;padding:8px;width:100%;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">
+        + Adicionar parcela
+      </button>
+    </div>
+    <div class="modal-footer" style="padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;background:#f7f8fa;">
+      <button class="btn btn-outline" onclick="closeParcelas()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-criar-invoices" onclick="criarInvoices()" style="background:var(--navy);color:var(--gold);">🧾 Criar Invoices</button>
+    </div>
+  </div>
+</div>
+
 <!-- CREATE/EDIT MODAL -->
 <div class="overlay" id="overlay-form" onclick="closeIfOutside(event,'overlay-form')">
   <div class="modal">
@@ -503,34 +554,169 @@ async function approveProposal(id) {
   await loadProposals();
 }
 
-// ─── GERAR INVOICE ────────────────────────────────────────────
+// ─── MODAL PARCELAMENTO ───────────────────────────────────────
+let parcelasProposalId = null;
+let parcelasTotal = 0;
+let parcelasClientId = null;
+let parcelasClientName = '';
+let parcelaCount = 0;
+
 async function generateInvoice(id) {
-  const p = proposals.find(x=>x.id===id);
+  const p = proposals.find(x => x.id === id);
   if (!p) return;
+  parcelasProposalId = id;
+  parcelasTotal = Number(p.total_cost) || 0;
+  parcelasClientName = p.client_name || '';
 
-  // Busca cliente pelo nome para pegar o client_id
-  const { data: clients } = await db.from('clients').select('id,name').ilike('name', p.client_name||'');
-  const clientId = clients?.[0]?.id || null;
+  // busca client_id
+  const { data: cls } = await db.from('clients').select('id,name').ilike('name', p.client_name || '');
+  parcelasClientId = cls?.[0]?.id || null;
 
-  const today = new Date();
-  const due   = new Date(today); due.setDate(due.getDate()+30);
+  document.getElementById('parc-subtitle').textContent = parcelasClientName + ' — defina as parcelas';
+  document.getElementById('parc-total-display').textContent = fmtMoney(parcelasTotal);
+  document.getElementById('parcelas-list').innerHTML = '';
+  parcelaCount = 0;
 
-  const invNum = 'INV-' + Date.now().toString().slice(-5);
-  const payload = {
-    invoice_number: invNum,
-    client_id:      clientId,
-    status:         'sent',
-    issue_date:     today.toISOString().slice(0,10),
-    due_date:       due.toISOString().slice(0,10),
-    subtotal:       Number(p.total_cost)||0,
-    total:          Number(p.total_cost)||0,
-    notes:          `Invoice referente à proposta: ${p.title||p.client_name||''}`,
-  };
+  // começa com 2 parcelas 50/50 como padrão
+  applyTemplate([50, 50]);
+  document.getElementById('overlay-parcelas').style.display = 'flex';
+}
 
-  const { error } = await db.from('invoices').insert(payload);
-  if (error) { showToast('Erro ao gerar invoice: '+error.message, 'error'); return; }
-  showToast('🧾 Invoice criada! Redirecionando...', 'success');
-  setTimeout(()=>window.location.href='/invoices', 1500);
+function closeParcelas() {
+  document.getElementById('overlay-parcelas').style.display = 'none';
+}
+
+function addParcela(pct, diasOffset) {
+  parcelaCount++;
+  const idx = parcelaCount;
+  const valor = pct ? Math.round(parcelasTotal * pct / 100 * 100) / 100 : 0;
+  const hoje = new Date();
+  if (diasOffset) hoje.setDate(hoje.getDate() + diasOffset);
+  const dateStr = hoje.toISOString().slice(0, 10);
+
+  const div = document.createElement('div');
+  div.id = 'parc-row-' + idx;
+  div.style.cssText = 'display:grid;grid-template-columns:36px 1fr 1fr 1fr 32px;gap:8px;align-items:center;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px;';
+  div.innerHTML = `
+    <div style="font-size:12px;font-weight:700;color:var(--muted);text-align:center;">#${idx}</div>
+    <div>
+      <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Descrição</div>
+      <input type="text" value="${getDescDefault(idx)}" placeholder="Ex: Sinal, Entrega..." style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;" oninput="updateDistribuido()">
+    </div>
+    <div>
+      <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Valor ($)</div>
+      <input type="number" value="${valor.toFixed(2)}" min="0" step="0.01" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;" oninput="updateDistribuido()" onchange="updateDistribuido()">
+    </div>
+    <div>
+      <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Vencimento</div>
+      <input type="date" value="${dateStr}" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;">
+    </div>
+    <button onclick="removeParcela(${idx})" style="background:var(--red-bg);border:none;border-radius:7px;padding:6px;cursor:pointer;font-size:14px;color:var(--red);" title="Remover">✕</button>`;
+  document.getElementById('parcelas-list').appendChild(div);
+  updateDistribuido();
+}
+
+function removeParcela(idx) {
+  const el = document.getElementById('parc-row-' + idx);
+  if (el) el.remove();
+  updateDistribuido();
+}
+
+function getDescDefault(idx) {
+  const labels = ['Sinal / Assinatura', 'Entrega de Materiais', 'Conclusão da Obra', 'Parcela 4', 'Parcela 5'];
+  return labels[idx - 1] || 'Parcela ' + idx;
+}
+
+function applyTemplate(pcts) {
+  document.getElementById('parcelas-list').innerHTML = '';
+  parcelaCount = 0;
+  let offset = 0;
+  pcts.forEach(pct => {
+    addParcela(pct, offset);
+    offset += 30;
+  });
+}
+
+function updateDistribuido() {
+  const rows = document.querySelectorAll('#parcelas-list > div');
+  let total = 0;
+  rows.forEach(row => {
+    const inp = row.querySelectorAll('input[type="number"]')[0];
+    if (inp) total += parseFloat(inp.value) || 0;
+  });
+  const diff = parcelasTotal - total;
+  const distEl = document.getElementById('parc-distribuido');
+  const restEl = document.getElementById('parc-restante');
+  distEl.textContent = fmtMoney(total);
+  distEl.style.color = Math.abs(diff) < 0.01 ? '#2e6b3e' : '#a03030';
+  if (Math.abs(diff) < 0.01) {
+    restEl.textContent = '✅ 100% distribuído';
+    restEl.style.color = '#2e6b3e';
+  } else if (diff > 0) {
+    restEl.textContent = 'Faltam ' + fmtMoney(diff);
+    restEl.style.color = '#a03030';
+  } else {
+    restEl.textContent = 'Excesso de ' + fmtMoney(Math.abs(diff));
+    restEl.style.color = '#a03030';
+  }
+}
+
+async function criarInvoices() {
+  const rows = document.querySelectorAll('#parcelas-list > div');
+  if (!rows.length) { showToast('Adicione pelo menos uma parcela', 'error'); return; }
+
+  // valida soma
+  let totalParc = 0;
+  rows.forEach(r => { const i = r.querySelectorAll('input[type="number"]')[0]; if(i) totalParc += parseFloat(i.value)||0; });
+  if (Math.abs(totalParc - parcelasTotal) > 0.5) {
+    showToast('⚠ Total das parcelas não bate com o valor da proposta', 'error'); return;
+  }
+
+  const btn = document.getElementById('btn-criar-invoices');
+  btn.disabled = true; btn.textContent = 'Criando...';
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  const total = rows.length;
+  const payloads = [];
+  let i = 0;
+  rows.forEach(row => {
+    i++;
+    const inputs = row.querySelectorAll('input');
+    const desc   = inputs[0]?.value || ('Parcela ' + i);
+    const valor  = parseFloat(inputs[1]?.value) || 0;
+    const venc   = inputs[2]?.value || hoje;
+    const num    = 'INV-' + Date.now().toString().slice(-4) + '-' + i;
+    payloads.push({
+      invoice_number: num,
+      client_id:      parcelasClientId,
+      status:         'sent',
+      issue_date:     hoje,
+      due_date:       venc,
+      subtotal:       valor,
+      total:          valor,
+      notes:          `Parcela ${i}/${total}: ${desc} — Proposta ${parcelasClientName}`,
+    });
+  });
+
+  let errors = [];
+  for (const p of payloads) {
+    const { error } = await db.from('invoices').insert(p);
+    if (error) errors.push(error.message);
+  }
+
+  if (errors.length) {
+    showToast('Erro: ' + errors[0], 'error');
+    btn.disabled = false; btn.textContent = '🧾 Criar Invoices';
+    return;
+  }
+
+  showToast(`🧾 ${payloads.length} invoice(s) criada(s)! Redirecionando...`, 'success');
+  closeParcelas();
+  setTimeout(() => window.location.href = '/invoices', 1500);
+}
+
+function fmtMoney(v) {
+  return '$' + Number(v||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
 // ─── PRINT VIEW ──────────────────────────────────────────────
