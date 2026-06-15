@@ -14,6 +14,7 @@
     { "source": "/proposals", "destination": "/proposals.html" },
     { "source": "/purchases", "destination": "/purchases.html" },
     { "source": "/pending", "destination": "/pending.html" },
-    { "source": "/users", "destination": "/users.html" }
+    { "source": "/users", "destination": "/users.html" },
+    { "source": "/reports", "destination": "/reports.html" }
   ]
 }

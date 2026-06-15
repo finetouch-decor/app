@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fine Touch — Relatórios</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+:root {
+  --navy:#102A4B; --navy2:#1a3d6e; --gold:#C69E63; --gold2:#C7B090;
+  --cream:#EAE6DA; --white:#FFFFFF; --bg:#F7F8FA;
+  --border:rgba(15,23,42,0.08); --text:#0F172A; --muted:#64748B;
+  --green:#16a34a; --green-bg:#f0fdf4;
+  --red:#dc2626; --red-bg:#fef2f2;
+  --amber:#d97706; --amber-bg:#fffbeb;
+  --shadow:0 1px 3px rgba(0,0,0,0.06); --shadow-md:0 4px 6px rgba(0,0,0,0.05);
+  --sidebar:240px; --radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar);background:var(--navy);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto;}
+.sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,0.1);}
+.sidebar-logo img{width:100%;max-width:180px;height:auto;display:block;}
+.sidebar-nav{flex:1;padding:12px 0;}
+.nav-section{padding:16px 20px 6px;font-size:9px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:2px;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;color:rgba(255,255,255,0.55);font-size:13px;font-weight:500;text-decoration:none;transition:all .15s;}
+.nav-item:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.9);}
+.nav-item.active{background:rgba(198,158,99,0.15);color:var(--gold);border-right:3px solid var(--gold);}
+.nav-item.dim{opacity:0.3;pointer-events:none;}
+.nav-item .icon{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+.sidebar-user{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px;}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--navy);flex-shrink:0;}
+.user-info{flex:1;min-width:0;}
+.user-name{font-size:12px;font-weight:600;color:rgba(255,255,255,0.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-role{font-size:10px;color:var(--gold2);text-transform:uppercase;letter-spacing:1px;}
+.btn-logout{background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:15px;padding:4px;}
+.btn-logout:hover{color:rgba(255,255,255,0.8);}
+
+/* MAIN */
+.main{margin-left:var(--sidebar);flex:1;}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
+.topbar h1{font-size:18px;font-weight:700;color:var(--navy);}
+.topbar p{font-size:12px;color:var(--muted);margin-top:1px;}
+
+/* PERIOD SELECTOR */
+.period-bar{background:var(--white);border-bottom:1px solid var(--border);padding:10px 32px;display:flex;align-items:center;gap:8px;}
+.period-btn{padding:6px 14px;border-radius:8px;border:1.5px solid var(--border);background:transparent;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .15s;}
+.period-btn.active{background:var(--navy);color:var(--gold);border-color:var(--navy);}
+.period-label{font-size:12px;color:var(--muted);margin-left:auto;}
+
+/* CONTENT */
+.content{padding:28px 32px;}
+
+/* KPI ROW */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+.kpi{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:var(--gold);}
+.kpi-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;}
+.kpi-value{font-size:26px;font-weight:800;color:var(--navy);line-height:1;}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:5px;}
+.kpi-delta{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;margin-top:6px;padding:2px 7px;border-radius:20px;}
+.kpi-delta.up{background:var(--green-bg);color:var(--green);}
+.kpi-delta.down{background:var(--red-bg);color:var(--red);}
+
+/* CHARTS ROW */
+.charts-row{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:24px;}
+.chart-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;box-shadow:var(--shadow);}
+.chart-title{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+.chart-sub{font-size:11px;color:var(--muted);margin-bottom:18px;}
+.chart-wrap{position:relative;height:240px;}
+
+/* BOTTOM ROW */
+.bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+
+/* TABLE */
+.tbl-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+.tbl-header{padding:16px 20px;border-bottom:1px solid var(--border);}
+.tbl-header h3{font-size:13px;font-weight:700;color:var(--navy);}
+.tbl-header p{font-size:11px;color:var(--muted);margin-top:2px;}
+.tbl-row{display:grid;align-items:center;padding:11px 20px;border-bottom:1px solid var(--border);gap:12px;}
+.tbl-row:last-child{border-bottom:none;}
+.tbl-row.head{background:#f8f9fb;padding:8px 20px;}
+.tbl-row.head span{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.tbl-name{font-size:13px;font-weight:600;color:var(--navy);}
+.tbl-sub{font-size:11px;color:var(--muted);margin-top:1px;}
+.tbl-val{font-size:13px;font-weight:700;color:var(--navy);text-align:right;}
+.tbl-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;text-align:center;}
+.badge-green{background:var(--green-bg);color:var(--green);}
+.badge-amber{background:var(--amber-bg);color:var(--amber);}
+.badge-red{background:var(--red-bg);color:var(--red);}
+
+/* FUNNEL */
+.funnel-row{display:flex;flex-direction:column;gap:8px;padding:16px 20px;}
+.funnel-item{display:flex;align-items:center;gap:10px;}
+.funnel-bar-wrap{flex:1;background:#f1f5f9;border-radius:6px;height:28px;overflow:hidden;}
+.funnel-bar{height:100%;border-radius:6px;display:flex;align-items:center;padding:0 10px;font-size:11px;font-weight:700;color:#fff;transition:width .6s ease;white-space:nowrap;}
+.funnel-label{font-size:12px;font-weight:600;color:var(--navy);min-width:90px;}
+.funnel-count{font-size:12px;font-weight:700;color:var(--navy);min-width:28px;text-align:right;}
+.funnel-pct{font-size:10px;color:var(--muted);min-width:36px;text-align:right;}
+
+.empty-state{padding:32px;text-align:center;color:var(--muted);font-size:13px;}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <img src="/logo-dark-bg.png" alt="Fine Touch">
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Principal</div>
+    <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
+    <div class="nav-section">Captação</div>
+    <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
+    <div class="nav-section">Venda</div>
+    <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
+    <a class="nav-item" href="/proposals"><span class="icon">📄</span>Propostas</a>
+    <a class="nav-item dim"><span class="icon">📝</span>Contratos</a>
+    <a class="nav-item" href="/invoices"><span class="icon">🧾</span>Invoices</a>
+    <div class="nav-section">Execução</div>
+    <a class="nav-item" href="/projects"><span class="icon">🏗️</span>Obras</a>
+    <a class="nav-item" href="/purchases"><span class="icon">🛒</span>Compras</a>
+    <div class="nav-section">Gestão</div>
+    <a class="nav-item" href="/financial"><span class="icon">💰</span>Financeiro</a>
+    <a class="nav-item active" href="/reports"><span class="icon">📈</span>Relatórios</a>
+    <a class="nav-item" href="/catalog"><span class="icon">📚</span>Catálogo</a>
+    <a class="nav-item" href="/marketing"><span class="icon">📣</span>Marketing</a>
+    <a class="nav-item" href="/tasks"><span class="icon">✅</span>Tarefas</a>
+    <div class="nav-section">Admin</div>
+    <a class="nav-item" id="nav-users" href="/users" style="display:none"><span class="icon">👥</span>Usuários</a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-avatar" id="user-avatar">F</div>
+    <div class="user-info">
+      <div class="user-name" id="user-name">...</div>
+      <div class="user-role">Fine Touch</div>
+    </div>
+    <button class="btn-logout" onclick="logout()">⏻</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div>
+      <h1>Relatório de Desempenho</h1>
+      <p>Visão consolidada do negócio</p>
+    </div>
+  </div>
+
+  <!-- PERIOD SELECTOR -->
+  <div class="period-bar">
+    <button class="period-btn" onclick="setPeriod(3,this)">3 meses</button>
+    <button class="period-btn active" onclick="setPeriod(6,this)">6 meses</button>
+    <button class="period-btn" onclick="setPeriod(12,this)">12 meses</button>
+    <span class="period-label" id="period-label"></span>
+  </div>
+
+  <div class="content">
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-label">Faturamento no Período</div>
+        <div class="kpi-value" id="kpi-faturamento">—</div>
+        <div class="kpi-sub" id="kpi-fat-sub"></div>
+      </div>
+      <div class="kpi" style="--accent:var(--green);">
+        <div class="kpi-label">Ticket Médio</div>
+        <div class="kpi-value" id="kpi-ticket">—</div>
+        <div class="kpi-sub" id="kpi-tick-sub"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Taxa de Conversão</div>
+        <div class="kpi-value" id="kpi-conversao">—</div>
+        <div class="kpi-sub">leads → clientes fechados</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Lucro Real (Obras)</div>
+        <div class="kpi-value" id="kpi-lucro">—</div>
+        <div class="kpi-sub" id="kpi-margem"></div>
+      </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">Faturamento Mês a Mês</div>
+        <div class="chart-sub">Receitas recebidas (invoices pagos)</div>
+        <div class="chart-wrap"><canvas id="chart-fat"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Receita vs Custo</div>
+        <div class="chart-sub">Acumulado do período</div>
+        <div class="chart-wrap"><canvas id="chart-rv"></canvas></div>
+      </div>
+    </div>
+
+    <!-- BOTTOM -->
+    <div class="bottom-row">
+
+      <!-- FUNIL DE CONVERSÃO -->
+      <div class="tbl-card">
+        <div class="tbl-header">
+          <h3>Funil de Conversão</h3>
+          <p>Leads no período → obras fechadas</p>
+        </div>
+        <div class="funnel-row" id="funnel-wrap">
+          <div class="empty-state">Carregando...</div>
+        </div>
+      </div>
+
+      <!-- TOP PROJETOS -->
+      <div class="tbl-card">
+        <div class="tbl-header">
+          <h3>Projetos por Receita</h3>
+          <p>Obras com maior valor faturado</p>
+        </div>
+        <div class="tbl-row head" style="grid-template-columns:1fr auto auto;">
+          <span>Projeto / Cliente</span>
+          <span>Margem</span>
+          <span style="text-align:right;">Receita</span>
+        </div>
+        <div id="top-projetos"><div class="empty-state">Carregando...</div></div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script>
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let months = 6;
+let chartFat = null, chartRv = null;
+
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { window.location.href = '/login.html'; return; }
+  const { data: prof } = await db.from('user_profiles').select('status,role').eq('id', session.user.id).single();
+  if (!prof || (prof.status !== 'approved' && prof.role !== 'admin')) { window.location.href = '/pending.html'; return; }
+  if (prof.role === 'admin') { const ul = document.getElementById('nav-users'); if(ul) ul.style.display='flex'; }
+  const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User';
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+  await loadAll();
+}
+
+db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
+async function logout() { await db.auth.signOut(); }
+
+function setPeriod(m, btn) {
+  months = m;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadAll();
+}
+
+function startOf(monthsBack) {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - monthsBack + 1);
+  d.setHours(0,0,0,0);
+  return d.toISOString().slice(0,10);
+}
+
+function fmt(v) { return '$' + Number(v||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function fmtD(v) { return '$' + Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function monthLabel(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('pt-BR', {month:'short', year:'2-digit'}).replace('. ','/'). replace('.','');
+}
+
+async function loadAll() {
+  const since = startOf(months);
+
+  // label
+  const fromLabel = new Date(since+'T00:00:00').toLocaleDateString('pt-BR',{month:'short',year:'numeric'});
+  const toLabel   = new Date().toLocaleDateString('pt-BR',{month:'short',year:'numeric'});
+  document.getElementById('period-label').textContent = fromLabel + ' → ' + toLabel;
+
+  // fetch data in parallel
+  const [invRes, txRes, leadRes, projRes] = await Promise.all([
+    db.from('invoices').select('*').eq('status','paid').gte('issue_date', since).order('issue_date'),
+    db.from('transactions').select('*').gte('date', since).order('date'),
+    db.from('leads').select('*').gte('created_at', since),
+    db.from('projects').select('*'),
+  ]);
+
+  const invs  = invRes.data  || [];
+  const txs   = txRes.data   || [];
+  const leads = leadRes.data || [];
+  const projs = projRes.data || [];
+
+  renderKPIs(invs, txs, leads, projs);
+  renderFatChart(invs, txs, since);
+  renderRvChart(invs, txs);
+  renderFunnel(leads);
+  renderTopProjetos(projs, invs);
+}
+
+/* ─── KPIs ─────────────────────────────────────────────────── */
+function renderKPIs(invs, txs, leads, projs) {
+  // Faturamento: invoices pagos no período
+  const faturamento = invs.reduce((s,i) => s + Number(i.total||0), 0);
+  document.getElementById('kpi-faturamento').textContent = fmt(faturamento);
+  document.getElementById('kpi-fat-sub').textContent = invs.length + ' invoice(s) recebido(s)';
+
+  // Ticket médio: por invoice pago
+  const ticket = invs.length ? faturamento / invs.length : 0;
+  document.getElementById('kpi-ticket').textContent = fmt(ticket);
+  document.getElementById('kpi-tick-sub').textContent = 'por invoice pago';
+
+  // Taxa de conversão: leads fechados / total leads
+  const total     = leads.length;
+  const fechados  = leads.filter(l => l.status === 'fechado').length;
+  const pct       = total ? Math.round(fechados / total * 100) : 0;
+  document.getElementById('kpi-conversao').textContent = pct + '%';
+
+  // Lucro real: projetos fechados com profit_real
+  const lucroTotal = projs.filter(p => p.profit_real != null)
+    .reduce((s,p) => s + Number(p.profit_real||0), 0);
+  const recTotal = projs.filter(p => p.actual_revenue != null)
+    .reduce((s,p) => s + Number(p.actual_revenue||0), 0);
+  const margem = recTotal ? Math.round(lucroTotal / recTotal * 100) : 0;
+  document.getElementById('kpi-lucro').textContent = fmt(lucroTotal);
+  document.getElementById('kpi-margem').textContent = 'margem média ' + margem + '%';
+}
+
+/* ─── FATURAMENTO MÊS A MÊS ────────────────────────────────── */
+function renderFatChart(invs, txs, since) {
+  // Build month buckets
+  const buckets = {};
+  const now = new Date();
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    buckets[key] = { label: d.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''), receita:0, custo:0 };
+  }
+
+  invs.forEach(inv => {
+    const key = (inv.issue_date||'').slice(0,7);
+    if (buckets[key]) buckets[key].receita += Number(inv.total||0);
+  });
+
+  txs.filter(t => t.type === 'expense').forEach(tx => {
+    const key = (tx.date||'').slice(0,7);
+    if (buckets[key]) buckets[key].custo += Number(tx.amount||0);
+  });
+
+  const labels = Object.values(buckets).map(b => b.label);
+  const receitas = Object.values(buckets).map(b => b.receita);
+  const custos   = Object.values(buckets).map(b => b.custo);
+
+  if (chartFat) chartFat.destroy();
+  const ctx = document.getElementById('chart-fat').getContext('2d');
+  chartFat = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Receita', data: receitas, backgroundColor: 'rgba(198,158,99,0.85)', borderRadius: 6, borderSkipped: false },
+        { label: 'Custo',   data: custos,   backgroundColor: 'rgba(16,42,75,0.15)',   borderRadius: 6, borderSkipped: false },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position:'top', labels:{font:{family:'Inter',size:11},boxWidth:10} } },
+      scales: {
+        x: { grid:{display:false}, ticks:{font:{family:'Inter',size:11}} },
+        y: { grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{family:'Inter',size:11}, callback: v => '$'+v.toLocaleString('en-US')} }
+      }
+    }
+  });
+}
+
+/* ─── RECEITA VS CUSTO (DONUT) ──────────────────────────────── */
+function renderRvChart(invs, txs) {
+  const receita = invs.reduce((s,i) => s + Number(i.total||0), 0);
+  const custo   = txs.filter(t=>t.type==='expense').reduce((s,t) => s + Number(t.amount||0), 0);
+  const lucro   = Math.max(0, receita - custo);
+
+  if (chartRv) chartRv.destroy();
+  const ctx = document.getElementById('chart-rv').getContext('2d');
+  chartRv = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Lucro', 'Custo'],
+      datasets: [{
+        data: [lucro, custo],
+        backgroundColor: ['rgba(198,158,99,0.9)', 'rgba(16,42,75,0.75)'],
+        borderWidth: 0, hoverOffset: 6,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: {
+        legend: { position:'bottom', labels:{font:{family:'Inter',size:11},boxWidth:10,padding:12} },
+        tooltip: { callbacks: { label: ctx => ' $' + ctx.parsed.toLocaleString('en-US',{minimumFractionDigits:0}) } }
+      }
+    }
+  });
+}
+
+/* ─── FUNIL ─────────────────────────────────────────────────── */
+function renderFunnel(leads) {
+  const stages = [
+    { key:'lead',     label:'Leads',     color:'#3b82f6' },
+    { key:'contato',  label:'Contato',   color:'#8b5cf6' },
+    { key:'proposta', label:'Proposta',  color:'#f59e0b' },
+    { key:'fechado',  label:'Fechado',   color:'#16a34a' },
+    { key:'perdido',  label:'Perdido',   color:'#dc2626' },
+  ];
+
+  const total = leads.length || 1;
+  const counts = {};
+  leads.forEach(l => { counts[l.status] = (counts[l.status]||0) + 1; });
+
+  // total excluindo perdidos para % do funil
+  const totalFunil = total;
+
+  const html = stages.map(s => {
+    const n = counts[s.key] || 0;
+    const pct = Math.round(n / totalFunil * 100);
+    const barW = Math.max(pct, n > 0 ? 5 : 0);
+    return `
+      <div class="funnel-item">
+        <div class="funnel-label">${s.label}</div>
+        <div class="funnel-bar-wrap">
+          <div class="funnel-bar" style="width:${barW}%;background:${s.color};">${n > 0 ? n : ''}</div>
+        </div>
+        <div class="funnel-count">${n}</div>
+        <div class="funnel-pct">${pct}%</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('funnel-wrap').innerHTML = html || '<div class="empty-state">Sem dados</div>';
+}
+
+/* ─── TOP PROJETOS ──────────────────────────────────────────── */
+function renderTopProjetos(projs, invs) {
+  // Agrupa invoices pagos por client_id
+  const byClient = {};
+  invs.forEach(inv => {
+    if (!inv.client_id) return;
+    byClient[inv.client_id] = (byClient[inv.client_id]||0) + Number(inv.total||0);
+  });
+
+  // Combina com projetos
+  const rows = projs
+    .map(p => ({
+      name: p.name || '—',
+      receita: p.actual_revenue || byClient[p.client_id] || p.budget || 0,
+      lucro: p.profit_real || 0,
+    }))
+    .filter(r => r.receita > 0)
+    .sort((a,b) => b.receita - a.receita)
+    .slice(0, 8);
+
+  if (!rows.length) {
+    document.getElementById('top-projetos').innerHTML = '<div class="empty-state">Sem projetos com receita registrada</div>';
+    return;
+  }
+
+  document.getElementById('top-projetos').innerHTML = rows.map(r => {
+    const margem = r.receita ? Math.round(r.lucro / r.receita * 100) : null;
+    const badgeClass = margem === null ? 'badge-amber' : margem >= 30 ? 'badge-green' : margem >= 10 ? 'badge-amber' : 'badge-red';
+    const badgeText  = margem === null ? '—' : margem + '%';
+    return `
+      <div class="tbl-row" style="grid-template-columns:1fr auto auto;">
+        <div class="tbl-name">${r.name}</div>
+        <div><span class="tbl-badge ${badgeClass}">${badgeText}</span></div>
+        <div class="tbl-val">${fmt(r.receita)}</div>
+      </div>`;
+  }).join('');
+}
+
+init();
+</script>
+</body>
+</html>
