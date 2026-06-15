@@ -97,12 +97,12 @@
 
 <div class="page-wrap">
   <div class="toolbar">
-    <button class="btn-back" onclick="window.history.back()">← Voltar</button>
-    <button class="btn-email" onclick="sendEmail()" id="btn-email" style="background:#2e6b3e;color:#fff;display:none">✉ Enviar por Email</button>
-    <button class="btn-print" onclick="window.print()">🖨️ Salvar como PDF</button>
+    <button class="btn-back" onclick="window.history.back()">← Back</button>
+    <button class="btn-email" onclick="sendEmail()" id="btn-email" style="background:#2e6b3e;color:#fff;display:none">✉ Send by Email</button>
+    <button class="btn-print" onclick="window.print()">🖨️ Save as PDF</button>
   </div>
   <div id="invoice-wrap">
-    <div class="loading">Carregando invoice...</div>
+    <div class="loading">Loading invoice...</div>
   </div>
 </div>
 
@@ -122,7 +122,7 @@ function fmtDate(d) {
 async function load() {
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');
-  if (!id) { document.getElementById('invoice-wrap').innerHTML = '<div class="loading">Invoice não encontrada.</div>'; return; }
+  if (!id) { document.getElementById('invoice-wrap').innerHTML = '<div class="loading">Invoice not found.</div>'; return; }
 
   const { data: inv, error } = await db
     .from('invoices')
@@ -130,7 +130,7 @@ async function load() {
     .eq('id', id)
     .single();
 
-  if (error || !inv) { document.getElementById('invoice-wrap').innerHTML = '<div class="loading">Erro ao carregar invoice.</div>'; return; }
+  if (error || !inv) { document.getElementById('invoice-wrap').innerHTML = '<div class="loading">Error loading invoice.</div>'; return; }
 
   const client = inv.clients || {};
   const items  = inv.quotes?.quote_items || [];
