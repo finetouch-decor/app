@@ -142,6 +142,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
       <button class="cat-btn" onclick="setFilter('Pintura',this)">Pintura</button>
       <button class="cat-btn" onclick="setFilter('Design de Interiores',this)">Design</button>
       <button class="cat-btn" onclick="setFilter('Decoração',this)">Decoração</button>
+      <button class="cat-btn" onclick="setFilter('Accent Wall',this)">Accent Wall</button>
       <button class="cat-btn" onclick="setFilter('Outros',this)">Outros</button>
       <input class="search-input" type="text" placeholder="🔍 Buscar..." oninput="renderGrid()" id="search-input">
     </div>
@@ -179,13 +180,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
             <option value="Pintura">Pintura</option>
             <option value="Design de Interiores">Design de Interiores</option>
             <option value="Decoração">Decoração</option>
+            <option value="Accent Wall" id="cat-aw-opt">Accent Wall</option>
             <option value="Outros">Outros</option>
           </select>
         </div>
         <div class="field">
           <label>Unidade</label>
-          <select id="f-unit">
+          <select id="f-unit" onchange="onUnitChange()">
             <option value="projeto">Por projeto</option>
+            <option value="ft²">Por ft²</option>
             <option value="m²">Por m²</option>
             <option value="metro linear">Metro linear</option>
             <option value="unidade">Por unidade</option>
@@ -193,7 +196,77 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
           </select>
         </div>
       </div>
-      <div class="calc-box">
+
+      <!-- Calculadora Accent Wall (ft²) -->
+      <div class="calc-box" id="aw-calc" style="display:none;">
+        <div class="calc-box-title">🎨 Calculadora Accent Wall</div>
+        <div style="margin-bottom:12px;">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead>
+              <tr style="background:var(--navy);color:var(--white);">
+                <th style="padding:6px 8px;text-align:left;border-radius:6px 0 0 0;">Dificuldade</th>
+                <th style="padding:6px 8px;text-align:center;">Único</th>
+                <th style="padding:6px 8px;text-align:center;border-radius:0 6px 0 0;">Pacote</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background:#f8f9fa;">
+                <td style="padding:5px 8px;font-weight:600;">🟢 Baixa</td>
+                <td style="padding:5px 8px;text-align:center;color:var(--muted);">$13/ft²</td>
+                <td style="padding:5px 8px;text-align:center;color:var(--muted);">$11/ft²</td>
+              </tr>
+              <tr>
+                <td style="padding:5px 8px;font-weight:600;">🟡 Média</td>
+                <td style="padding:5px 8px;text-align:center;color:var(--muted);">$16/ft²</td>
+                <td style="padding:5px 8px;text-align:center;color:var(--muted);">$13/ft²</td>
+              </tr>
+              <tr style="background:#f8f9fa;">
+                <td style="padding:5px 8px;font-weight:600;">🔴 Alta</td>
+                <td style="padding:5px 8px;text-align:center;color:var(--muted);">$24/ft²</td>
+                <td style="padding:5px 8px;text-align:center;color:var(--muted);">$19/ft²</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="form-row" style="margin-bottom:10px;">
+          <div class="field" style="margin-bottom:0;">
+            <label>Área (ft²)</label>
+            <input id="aw-sqft" type="number" min="1" step="1" placeholder="Ex: 120" oninput="recalcAW()">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Dificuldade</label>
+            <select id="aw-diff" onchange="recalcAW()">
+              <option value="13|11">🟢 Baixa</option>
+              <option value="16|13">🟡 Média</option>
+              <option value="24|19">🔴 Alta</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;cursor:pointer;">
+            <input type="radio" name="aw-mode" id="aw-single" value="single" checked onchange="recalcAW()" style="accent-color:var(--navy);">
+            Parede única
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;cursor:pointer;">
+            <input type="radio" name="aw-mode" id="aw-pkg" value="package" onchange="recalcAW()" style="accent-color:var(--navy);">
+            Pacote (múltiplas paredes)
+          </label>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;cursor:pointer;">
+            <input type="checkbox" id="aw-ceiling" onchange="recalcAW()" style="width:15px;height:15px;accent-color:var(--navy);cursor:pointer;">
+            Pé direito duplo (+25%)
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;cursor:pointer;">
+            <input type="checkbox" id="aw-outlet" onchange="recalcAW()" style="width:15px;height:15px;accent-color:var(--navy);cursor:pointer;">
+            Fechar tomada (+$80)
+          </label>
+        </div>
+        <div class="calc-result" id="aw-result"></div>
+      </div>
+
+      <!-- Calculadora genérica (dias) -->
+      <div class="calc-box" id="days-calc">
         <div class="calc-box-title">⏱ Calculadora de dias</div>
         <div class="form-row">
           <div class="field" style="margin-bottom:0;">
@@ -291,6 +364,28 @@ function renderGrid(){
       </div>
     </div>`).join('');
 }
+function onUnitChange(){
+  const isAW=document.getElementById('f-unit').value==='ft²';
+  document.getElementById('aw-calc').style.display=isAW?'block':'none';
+  document.getElementById('days-calc').style.display=isAW?'none':'block';
+  if(isAW)recalcAW();else recalcPrice();
+}
+function recalcAW(){
+  const sqft=parseFloat(document.getElementById('aw-sqft').value)||0;
+  const diff=document.getElementById('aw-diff').value;
+  const [rSingle,rPkg]=diff.split('|').map(Number);
+  const isPkg=document.getElementById('aw-pkg').checked;
+  const rate=isPkg?rPkg:rSingle;
+  const ceilSurcharge=document.getElementById('aw-ceiling').checked?1.25:1;
+  const outlet=document.getElementById('aw-outlet').checked?80:0;
+  const total=(sqft*rate*ceilSurcharge)+outlet;
+  const res=document.getElementById('aw-result');
+  if(!sqft){res.innerHTML='<span style="color:var(--muted);font-size:12px;">Digite a área em ft² para calcular</span>';return;}
+  res.innerHTML=`Total: <strong style="color:var(--navy);">$${total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
+    <span style="font-size:11px;color:var(--muted);">(${sqft}ft² × $${(rate*ceilSurcharge).toFixed(2)}${outlet?` + $${outlet} tomada`:''})</span>
+    <button type="button" onclick="document.getElementById('f-price').value='${total.toFixed(2)}'"
+      style="padding:3px 10px;border-radius:6px;border:1.5px solid var(--gold);background:transparent;color:var(--gold);font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Usar →</button>`;
+}
 function setType(type){
   currentType=type;
   document.getElementById('type-service').classList.toggle('active',type==='service');
@@ -318,6 +413,7 @@ function openModal(id=null){
   document.getElementById('f-name').value=item?.name||'';
   document.getElementById('f-category').value=item?.category||'Molduras';
   document.getElementById('f-unit').value=item?.unit||'projeto';
+  onUnitChange();
   document.getElementById('f-days').value=item?.estimated_days||1;
   document.getElementById('f-helper').checked=item?.needs_helper||false;
   document.getElementById('f-price').value=item?.base_price||'';
