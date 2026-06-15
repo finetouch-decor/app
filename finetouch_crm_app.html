@@ -14,14 +14,14 @@
     --green:#2e6b3e; --green-bg:#f0f7eb; --red:#a03030; --red-bg:#fdf0f0;
     --gold-bg:rgba(198,158,99,0.1);
     --shadow:0 1px 4px rgba(0,0,0,0.06);
-    --sidebar:220px;
+    --sidebar:240px;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:'Inter',sans-serif; background:var(--cream2); color:var(--text); display:flex; min-height:100vh; }
 
   /* SIDEBAR */
   .sidebar { width:var(--sidebar); background:var(--navy); display:flex; flex-direction:column; position:fixed; top:0; left:0; bottom:0; z-index:100; }
-  .sidebar-logo { padding:24px 20px 20px; border-bottom:1px solid rgba(255,255,255,0.08); }
+  .sidebar-logo { padding:22px 18px 18px; border-bottom:1px solid rgba(255,255,255,0.08); }
   .logo-ft { font-size:20px; font-weight:800; color:var(--cream); letter-spacing:1px; line-height:1; }
   .logo-ft span { color:var(--gold); }
   .logo-sub { font-size:9px; color:var(--gold2); letter-spacing:2px; text-transform:uppercase; margin-top:3px; }
@@ -44,7 +44,7 @@
   .main { margin-left:var(--sidebar); flex:1; display:flex; flex-direction:column; min-height:100vh; }
 
   /* PAGE HEADER */
-  .page-header { padding:28px 32px 0; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+  .page-header { padding:28px 32px 0; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:16px; min-height:64px; }
   .page-title { font-size:22px; font-weight:800; color:var(--navy); }
   .page-sub { font-size:13px; color:var(--muted); margin-top:3px; }
   .header-actions { display:flex; gap:10px; align-items:center; }
@@ -150,7 +150,7 @@
   .drawer-bg.open { display:block; }
   .drawer { position:fixed; top:0; right:0; bottom:0; width:420px; background:#fff; z-index:301; box-shadow:-8px 0 40px rgba(0,0,0,0.15); display:flex; flex-direction:column; transform:translateX(100%); transition:transform .25s ease; }
   .drawer-bg.open .drawer { transform:translateX(0); }
-  .drawer-head { background:var(--navy); padding:20px 22px; display:flex; align-items:flex-start; justify-content:space-between; flex-shrink:0; }
+  .drawer-head { background:var(--navy); padding:20px 22px; display:flex; align-items:flex-start; justify-content:space-between; flex-shrink:0; gap:16px; min-height:64px; }
   .drawer-head-info .name { font-size:17px; font-weight:800; color:#fff; }
   .drawer-head-info .sub { font-size:12px; color:var(--gold2); margin-top:3px; }
   .drawer-close { background:rgba(255,255,255,0.12); border:none; color:#fff; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -214,8 +214,8 @@
 <body>
 
 <aside class="sidebar">
-  <div class="sidebar-logo" style="padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,0.1);">
-    <img src="/logo-dark-bg.png" alt="Fine Touch" style="width:100%;max-width:180px;height:auto;display:block;">
+  <div class="sidebar-logo" style="padding:22px 18px 18px;border-bottom:1px solid rgba(255,255,255,0.1);">
+    <img src="/logo-dark-bg.png" alt="Fine Touch" style="width:100%;max-width:190px;height:auto;display:block;">
   </div>
   <nav class="sidebar-nav">
     <div class="nav-section">Principal</div>
