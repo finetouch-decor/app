@@ -277,7 +277,10 @@ textarea{resize:vertical;min-height:64px;}
             <thead><tr><th style="width:42%">Descrição</th><th style="width:13%">Qtd</th><th style="width:20%">Custo Unit.</th><th style="width:20%">Total</th><th style="width:5%"></th></tr></thead>
             <tbody id="mat-body"></tbody>
           </table>
-          <button class="btn-add-row" onclick="addMatRow()">＋ Adicionar material</button>
+          <div style="display:flex;gap:12px;align-items:center;">
+            <button class="btn-add-row" onclick="addMatRow()">＋ Adicionar item</button>
+            <button class="btn-add-row" onclick="openCatalogPicker()" style="color:var(--gold);border:1px dashed rgba(198,158,99,0.4);border-radius:7px;padding:4px 10px;">📚 Do catálogo</button>
+          </div>
         </div>
       </div>
 
@@ -363,6 +366,28 @@ textarea{resize:vertical;min-height:64px;}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- MODAL CATÁLOGO -->
+<div id="catalog-overlay" onclick="if(event.target.id==='catalog-overlay')closeCatalogPicker()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:400;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:580px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,0.2);">
+    <div style="background:var(--navy);padding:18px 22px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#fff;">📚 Catálogo de Serviços</div>
+        <div style="font-size:11px;color:var(--gold2);margin-top:2px;">Selecione um ou mais itens para adicionar ao orçamento</div>
+      </div>
+      <button onclick="closeCatalogPicker()" style="background:rgba(255,255,255,0.1);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;">✕</button>
+    </div>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+      <input id="cat-search" type="text" placeholder="🔍 Buscar serviço..." oninput="renderCatalogList()"
+        style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
+    </div>
+    <div id="cat-list" style="flex:1;overflow-y:auto;padding:10px 14px;"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;background:#f8f9fb;border-radius:0 0 16px 16px;">
+      <button onclick="closeCatalogPicker()" style="padding:8px 16px;border-radius:8px;border:1.5px solid var(--border);background:transparent;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Cancelar</button>
+      <button onclick="addSelectedFromCatalog()" style="padding:8px 18px;border-radius:8px;border:none;background:var(--navy);color:var(--gold);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">＋ Adicionar selecionados</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
@@ -682,6 +707,77 @@ function showToast(msg,type='success'){
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast show '+type;
   setTimeout(()=>t.className='toast',3500);
+}
+
+// ── CATÁLOGO PICKER ────────────────────────────────────────
+let catalogItems = [];
+let catalogSelected = new Set();
+
+async function openCatalogPicker() {
+  if (!catalogItems.length) {
+    const { data } = await db.from('catalog_services').select('*').eq('active', true).order('category').order('name');
+    catalogItems = data || [];
+  }
+  catalogSelected.clear();
+  document.getElementById('cat-search').value = '';
+  renderCatalogList();
+  document.getElementById('catalog-overlay').style.display = 'flex';
+}
+
+function closeCatalogPicker() {
+  document.getElementById('catalog-overlay').style.display = 'none';
+}
+
+function renderCatalogList() {
+  const q = document.getElementById('cat-search').value.toLowerCase();
+  const list = catalogItems.filter(i =>
+    !q || (i.name||'').toLowerCase().includes(q) || (i.category||'').toLowerCase().includes(q)
+  );
+
+  if (!list.length) {
+    document.getElementById('cat-list').innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:32px;">Nenhum serviço encontrado no catálogo.<br><a href="/services" style="color:var(--gold);font-weight:600;">Cadastrar serviços →</a></div>';
+    return;
+  }
+
+  // agrupar por categoria
+  const groups = {};
+  list.forEach(i => { (groups[i.category||'Outros'] = groups[i.category||'Outros']||[]).push(i); });
+
+  document.getElementById('cat-list').innerHTML = Object.entries(groups).map(([cat, items]) => `
+    <div style="margin-bottom:14px;">
+      <div style="font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">${cat}</div>
+      ${items.map(item => {
+        const sel = catalogSelected.has(item.id);
+        return `<div onclick="toggleCatalogItem('${item.id}')" id="cat-item-${item.id}"
+          style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1.5px solid ${sel?'var(--navy)':'var(--border)'};background:${sel?'rgba(16,42,75,0.04)':'#fff'};border-radius:9px;margin-bottom:6px;cursor:pointer;transition:all .15s;">
+          <div style="width:18px;height:18px;border-radius:4px;border:2px solid ${sel?'var(--navy)':'#cbd5e1'};background:${sel?'var(--navy)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;color:#fff;">${sel?'✓':''}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;color:var(--navy);">${item.name}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:1px;">${item.estimated_days ? item.estimated_days+'d' : ''}${item.needs_helper?' · com ajudante':''}${item.unit?' · '+item.unit:''}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:13px;font-weight:700;color:var(--navy);">$${Number(item.base_price||0).toLocaleString('en-US',{minimumFractionDigits:0})}</div>
+            <div style="font-size:10px;color:var(--muted);">referência</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+}
+
+function toggleCatalogItem(id) {
+  if (catalogSelected.has(id)) catalogSelected.delete(id);
+  else catalogSelected.add(id);
+  renderCatalogList();
+}
+
+function addSelectedFromCatalog() {
+  if (!catalogSelected.size) { showToast('Selecione pelo menos um serviço', 'error'); return; }
+  catalogSelected.forEach(id => {
+    const item = catalogItems.find(i => i.id === id);
+    if (item) addMatRow(item.name, 1, item.base_price || 0);
+  });
+  closeCatalogPicker();
+  showToast(`${catalogSelected.size} item(s) adicionado(s)`, 'success');
 }
 
 init();
