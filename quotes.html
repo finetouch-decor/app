@@ -149,6 +149,8 @@ textarea{resize:vertical;min-height:64px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
 /* TOAST */
+.awf-unit-btn{padding:4px 10px;border-radius:6px;border:1.5px solid var(--border);background:#fff;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;transition:all .15s;}
+.awf-unit-btn.active{background:var(--navy);color:var(--gold);border-color:var(--navy);}
 .toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:500;transform:translateY(10px);opacity:0;transition:all .3s;pointer-events:none;}
 .toast.show{transform:translateY(0);opacity:1;}
 .toast.success{background:#1a3d6e;color:var(--white);}
@@ -385,13 +387,26 @@ textarea{resize:vertical;min-height:64px;}
 
       <div>
         <label style="display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Medidas da parede</label>
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <span style="font-size:11px;color:var(--muted);align-self:center;margin-right:2px;">Unidade:</span>
+          <button type="button" class="awf-unit-btn active" onclick="setAWUnit('ft',this)">ft</button>
+          <button type="button" class="awf-unit-btn" onclick="setAWUnit('in',this)">in</button>
+          <button type="button" class="awf-unit-btn" onclick="setAWUnit('m',this)">m</button>
+          <button type="button" class="awf-unit-btn" onclick="setAWUnit('cm',this)">cm</button>
+        </div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <input id="awf-width" type="number" min="1" step="0.1" placeholder="Largura (ft)" oninput="recalcAWForm()"
-            style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
+          <div style="flex:1;position:relative;">
+            <input id="awf-width" type="number" min="1" step="0.1" placeholder="Largura" oninput="recalcAWForm()"
+              style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
+            <span id="awf-unit-label-w" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);font-weight:600;pointer-events:none;">ft</span>
+          </div>
           <span style="color:var(--muted);font-weight:600;">×</span>
-          <input id="awf-height" type="number" min="1" step="0.1" placeholder="Altura (ft)" oninput="recalcAWForm()"
-            style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
-          <span style="font-size:12px;font-weight:700;color:var(--navy);min-width:60px;text-align:right;" id="awf-sqft">—</span>
+          <div style="flex:1;position:relative;">
+            <input id="awf-height" type="number" min="1" step="0.1" placeholder="Altura" oninput="recalcAWForm()"
+              style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
+            <span id="awf-unit-label-h" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);font-weight:600;pointer-events:none;">ft</span>
+          </div>
+          <span style="font-size:12px;font-weight:700;color:var(--navy);min-width:64px;text-align:right;" id="awf-sqft">—</span>
         </div>
       </div>
 
@@ -885,9 +900,22 @@ function openNextAWForm() {
   document.getElementById('aw-form-overlay').style.display = 'flex';
 }
 
+let awUnit = 'ft';
+const awToFt = { ft: 1, in: 1/12, m: 3.28084, cm: 0.0328084 };
+function setAWUnit(unit, btn) {
+  awUnit = unit;
+  document.querySelectorAll('.awf-unit-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('awf-unit-label-w').textContent = unit;
+  document.getElementById('awf-unit-label-h').textContent = unit;
+  recalcAWForm();
+}
 function recalcAWForm() {
-  const w = parseFloat(document.getElementById('awf-width').value) || 0;
-  const h = parseFloat(document.getElementById('awf-height').value) || 0;
+  const wRaw = parseFloat(document.getElementById('awf-width').value) || 0;
+  const hRaw = parseFloat(document.getElementById('awf-height').value) || 0;
+  const factor = awToFt[awUnit] || 1;
+  const w = wRaw * factor;
+  const h = hRaw * factor;
   const sqft = w * h;
   document.getElementById('awf-sqft').textContent = sqft > 0 ? sqft.toFixed(1) + ' ft²' : '—';
   const diff = document.getElementById('awf-diff').value;
