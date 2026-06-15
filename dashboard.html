@@ -200,6 +200,15 @@
 
   <div class="content">
 
+    <!-- ── ALERTAS ───────────────────────────────────── -->
+    <div id="alertas-wrap" style="margin-bottom:24px;display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">🔔 Atenção necessária</div>
+        <span id="alertas-count" style="font-size:10px;background:var(--red);color:#fff;font-weight:700;border-radius:20px;padding:2px 8px;"></span>
+      </div>
+      <div id="alertas-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
     <!-- ── VISÃO GERAL ─────────────────────────────── -->
     <div class="section-wrap">
       <div class="section-header">
@@ -396,6 +405,7 @@ async function loadAll() {
   document.getElementById('sync-dot').className='sync-dot ok';
   document.getElementById('sync-label').textContent='Atualizado';
 
+  renderAlertas(leads, invs);
   renderKpiGeral(leads, invs);
   renderCRM(leads);
   renderProposals(props);
@@ -557,6 +567,91 @@ function renderFinancial(lancs) {
 }
 
 // ─── FOLLOW-UPS ──────────────────────────────────────────
+// ── ALERTAS INTELIGENTES ──────────────────────────────────
+function renderAlertas(leads, invs) {
+  const t   = today();
+  const in7 = new Date(); in7.setDate(in7.getDate()+7);
+  const in7s = in7.toISOString().slice(0,10);
+  const alerts = [];
+
+  // Invoices vencidas
+  const vencidas = invs.filter(i=>i.status!=='paid'&&i.status!=='cancelled'&&i.due_date&&i.due_date<t);
+  if (vencidas.length) alerts.push({
+    level:'red', icon:'🚨',
+    text: `${vencidas.length} invoice${vencidas.length>1?'s':''} vencida${vencidas.length>1?'s':''} — ${vencidas.map(i=>(i.clients?.name||i.invoice_number)+' ('+fmt(Number(i.total||i.subtotal||0))+')').join(', ')}`,
+    link:'/invoices', cta:'Ver invoices'
+  });
+
+  // Invoices vencem em 7 dias
+  const vence7 = invs.filter(i=>i.status!=='paid'&&i.status!=='cancelled'&&i.due_date&&i.due_date>=t&&i.due_date<=in7s);
+  if (vence7.length) alerts.push({
+    level:'amber', icon:'⏰',
+    text: `${vence7.length} invoice${vence7.length>1?'s':''} vencem nos próximos 7 dias — total ${fmt(vence7.reduce((s,i)=>s+Number(i.total||i.subtotal||0),0))}`,
+    link:'/invoices', cta:'Ver invoices'
+  });
+
+  // Follow-ups atrasados
+  const fuAtrasados = leads.filter(l=>l.follow_up_date&&l.follow_up_date<t&&!['fechado','perdido'].includes(l.status));
+  if (fuAtrasados.length) alerts.push({
+    level:'amber', icon:'📞',
+    text: `${fuAtrasados.length} follow-up${fuAtrasados.length>1?'s':''} atrasado${fuAtrasados.length>1?'s':''} — ${fuAtrasados.map(l=>l.clients?.name||'Lead').join(', ')}`,
+    link:'/app', cta:'Ver CRM'
+  });
+
+  // Leads sem contato há +7 dias
+  const semContato = leads.filter(l=>{
+    if (['fechado','perdido'].includes(l.status)) return false;
+    const created = l.created_at?.slice(0,10);
+    if (!created) return false;
+    const diff = Math.floor((new Date(t)-new Date(created))/(1000*60*60*24));
+    return diff > 7 && !l.follow_up_date;
+  });
+  if (semContato.length) alerts.push({
+    level:'blue', icon:'👻',
+    text: `${semContato.length} lead${semContato.length>1?'s':''} sem follow-up agendado há mais de 7 dias`,
+    link:'/app', cta:'Ver CRM'
+  });
+
+  // Propostas sem resposta há +14 dias
+  const propPend = leads.filter(l=>{
+    if (l.status !== 'proposta') return false;
+    const created = l.created_at?.slice(0,10);
+    if (!created) return false;
+    const diff = Math.floor((new Date(t)-new Date(created))/(1000*60*60*24));
+    return diff > 14;
+  });
+  if (propPend.length) alerts.push({
+    level:'blue', icon:'📄',
+    text: `${propPend.length} proposta${propPend.length>1?'s':''} em aberto há mais de 14 dias sem resposta`,
+    link:'/proposals', cta:'Ver propostas'
+  });
+
+  const wrap = document.getElementById('alertas-wrap');
+  const list = document.getElementById('alertas-list');
+  const count = document.getElementById('alertas-count');
+
+  if (!alerts.length) { wrap.style.display='none'; return; }
+
+  const colors = {
+    red:   { bg:'#fef2f2', border:'rgba(220,38,38,.2)',  text:'#dc2626' },
+    amber: { bg:'#fffbeb', border:'rgba(217,119,6,.2)',  text:'#d97706' },
+    blue:  { bg:'#eff6ff', border:'rgba(37,99,235,.15)', text:'#2563eb' },
+    green: { bg:'#f0fdf4', border:'rgba(22,163,74,.2)',  text:'#16a34a' },
+  };
+
+  list.innerHTML = alerts.map(a => {
+    const c = colors[a.level];
+    return `<div style="background:${c.bg};border:1px solid ${c.border};border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
+      <span style="font-size:18px;flex-shrink:0;">${a.icon}</span>
+      <span style="flex:1;font-size:13px;color:var(--text);">${a.text}</span>
+      <a href="${a.link}" style="font-size:11px;font-weight:700;color:${c.text};text-decoration:none;white-space:nowrap;border:1px solid ${c.border};padding:4px 10px;border-radius:6px;">${a.cta} →</a>
+    </div>`;
+  }).join('');
+
+  count.textContent = alerts.length + (alerts.length===1?' alerta':' alertas');
+  wrap.style.display = 'block';
+}
+
 function renderFollowups(leads) {
   const t = today();
   const pending = leads.filter(l=>l.follow_up_date&&l.follow_up_date<=t&&!['fechado','perdido'].includes(l.status)).sort((a,b)=>a.follow_up_date.localeCompare(b.follow_up_date));
