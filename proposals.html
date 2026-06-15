@@ -252,8 +252,8 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
   <div class="modal" style="max-width:600px;width:100%;">
     <div class="modal-header" style="background:var(--navy);">
       <div style="display:flex;flex-direction:column;gap:2px;">
-        <div class="modal-title" style="color:#fff;">🧾 Gerar Invoices</div>
-        <div style="font-size:12px;color:var(--gold2);" id="parc-subtitle">Defina as parcelas do pagamento</div>
+        <div class="modal-title" style="color:#fff;">🧾 Generate Invoices</div>
+        <div style="font-size:12px;color:var(--gold2);" id="parc-subtitle">Define the payment installments</div>
       </div>
       <button class="modal-close" onclick="closeParcelas()" style="color:rgba(255,255,255,.5);">×</button>
     </div>
@@ -262,11 +262,11 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
       <!-- TOTAL + ALERTA -->
       <div style="background:#f0f7eb;border:1px solid rgba(46,107,62,.2);border-radius:10px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;">
         <div>
-          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Valor Total da Proposta</div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Proposal Total</div>
           <div style="font-size:22px;font-weight:800;color:var(--navy);" id="parc-total-display">$0.00</div>
         </div>
         <div style="text-align:right;">
-          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Distribuído</div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Distributed</div>
           <div style="font-size:18px;font-weight:800;" id="parc-distribuido">$0.00</div>
           <div style="font-size:11px;margin-top:2px;" id="parc-restante"></div>
         </div>
@@ -274,26 +274,26 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 
       <!-- ATALHOS RÁPIDOS -->
       <div style="margin-bottom:14px;">
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Atalhos rápidos</div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Quick templates</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-outline" style="font-size:11px;padding:5px 12px;" onclick="applyTemplate([50,50])">50% / 50%</button>
           <button class="btn btn-outline" style="font-size:11px;padding:5px 12px;" onclick="applyTemplate([50,30,20])">50% / 30% / 20%</button>
-          <button class="btn btn-outline" style="font-size:11px;padding:5px 12px;" onclick="applyTemplate([33,33,34])">3× iguais</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:5px 12px;" onclick="applyTemplate([33,33,34])">3× equal</button>
           <button class="btn btn-outline" style="font-size:11px;padding:5px 12px;" onclick="applyTemplate([40,30,30])">40% / 30% / 30%</button>
-          <button class="btn btn-outline" style="font-size:11px;padding:5px 12px;" onclick="applyTemplate([100])">100% único</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:5px 12px;" onclick="applyTemplate([100])">100% upfront</button>
         </div>
       </div>
 
-      <!-- LINHAS DE PARCELA -->
+      <!-- INSTALLMENT ROWS -->
       <div id="parcelas-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
 
       <button onclick="addParcela()" style="background:none;border:1.5px dashed var(--border);border-radius:8px;padding:8px;width:100%;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">
-        + Adicionar parcela
+        + Add installment
       </button>
     </div>
     <div class="modal-footer" style="padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;background:#f7f8fa;">
-      <button class="btn btn-outline" onclick="closeParcelas()">Cancelar</button>
-      <button class="btn btn-primary" id="btn-criar-invoices" onclick="criarInvoices()" style="background:var(--navy);color:var(--gold);">🧾 Criar Invoices</button>
+      <button class="btn btn-outline" onclick="closeParcelas()">Cancel</button>
+      <button class="btn btn-primary" id="btn-criar-invoices" onclick="criarInvoices()" style="background:var(--navy);color:var(--gold);">🧾 Generate Invoices</button>
     </div>
   </div>
 </div>
@@ -343,7 +343,7 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 <!-- PRINT VIEW -->
 <div class="print-overlay" id="print-overlay">
   <div class="print-toolbar">
-    <span id="print-toolbar-label">Pré-visualização da Proposta</span>
+    <span id="print-toolbar-label">Proposal Preview</span>
     <div class="print-toolbar-btns">
       <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
       <button class="btn-close-print" onclick="closePrint()">✕ Fechar</button>
@@ -360,7 +360,7 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
         <img src="/logo-light-bg.png" alt="Fine Touch Decor & Design">
       </div>
       <div class="doc-title-block">
-        <span class="proposal-word">PROPOSTA</span>
+        <span class="proposal-word">PROPOSAL</span>
         <span class="proposal-num" id="doc-num"></span>
         <span class="proposal-date" id="doc-date"></span>
       </div>
@@ -371,12 +371,12 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
     <!-- Client band -->
     <div class="doc-client-band">
       <div>
-        <div class="label">Cliente</div>
+        <div class="label">Client</div>
         <div class="value" id="doc-client-name">—</div>
         <div class="sub" id="doc-project-name"></div>
       </div>
       <div style="text-align:right;">
-        <div class="label">Prazo estimado</div>
+        <div class="label">Estimated Duration</div>
         <div class="value" id="doc-duration">—</div>
       </div>
     </div>
@@ -384,40 +384,40 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
     <!-- Body -->
     <div class="doc-body">
 
-      <!-- Escopo -->
-      <div class="doc-section-title">Escopo do Projeto</div>
+      <!-- Scope -->
+      <div class="doc-section-title">Project Scope</div>
       <div class="doc-text" id="doc-scope"></div>
 
-      <!-- Itens -->
-      <div class="doc-section-title">Serviços Inclusos</div>
+      <!-- Items -->
+      <div class="doc-section-title">Services Included</div>
       <table class="doc-items-table" id="doc-items-table">
-        <thead><tr><th>#</th><th>Descrição</th></tr></thead>
+        <thead><tr><th>#</th><th>Description</th></tr></thead>
         <tbody id="doc-items-body"></tbody>
       </table>
 
       <!-- Total -->
       <div class="doc-total-box">
-        <div class="tl">Investimento Total</div>
+        <div class="tl">Total Investment</div>
         <div class="tv" id="doc-total">$0.00</div>
       </div>
 
-      <!-- Condições de pagamento -->
-      <div class="doc-section-title" id="pay-section-title" style="display:none;">Condições de Pagamento</div>
+      <!-- Payment schedule -->
+      <div class="doc-section-title" id="pay-section-title" style="display:none;">Payment Schedule</div>
       <table class="doc-pay-table" id="doc-pay-table" style="display:none;">
-        <thead><tr><th>#</th><th>Descrição</th><th>Vencimento</th><th style="text-align:right;">Valor</th></tr></thead>
+        <thead><tr><th>#</th><th>Description</th><th>Due Date</th><th style="text-align:right;">Amount</th></tr></thead>
         <tbody id="doc-pay-body"></tbody>
       </table>
 
-      <!-- Validade -->
+      <!-- Validity -->
       <div class="doc-note" style="margin-top:28px;">
-        📌 Esta proposta inclui toda mão de obra e materiais necessários para a execução do projeto conforme descrito acima.<br>
-        ⏳ Proposta válida por <strong>30 dias</strong> a partir da data de emissão.
+        📌 This proposal includes all labor and materials necessary to complete the project as described above.<br>
+        ⏳ This proposal is valid for <strong>30 days</strong> from the date of issue.
       </div>
 
-      <!-- Assinaturas -->
+      <!-- Signatures -->
       <div class="doc-sig-section">
         <div class="doc-sig-box">
-          <div class="sig-label">Assinatura do Cliente</div>
+          <div class="sig-label">Client Signature</div>
           <div class="sig-name" id="doc-sig-client" style="margin-top:36px;"></div>
         </div>
         <div class="doc-sig-box">
@@ -600,10 +600,10 @@ async function deleteProposal(id) {
 async function approveProposal(id) {
   const p = proposals.find(x=>x.id===id);
   if (!p) return;
-  if (!confirm(`Aprovar a proposta "${p.title||p.client_name}"?\n\nIsso vai marcar como aceita e liberar a geração de Invoice.`)) return;
+  if (!confirm(`Approve proposal "${p.title||p.client_name}"?\n\nThis will mark it as accepted and enable invoice generation.`)) return;
   const { error } = await db.from('proposals').update({ status:'accepted' }).eq('id', id);
   if (error) { showToast('Erro ao aprovar: '+error.message, 'error'); return; }
-  showToast('✅ Proposta aprovada!', 'success');
+  showToast('✅ Proposal approved!', 'success');
   await loadProposals();
 }
 
@@ -653,15 +653,15 @@ function addParcela(pct, diasOffset) {
   div.innerHTML = `
     <div style="font-size:12px;font-weight:700;color:var(--muted);text-align:center;">#${idx}</div>
     <div>
-      <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Descrição</div>
-      <input type="text" value="${getDescDefault(idx)}" placeholder="Ex: Sinal, Entrega..." style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;" oninput="updateDistribuido()">
+      <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Description</div>
+      <input type="text" value="${getDescDefault(idx)}" placeholder="Ex: Deposit, Delivery..." style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;" oninput="updateDistribuido()">
     </div>
     <div>
-      <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Valor ($)</div>
+      <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Amount ($)</div>
       <input type="number" value="${valor.toFixed(2)}" min="0" step="0.01" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;" oninput="updateDistribuido()" onchange="updateDistribuido()">
     </div>
     <div>
-      <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Vencimento</div>
+      <div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Due Date</div>
       <input type="date" value="${dateStr}" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;">
     </div>
     <button onclick="removeParcela(${idx})" style="background:var(--red-bg);border:none;border-radius:7px;padding:6px;cursor:pointer;font-size:14px;color:var(--red);" title="Remover">✕</button>`;
@@ -676,8 +676,8 @@ function removeParcela(idx) {
 }
 
 function getDescDefault(idx) {
-  const labels = ['Sinal / Assinatura', 'Entrega de Materiais', 'Conclusão da Obra', 'Parcela 4', 'Parcela 5'];
-  return labels[idx - 1] || 'Parcela ' + idx;
+  const labels = ['Deposit / Signing', 'Material Delivery', 'Project Completion', 'Installment 4', 'Installment 5'];
+  return labels[idx - 1] || 'Installment ' + idx;
 }
 
 function applyTemplate(pcts) {
@@ -703,13 +703,13 @@ function updateDistribuido() {
   distEl.textContent = fmtMoney(total);
   distEl.style.color = Math.abs(diff) < 0.01 ? '#2e6b3e' : '#a03030';
   if (Math.abs(diff) < 0.01) {
-    restEl.textContent = '✅ 100% distribuído';
+    restEl.textContent = '✅ 100% distributed';
     restEl.style.color = '#2e6b3e';
   } else if (diff > 0) {
-    restEl.textContent = 'Faltam ' + fmtMoney(diff);
+    restEl.textContent = 'Remaining: ' + fmtMoney(diff);
     restEl.style.color = '#a03030';
   } else {
-    restEl.textContent = 'Excesso de ' + fmtMoney(Math.abs(diff));
+    restEl.textContent = 'Over by ' + fmtMoney(Math.abs(diff));
     restEl.style.color = '#a03030';
   }
 }
@@ -722,7 +722,7 @@ async function criarInvoices() {
   let totalParc = 0;
   rows.forEach(r => { const i = r.querySelectorAll('input[type="number"]')[0]; if(i) totalParc += parseFloat(i.value)||0; });
   if (Math.abs(totalParc - parcelasTotal) > 0.5) {
-    showToast('⚠ Total das parcelas não bate com o valor da proposta', 'error'); return;
+    showToast('⚠ Installment total does not match proposal value', 'error'); return;
   }
 
   const btn = document.getElementById('btn-criar-invoices');
@@ -747,7 +747,7 @@ async function criarInvoices() {
       due_date:       venc,
       subtotal:       valor,
       total:          valor,
-      notes:          `Parcela ${i}/${total}: ${desc} — Proposta ${parcelasClientName}`,
+      notes:          `Installment ${i}/${total}: ${desc} — Proposal ${parcelasClientName}`,
     });
   });
 
@@ -759,7 +759,7 @@ async function criarInvoices() {
 
   if (errors.length) {
     showToast('Erro: ' + errors[0], 'error');
-    btn.disabled = false; btn.textContent = '🧾 Criar Invoices';
+    btn.disabled = false; btn.textContent = '🧾 Generate Invoices';
     return;
   }
 
@@ -782,7 +782,7 @@ async function openPrint(id) {
   const num = 'FT-' + String(idx).padStart(4,'0');
 
   document.getElementById('doc-num').textContent        = num;
-  document.getElementById('doc-date').textContent       = 'Data: ' + fmtDate(p.date);
+  document.getElementById('doc-date').textContent       = 'Date: ' + fmtDate(p.date);
   document.getElementById('doc-client-name').textContent = p.client_name || '—';
   document.getElementById('doc-project-name').textContent = p.project_name || '';
   document.getElementById('doc-duration').textContent   = p.duration || '—';
@@ -821,7 +821,7 @@ async function openPrint(id) {
     payTitle.style.display = 'none';
   }
 
-  document.getElementById('print-toolbar-label').textContent = `Proposta — ${p.client_name||''} · ${fmt(p.total_cost)}`;
+  document.getElementById('print-toolbar-label').textContent = `Proposal — ${p.client_name||''} · ${fmt(p.total_cost)}`;
   document.getElementById('print-overlay').classList.add('open');
 }
 

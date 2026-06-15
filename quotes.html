@@ -788,7 +788,7 @@ async function genProposal(quoteId) {
     date:new Date().toISOString().slice(0,10),
     total_cost:salePrice,
     status:'draft',
-    project_scope:`Proposta gerada do orçamento interno ${q.quote_number||''} com ${markup}% de markup sobre custo.`,
+    project_scope:`Fine Touch Decor & Design will provide professional design, supply, and installation services as detailed below. All work will be completed with high-quality materials and expert craftsmanship to the client's satisfaction.`,
     scope_items:(q.quote_items||[]).map(i=>({item:i.description,qty:i.quantity,price:i.total})),
   };
   const {error}=await db.from('proposals').insert(payload);
