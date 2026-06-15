@@ -202,6 +202,69 @@
 
   <div class="content">
 
+    <!-- ── FLUXO DE TRABALHO (temporário) ────────────── -->
+    <div id="fluxo-banner" style="background:var(--navy);border-radius:14px;padding:16px 20px;margin-bottom:20px;cursor:pointer;" onclick="toggleFluxo()">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1.5px;">📋 Fluxo de trabalho</div>
+        <span id="fluxo-toggle" style="font-size:11px;color:rgba(255,255,255,0.4);">▼ expandir</span>
+      </div>
+      <div id="fluxo-body" style="display:none;margin-top:14px;">
+        <div style="display:flex;align-items:flex-start;gap:0;flex-wrap:wrap;">
+          <!-- step -->
+          <div style="display:flex;align-items:flex-start;gap:8px;min-width:160px;flex:1;">
+            <div style="background:rgba(198,158,99,0.2);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">1</div>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--gold);">Lead</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.55);line-height:1.5;margin-top:2px;">Criar lead no CRM com nome, telefone, tipo de projeto e origem</div>
+            </div>
+          </div>
+          <div style="color:rgba(255,255,255,0.2);font-size:18px;padding:4px 6px;">→</div>
+          <div style="display:flex;align-items:flex-start;gap:8px;min-width:160px;flex:1;">
+            <div style="background:rgba(198,158,99,0.2);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">2</div>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--gold);">Orçamento</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.55);line-height:1.5;margin-top:2px;">Criar orçamento com itens e preços. Pode importar do catálogo de serviços</div>
+            </div>
+          </div>
+          <div style="color:rgba(255,255,255,0.2);font-size:18px;padding:4px 6px;">→</div>
+          <div style="display:flex;align-items:flex-start;gap:8px;min-width:160px;flex:1;">
+            <div style="background:rgba(198,158,99,0.2);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">3</div>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--gold);">Proposta</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.55);line-height:1.5;margin-top:2px;">Gerar proposta em PDF e enviar ao cliente. Quando aceitar, clicar ✅ Aprovar</div>
+            </div>
+          </div>
+          <div style="color:rgba(255,255,255,0.2);font-size:18px;padding:4px 6px;">→</div>
+          <div style="display:flex;align-items:flex-start;gap:8px;min-width:160px;flex:1;">
+            <div style="background:rgba(198,158,99,0.2);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">4</div>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--gold);">Invoice</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.55);line-height:1.5;margin-top:2px;">Gerar invoices com parcelas (50/50, etc). Marcar como recebido quando pago — cria a obra automaticamente</div>
+            </div>
+          </div>
+          <div style="color:rgba(255,255,255,0.2);font-size:18px;padding:4px 6px;">→</div>
+          <div style="display:flex;align-items:flex-start;gap:8px;min-width:160px;flex:1;">
+            <div style="background:rgba(198,158,99,0.2);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">5</div>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--gold);">Obra</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.55);line-height:1.5;margin-top:2px;">Acompanhar obra em Obras. Adicionar tarefas e registrar compras de material</div>
+            </div>
+          </div>
+          <div style="color:rgba(255,255,255,0.2);font-size:18px;padding:4px 6px;">→</div>
+          <div style="display:flex;align-items:flex-start;gap:8px;min-width:160px;flex:1;">
+            <div style="background:rgba(198,158,99,0.2);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">6</div>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--gold);">Fechamento</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.55);line-height:1.5;margin-top:2px;">Ao concluir, clicar 📊 Fechar Obra para apurar receita, custos e lucro real</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);font-size:11px;color:rgba(255,255,255,0.3);">
+          💡 Este banner é temporário — pode ser removido quando o fluxo estiver memorizado.
+        </div>
+      </div>
+    </div>
+
     <!-- ── ALERTAS ───────────────────────────────────── -->
     <div id="alertas-wrap" style="margin-bottom:24px;display:none;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -371,6 +434,14 @@ function last6Months() {
 function monthLabel(ym) { const[y,m]=ym.split('-'); const names=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']; return names[parseInt(m)-1]; }
 
 // ─── AUTH ────────────────────────────────────────────────
+function toggleFluxo() {
+  const body = document.getElementById('fluxo-body');
+  const toggle = document.getElementById('fluxo-toggle');
+  const open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  toggle.textContent = open ? '▲ fechar' : '▼ expandir';
+}
+
 async function init() {
   const { data:{session} } = await db.auth.getSession();
   if (!session) { window.location.href='/'; return; }
