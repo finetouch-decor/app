@@ -245,7 +245,16 @@
   </aside>
 
   <main class="main">
-    <div class="topbar"><h1>Financeiro por Obra</h1></div>
+    <div class="topbar">
+      <h1>Financeiro por Obra</h1>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <label style="font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;">Filtrar obra:</label>
+        <select id="obra-selector" onchange="selectObra(this.value)"
+          style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--navy);background:var(--white);outline:none;min-width:220px;cursor:pointer;">
+          <option value="">Todas as obras</option>
+        </select>
+      </div>
+    </div>
     <div class="content">
       <div class="kpi-row">
         <div class="kpi-card"><div class="kpi-label">Receita Total</div><div class="kpi-value green" id="k-revenue">—</div><div class="kpi-sub">Orçamentos aprovados</div></div>
@@ -391,6 +400,7 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let projects = [], purchases = [], extras = [];
 let currentProjectId = null, itemCount = 0;
+let activeObraId = '';
 
 const catLabel = { labor:'Mão de obra', transport:'Frete/Transporte', equipment:'Equipamento', other:'Outro' };
 
@@ -422,6 +432,21 @@ async function loadData() {
   projects = proj || [];
   purchases = purch || [];
   extras = ext || [];
+  populateObraSelector();
+  render();
+}
+
+function populateObraSelector() {
+  const sel = document.getElementById('obra-selector');
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">Todas as obras</option>' +
+    projects.map(p => `<option value="${p.id}">${p.name}${p.clients?.name?' — '+p.clients.name:''}</option>`).join('');
+  if (prev) sel.value = prev;
+}
+
+function selectObra(id) {
+  activeObraId = id;
   render();
 }
 
@@ -438,9 +463,13 @@ function getProjFinancials(p) {
 }
 
 function render() {
-  const allRevenue   = projects.reduce((s,p)=>s+Number(p.quotes?.total||0),0);
-  const allPurchases = purchases.reduce((s,p)=>s+(p.purchase_items||[]).reduce((si,i)=>si+Number(i.total||0),0),0);
-  const allExtras    = extras.reduce((s,e)=>s+Number(e.amount||0),0);
+  const visProjects  = activeObraId ? projects.filter(p=>p.id===activeObraId) : projects;
+  const visPurchases = activeObraId ? purchases.filter(p=>p.project_id===activeObraId) : purchases;
+  const visExtras    = activeObraId ? extras.filter(e=>e.project_id===activeObraId) : extras;
+
+  const allRevenue   = visProjects.reduce((s,p)=>s+Number(p.quotes?.total||0),0);
+  const allPurchases = visPurchases.reduce((s,p)=>s+(p.purchase_items||[]).reduce((si,i)=>si+Number(i.total||0),0),0);
+  const allExtras    = visExtras.reduce((s,e)=>s+Number(e.amount||0),0);
   const allProfit    = allRevenue - allPurchases - allExtras;
   const margin       = allRevenue > 0 ? Math.round((allProfit/allRevenue)*100) : 0;
 
@@ -451,15 +480,16 @@ function render() {
   document.getElementById('k-profit').style.color    = allProfit >= 0 ? 'var(--green)' : 'var(--red)';
   document.getElementById('k-margin').textContent    = `margem ${margin}%`;
 
-  if (!projects.length) {
+  if (!visProjects.length) {
     document.getElementById('projects-list').innerHTML = `
       <div class="empty"><div class="empty-icon">💰</div>
-      <h3>Nenhuma obra cadastrada</h3><p>Crie obras em <a href="/projects" style="color:var(--gold)">Obras</a> primeiro.</p></div>`;
+      <h3>${activeObraId ? 'Obra não encontrada' : 'Nenhuma obra cadastrada'}</h3><p>${activeObraId ? '' : 'Crie obras em <a href="/projects" style="color:var(--gold)">Obras</a> primeiro.'}</p></div>`;
+    renderCharts(visProjects, visPurchases, visExtras);
     return;
   }
 
   document.getElementById('projects-list').innerHTML = '<div class="projects-list">' +
-    projects.map(p => {
+    visProjects.map(p => {
       const f = getProjFinancials(p);
       return `<div class="proj-card" id="card-${p.id}" data-name="${(p.name||'').toLowerCase()}" data-client="${(p.clients?.name||'').toLowerCase()}" data-status="${p.status||''}">  
         <div class="proj-card-header" onclick="toggleCard('${p.id}')">
@@ -567,7 +597,7 @@ function render() {
       </div>`;
     }).join('') + '</div>';
 
-  renderCharts();
+  renderCharts(visProjects, visPurchases, visExtras);
 }
 
 // ─── CHARTS ───────────────────────────────────────────────────
@@ -590,13 +620,16 @@ function getItemDate(item) {
   return raw ? new Date(raw) : null;
 }
 
-function renderCharts() {
+function renderCharts(visProjects, visPurchases, visExtras) {
+  visProjects  = visProjects  || projects;
+  visPurchases = visPurchases || purchases;
+  visExtras    = visExtras    || extras;
   const meses = getMeses6();
 
   // ── DADOS GERAIS ──
-  const allRevenue  = projects.reduce((s,p)=>s+Number(p.quotes?.total||0),0);
-  const allPurchAmt = purchases.reduce((s,p)=>s+(p.purchase_items||[]).reduce((si,i)=>si+Number(i.total||0),0),0);
-  const allExtAmt   = extras.reduce((s,e)=>s+Number(e.amount||0),0);
+  const allRevenue  = visProjects.reduce((s,p)=>s+Number(p.quotes?.total||0),0);
+  const allPurchAmt = visPurchases.reduce((s,p)=>s+(p.purchase_items||[]).reduce((si,i)=>si+Number(i.total||0),0),0);
+  const allExtAmt   = visExtras.reduce((s,e)=>s+Number(e.amount||0),0);
   const allProfit   = allRevenue - allPurchAmt - allExtAmt;
 
   // ── CHART: PIZZA GERAL ──
@@ -614,9 +647,9 @@ function renderCharts() {
   // ── CHART: BAR GERAL (por obra) ──
   destroyChart('chart-bar-geral');
   const ctxBG = document.getElementById('chart-bar-geral');
-  if(ctxBG && projects.length) {
-    const fins = projects.map(p=>getProjFinancials(p));
-    const labels = projects.map(p=>p.name.length>14?p.name.slice(0,14)+'…':p.name);
+  if(ctxBG && visProjects.length) {
+    const fins = visProjects.map(p=>getProjFinancials(p));
+    const labels = visProjects.map(p=>p.name.length>14?p.name.slice(0,14)+'…':p.name);
     _charts['chart-bar-geral'] = new Chart(ctxBG,{
       type:'bar',
       data:{ labels, datasets:[
@@ -631,17 +664,17 @@ function renderCharts() {
   }
 
   // ── DADOS MENSAIS ──
-  const custosMes  = meses.map(m=>purchases.reduce((s,p)=>{
+  const custosMes  = meses.map(m=>visPurchases.reduce((s,p)=>{
     const d=getItemDate(p); if(!d)return s;
     if(d.getMonth()===m.mes&&d.getFullYear()===m.ano)
       return s+(p.purchase_items||[]).reduce((si,i)=>si+Number(i.total||0),0);
     return s;},0)
-    + extras.reduce((s,e)=>{const d=getItemDate(e);if(!d)return s;
+    + visExtras.reduce((s,e)=>{const d=getItemDate(e);if(!d)return s;
       return (d.getMonth()===m.mes&&d.getFullYear()===m.ano)?s+Number(e.amount||0):s;},0));
 
   const receitaMes = meses.map(m=>{
-    const temCusto = purchases.some(p=>{const d=getItemDate(p);return d&&d.getMonth()===m.mes&&d.getFullYear()===m.ano;})
-      || extras.some(e=>{const d=getItemDate(e);return d&&d.getMonth()===m.mes&&d.getFullYear()===m.ano;});
+    const temCusto = visPurchases.some(p=>{const d=getItemDate(p);return d&&d.getMonth()===m.mes&&d.getFullYear()===m.ano;})
+      || visExtras.some(e=>{const d=getItemDate(e);return d&&d.getMonth()===m.mes&&d.getFullYear()===m.ano;});
     return temCusto ? allRevenue/6 : 0;
   });
   const lucrosMes = meses.map((_,i)=>receitaMes[i]-custosMes[i]);
@@ -664,7 +697,7 @@ function renderCharts() {
 
   // ── CHART: PIZZA CATEGORIAS (mensal) ──
   const catKeys = ['labor','transport','equipment','other'];
-  const catTotals = catKeys.map(k=>extras.filter(e=>e.category===k).reduce((s,e)=>s+Number(e.amount||0),0));
+  const catTotals = catKeys.map(k=>visExtras.filter(e=>e.category===k).reduce((s,e)=>s+Number(e.amount||0),0));
   destroyChart('chart-pie-cat');
   const ctxPC = document.getElementById('chart-pie-cat');
   if(ctxPC) _charts['chart-pie-cat'] = new Chart(ctxPC,{
@@ -691,11 +724,11 @@ function renderCharts() {
   });
 
   // ── CHART: LUCRO POR OBRA ──
-  const fins = projects.map(p=>getProjFinancials(p));
-  const pLabels = projects.map(p=>p.name.length>16?p.name.slice(0,16)+'…':p.name);
+  const fins = visProjects.map(p=>getProjFinancials(p));
+  const pLabels = visProjects.map(p=>p.name.length>16?p.name.slice(0,16)+'…':p.name);
   destroyChart('chart-bar-obras');
   const ctxBO = document.getElementById('chart-bar-obras');
-  if(ctxBO && projects.length) _charts['chart-bar-obras'] = new Chart(ctxBO,{
+  if(ctxBO && visProjects.length) _charts['chart-bar-obras'] = new Chart(ctxBO,{
     type:'bar',
     data:{ labels:pLabels,
       datasets:[{label:'Lucro', data:fins.map(f=>f.profit),
@@ -708,7 +741,7 @@ function renderCharts() {
   // ── CHART: RECEITA × CUSTO POR OBRA ──
   destroyChart('chart-bar-obras2');
   const ctxBO2 = document.getElementById('chart-bar-obras2');
-  if(ctxBO2 && projects.length) _charts['chart-bar-obras2'] = new Chart(ctxBO2,{
+  if(ctxBO2 && visProjects.length) _charts['chart-bar-obras2'] = new Chart(ctxBO2,{
     type:'bar',
     data:{ labels:pLabels, datasets:[
       {label:'Receita', data:fins.map(f=>f.revenue), backgroundColor:'rgba(16,42,75,0.25)', borderColor:'#102A4B', borderWidth:1, borderRadius:3},
@@ -721,7 +754,7 @@ function renderCharts() {
   // ── CHART: MARGEM POR OBRA ──
   destroyChart('chart-bar-margin');
   const ctxBMg = document.getElementById('chart-bar-margin');
-  if(ctxBMg && projects.length) _charts['chart-bar-margin'] = new Chart(ctxBMg,{
+  if(ctxBMg && visProjects.length) _charts['chart-bar-margin'] = new Chart(ctxBMg,{
     type:'bar',
     data:{ labels:pLabels,
       datasets:[{label:'Margem %', data:fins.map(f=>f.margin),
