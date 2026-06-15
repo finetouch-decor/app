@@ -780,16 +780,48 @@ async function genProposal(quoteId) {
   const q=allQuotes.find(x=>x.id===quoteId);
   if(!q){showToast('Orçamento não encontrado','error');return;}
   const salePrice=Number(q.sale_price)||Number(q.total)||0;
-  const markup=Number(q.markup_pct)||0;
+
+  // Busca templates do catálogo para pré-preencher escopo
+  const {data:catalog}=await db.from('catalog_services').select('name,project_overview,scope_template,important_notes').not('scope_template','is',null);
+  const catMap=(catalog||[]).reduce((m,s)=>{m[s.name]=s;return m;},{});
+
+  // Monta scope_items: tenta usar template do catálogo, senão usa descrição do orçamento
+  const scopeItems=[];
+  const overviews=[];
+  const notesSet=new Set();
+  let stdNotes=[];
+
+  (q.quote_items||[]).forEach(i=>{
+    const svcName=Object.keys(catMap).find(k=>i.description&&i.description.startsWith(k));
+    const svc=svcName?catMap[svcName]:null;
+    if(svc){
+      if(svc.project_overview&&!overviews.includes(svc.project_overview)) overviews.push(svc.project_overview);
+      (svc.scope_template||[]).forEach(line=>scopeItems.push({item:line,qty:null,price:null}));
+      if(svc.important_notes&&!stdNotes.length) stdNotes=svc.important_notes;
+    } else {
+      scopeItems.push({item:i.description,qty:i.quantity,price:i.total});
+    }
+  });
+
+  const projectScope=overviews.length
+    ? overviews.join(' ')
+    : 'Fine Touch Decor & Design will provide professional design, supply, and installation services as detailed below. All work will be completed with high-quality materials and expert craftsmanship to the client\'s satisfaction.';
+
+  // Adiciona notas importantes ao final dos scope_items
+  if(stdNotes.length){
+    scopeItems.push({item:'--- IMPORTANT NOTES ---',qty:null,price:null});
+    stdNotes.forEach(n=>scopeItems.push({item:n,qty:null,price:null}));
+  }
+
   const payload={
     client_name:q.clients?.name||'',
     project_name:q.project_name||'',
-    title:`Proposta — ${q.project_name||q.clients?.name||'Projeto'}`,
+    title:`Proposal — ${q.project_name||q.clients?.name||'Project'}`,
     date:new Date().toISOString().slice(0,10),
     total_cost:salePrice,
     status:'draft',
-    project_scope:`Fine Touch Decor & Design will provide professional design, supply, and installation services as detailed below. All work will be completed with high-quality materials and expert craftsmanship to the client's satisfaction.`,
-    scope_items:(q.quote_items||[]).map(i=>({item:i.description,qty:i.quantity,price:i.total})),
+    project_scope:projectScope,
+    scope_items:scopeItems,
   };
   const {error}=await db.from('proposals').insert(payload);
   if(error){showToast('Erro: '+error.message,'error');return;}

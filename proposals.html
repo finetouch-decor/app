@@ -549,18 +549,30 @@ function openEdit(id) {
 function closeModal() { document.getElementById('overlay-form').classList.remove('open'); }
 function closeIfOutside(e, id) { if(e.target.id===id) closeModal(); }
 
-function addScopeItem(text='') {
+function addScopeItem(data='') {
+  const text = (typeof data === 'object' && data !== null) ? (data.item || '') : String(data);
   const id = 'si-'+itemCount++;
   const row = document.createElement('div');
+  const isSep = text.startsWith('---');
   row.className='scope-item-row'; row.id=id;
-  row.innerHTML=`<input type="text" placeholder="e.g. Supply and installation of trim boards" value="${text}">
-    <button onclick="document.getElementById('${id}').remove()">✕</button>`;
+  if (isSep) {
+    row.innerHTML=`<div style="flex:1;font-size:10px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:2px;padding:6px 0 2px;border-bottom:1px solid rgba(198,158,99,0.3);">Important Notes</div>
+      <button onclick="document.getElementById('${id}').remove()" title="Remover seção">✕</button>`;
+  } else {
+    row.innerHTML=`<input type="text" placeholder="e.g. Supply and installation of trim boards" value="${text.replace(/"/g,'&quot;')}">
+      <button onclick="document.getElementById('${id}').remove()">✕</button>`;
+  }
   document.getElementById('scope-items').appendChild(row);
 }
 
 function getScopeItems() {
-  return [...document.querySelectorAll('.scope-item-row input')]
-    .map(i=>i.value.trim()).filter(Boolean);
+  return [...document.getElementById('scope-items').children].map(row => {
+    const inp = row.querySelector('input');
+    const div = row.querySelector('div');
+    if (inp) return inp.value.trim();
+    if (div) return '--- IMPORTANT NOTES ---';
+    return null;
+  }).filter(Boolean);
 }
 
 async function saveProposal() {
