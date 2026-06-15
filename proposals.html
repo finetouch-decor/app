@@ -345,7 +345,8 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
   <div class="print-toolbar">
     <span id="print-toolbar-label">Proposal Preview</span>
     <div class="print-toolbar-btns">
-      <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+      <button class="btn-close-print" onclick="editFromPrint()" style="background:rgba(198,158,99,0.15);border-color:var(--gold);color:var(--gold);">✏️ Editar proposta</button>
+      <button class="btn-print" onclick="window.print()">🖨️ Salvar PDF</button>
       <button class="btn-close-print" onclick="closePrint()">✕ Fechar</button>
     </div>
   </div>
@@ -785,7 +786,16 @@ function fmtMoney(v) {
 }
 
 // ─── PRINT VIEW ──────────────────────────────────────────────
+let currentPrintId = null;
+function editFromPrint() {
+  closePrint();
+  if (currentPrintId) {
+    const p = proposals.find(x=>x.id===currentPrintId);
+    if (p) openModal(p);
+  }
+}
 async function openPrint(id) {
+  currentPrintId = id;
   const p = proposals.find(x=>x.id===id);
   if (!p) return;
 
