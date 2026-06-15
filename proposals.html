@@ -298,6 +298,20 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
   </div>
 </div>
 
+<!-- TEMPLATE PICKER MODAL -->
+<div class="overlay" id="overlay-template" onclick="closeIfOutside(event,'overlay-template')">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <div class="modal-title">📋 Selecionar template de serviço</div>
+      <button class="modal-close" onclick="document.getElementById('overlay-template').classList.remove('open')">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Escolha o serviço para pré-preencher o Scope of Work. Os itens atuais serão substituídos.</p>
+      <div id="template-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+  </div>
+</div>
+
 <!-- CREATE/EDIT MODAL -->
 <div class="overlay" id="overlay-form" onclick="closeIfOutside(event,'overlay-form')">
   <div class="modal">
@@ -317,7 +331,10 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
       </div>
       <div class="field"><label>Project Scope</label><textarea id="f-scope" placeholder="Brief description of the overall project scope..."></textarea></div>
       <div class="field">
-        <label>Scope of Work (bullet points)</label>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <label style="margin-bottom:0;">Scope of Work (bullet points)</label>
+          <button type="button" onclick="openTemplatepicker()" style="font-size:11px;font-weight:700;color:var(--gold);background:rgba(198,158,99,0.1);border:1.5px solid rgba(198,158,99,0.3);border-radius:6px;padding:4px 10px;cursor:pointer;font-family:'Inter',sans-serif;">📋 Usar template</button>
+        </div>
         <div id="scope-items"></div>
         <button class="btn-add-item" onclick="addScopeItem()">+ Add item</button>
       </div>
@@ -445,7 +462,45 @@ const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let proposals = [], editId = null, itemCount = 0;
+let proposals = [], editId = null, itemCount = 0, catalogSvcCache = [];
+
+async function openTemplatepicker() {
+  if (!catalogSvcCache.length) {
+    const {data} = await db.from('catalog_services')
+      .select('name,project_overview,scope_template,important_notes')
+      .eq('active', true)
+      .not('scope_template','is',null)
+      .order('category').order('name');
+    catalogSvcCache = data || [];
+  }
+  const list = document.getElementById('template-list');
+  list.innerHTML = catalogSvcCache.map((s,i) => `
+    <div onclick="applyTemplate(${i})" style="padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:all .15s;"
+      onmouseover="this.style.borderColor='var(--gold)';this.style.background='#fffbf0'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.background='#fff'">
+      <div style="font-size:13px;font-weight:700;color:var(--navy);">${s.name}</div>
+      ${s.project_overview ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4;">${s.project_overview.slice(0,100)}…</div>` : ''}
+      <div style="font-size:10px;color:var(--gold);font-weight:600;margin-top:6px;">${(s.scope_template||[]).length} itens no scope</div>
+    </div>`).join('');
+  document.getElementById('overlay-template').classList.add('open');
+}
+
+function applyTemplate(idx) {
+  const svc = catalogSvcCache[idx];
+  if (!svc) return;
+  if (!confirm(`Substituir scope atual pelo template "${svc.name}"?`)) return;
+  document.getElementById('overlay-template').classList.remove('open');
+  // Atualiza Project Scope
+  if (svc.project_overview) document.getElementById('f-scope').value = svc.project_overview;
+  // Limpa e preenche scope items
+  document.getElementById('scope-items').innerHTML = '';
+  itemCount = 0;
+  (svc.scope_template || []).forEach(line => addScopeItem(line));
+  if ((svc.important_notes||[]).length) {
+    addScopeItem('--- IMPORTANT NOTES ---');
+    svc.important_notes.forEach(n => addScopeItem(n));
+  }
+}
 
 async function init() {
   const { data: { session } } = await db.auth.getSession();
