@@ -368,6 +368,85 @@ textarea{resize:vertical;min-height:64px;}
 <div class="toast" id="toast"></div>
 
 <!-- MODAL CATÁLOGO -->
+<!-- Modal guiado Accent Wall no orçamento -->
+<div id="aw-form-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.25);">
+    <div style="background:var(--navy);padding:18px 22px;border-radius:16px 16px 0 0;">
+      <div style="font-size:15px;font-weight:800;color:#fff;">🎨 <span id="aw-form-title">Accent Wall</span></div>
+      <div style="font-size:11px;color:var(--gold2);margin-top:2px;">Preencha os detalhes para calcular o preço</div>
+    </div>
+    <div style="padding:20px 22px;display:flex;flex-direction:column;gap:14px;">
+
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Nome da parede / ambiente</label>
+        <input id="awf-wall" type="text" placeholder="Ex: Dining Room, Master Bedroom..." oninput="recalcAWForm()"
+          style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
+      </div>
+
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Medidas da parede</label>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input id="awf-width" type="number" min="1" step="0.1" placeholder="Largura (ft)" oninput="recalcAWForm()"
+            style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
+          <span style="color:var(--muted);font-weight:600;">×</span>
+          <input id="awf-height" type="number" min="1" step="0.1" placeholder="Altura (ft)" oninput="recalcAWForm()"
+            style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
+          <span style="font-size:12px;font-weight:700;color:var(--navy);min-width:60px;text-align:right;" id="awf-sqft">—</span>
+        </div>
+      </div>
+
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Grau de dificuldade do design</label>
+        <select id="awf-diff" onchange="recalcAWForm()"
+          style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;background:#fff;">
+          <option value="13|11">🟢 Baixa — design simples ($13 / $11 ft²)</option>
+          <option value="16|13">🟡 Média — mais detalhes ($16 / $13 ft²)</option>
+          <option value="24|19">🔴 Alta — design complexo ($24 / $19 ft²)</option>
+        </select>
+      </div>
+
+      <div style="display:flex;gap:8px;">
+        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border:2px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;">
+          <input type="radio" name="awf-mode" value="single" checked onchange="recalcAWForm()" style="accent-color:var(--navy);">
+          Parede única
+        </label>
+        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border:2px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;">
+          <input type="radio" name="awf-mode" value="package" onchange="recalcAWForm()" style="accent-color:var(--navy);">
+          Pacote (várias paredes)
+        </label>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;cursor:pointer;">
+          <input type="checkbox" id="awf-ceiling" onchange="recalcAWForm()" style="width:16px;height:16px;accent-color:var(--navy);cursor:pointer;">
+          Pé direito duplo <span style="color:var(--muted);font-size:11px;">(+25% — escada, mais tempo e risco)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;cursor:pointer;">
+          <input type="checkbox" id="awf-outlet" onchange="recalcAWForm()" style="width:16px;height:16px;accent-color:var(--navy);cursor:pointer;">
+          Fechar tomada <span style="color:var(--muted);font-size:11px;">(+$80 por tomada)</span>
+        </label>
+        <div id="awf-outlet-row" style="display:none;align-items:center;gap:8px;padding-left:26px;">
+          <label style="font-size:12px;color:var(--muted);">Quantas tomadas?</label>
+          <input id="awf-outlet-qty" type="number" min="1" max="10" value="1" oninput="recalcAWForm()"
+            style="width:60px;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:'Inter',sans-serif;font-size:13px;outline:none;text-align:center;">
+        </div>
+      </div>
+
+      <div style="background:var(--navy);border-radius:10px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:4px;">Total estimado</div>
+          <div style="font-size:26px;font-weight:800;color:var(--gold);" id="awf-total">—</div>
+        </div>
+        <button onclick="confirmAWForm()"
+          style="padding:10px 20px;border-radius:8px;border:none;background:var(--gold);color:var(--navy);font-family:'Inter',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">
+          ＋ Adicionar ao orçamento
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <div id="catalog-overlay" onclick="if(event.target.id==='catalog-overlay')closeCatalogPicker()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:400;align-items:center;justify-content:center;padding:20px;">
   <div style="background:#fff;border-radius:16px;width:100%;max-width:580px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,0.2);">
     <div style="background:var(--navy);padding:18px 22px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;">
@@ -770,14 +849,80 @@ function toggleCatalogItem(id) {
   renderCatalogList();
 }
 
+// --- Accent Wall guided form ---
+let awQueue = []; // items ft² waiting to be configured
+
 function addSelectedFromCatalog() {
   if (!catalogSelected.size) { showToast('Selecione pelo menos um serviço', 'error'); return; }
+  const regular = [];
+  awQueue = [];
   catalogSelected.forEach(id => {
     const item = catalogItems.find(i => i.id === id);
-    if (item) addMatRow(item.name, 1, item.base_price || 0);
+    if (!item) return;
+    if (item.unit === 'ft²') awQueue.push(item);
+    else regular.push(item);
   });
   closeCatalogPicker();
-  showToast(`${catalogSelected.size} item(s) adicionado(s)`, 'success');
+  regular.forEach(item => addMatRow(item.name, 1, item.base_price || 0));
+  if (regular.length) showToast(`${regular.length} item(s) adicionado(s)`, 'success');
+  if (awQueue.length) openNextAWForm();
+}
+
+function openNextAWForm() {
+  if (!awQueue.length) return;
+  const item = awQueue[0];
+  document.getElementById('aw-form-title').textContent = item.name;
+  document.getElementById('awf-wall').value = '';
+  document.getElementById('awf-width').value = '';
+  document.getElementById('awf-height').value = '';
+  document.getElementById('awf-diff').value = '13|11';
+  document.querySelector('input[name="awf-mode"][value="single"]').checked = true;
+  document.getElementById('awf-ceiling').checked = false;
+  document.getElementById('awf-outlet').checked = false;
+  document.getElementById('awf-outlet-qty').value = '1';
+  document.getElementById('awf-outlet-row').style.display = 'none';
+  recalcAWForm();
+  document.getElementById('aw-form-overlay').style.display = 'flex';
+}
+
+function recalcAWForm() {
+  const w = parseFloat(document.getElementById('awf-width').value) || 0;
+  const h = parseFloat(document.getElementById('awf-height').value) || 0;
+  const sqft = w * h;
+  document.getElementById('awf-sqft').textContent = sqft > 0 ? sqft.toFixed(1) + ' ft²' : '—';
+  const diff = document.getElementById('awf-diff').value;
+  const [rSingle, rPkg] = diff.split('|').map(Number);
+  const isPkg = document.querySelector('input[name="awf-mode"]:checked').value === 'package';
+  const rate = isPkg ? rPkg : rSingle;
+  const ceilMult = document.getElementById('awf-ceiling').checked ? 1.25 : 1;
+  const outletQty = parseInt(document.getElementById('awf-outlet-qty').value) || 1;
+  const outletAmt = document.getElementById('awf-outlet').checked ? outletQty * 80 : 0;
+  const total = sqft > 0 ? (sqft * rate * ceilMult) + outletAmt : 0;
+  document.getElementById('awf-total').textContent = total > 0 ? '$' + total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+  document.getElementById('awf-total').dataset.value = total.toFixed(2);
+  document.getElementById('awf-total').dataset.sqft = sqft.toFixed(1);
+  document.getElementById('awf-outlet-row').style.display = document.getElementById('awf-outlet').checked ? 'flex' : 'none';
+}
+
+function confirmAWForm() {
+  const item = awQueue[0];
+  const wall = document.getElementById('awf-wall').value.trim();
+  const sqft = parseFloat(document.getElementById('awf-total').dataset.sqft) || 0;
+  if (!wall) { alert('Informe o nome da parede (ex: Dining Room)'); return; }
+  if (!sqft) { alert('Informe as medidas da parede'); return; }
+  const total = parseFloat(document.getElementById('awf-total').dataset.value) || 0;
+  const diff = document.getElementById('awf-diff').options[document.getElementById('awf-diff').selectedIndex].text.split(' — ')[0];
+  const isPkg = document.querySelector('input[name="awf-mode"]:checked').value === 'package';
+  const extras = [];
+  if (document.getElementById('awf-ceiling').checked) extras.push('pé direito duplo');
+  const outletQty = parseInt(document.getElementById('awf-outlet-qty').value) || 1;
+  if (document.getElementById('awf-outlet').checked) extras.push(`${outletQty} tomada${outletQty > 1 ? 's'  : ''}`);
+  const desc = `${item.name} — ${wall} | ${sqft} ft² | ${diff} | ${isPkg ? 'Pacote' : 'Único'}${extras.length ? ' | ' + extras.join(', ') : ''}`;
+  addMatRow(desc, 1, total);
+  document.getElementById('aw-form-overlay').style.display = 'none';
+  awQueue.shift();
+  if (awQueue.length) { setTimeout(openNextAWForm, 200); }
+  else showToast('Accent Wall adicionado ao orçamento!', 'success');
 }
 
 init();
