@@ -103,7 +103,7 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 .toast.error{background:var(--red);}
 
 /* ─── PRINT / PROPOSAL VIEW ─────────────────────────────── */
-.print-overlay{position:fixed;inset:0;background:#e8e4da;z-index:300;display:none;overflow-y:auto;}
+.print-overlay{position:fixed;inset:0;background:#d6d2c8;z-index:300;display:none;overflow-y:auto;}
 .print-overlay.open{display:block;}
 .print-toolbar{background:var(--navy);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
 .print-toolbar span{color:var(--cream);font-size:14px;font-weight:600;}
@@ -112,51 +112,68 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 .btn-close-print{padding:8px 18px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.3);background:transparent;color:var(--cream);font-weight:600;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;}
 
 /* PROPOSAL DOCUMENT */
-.proposal-doc{width:816px;min-height:1056px;margin:28px auto;background:#fff;position:relative;overflow:hidden;font-family:'Inter',sans-serif;box-shadow:0 8px 40px rgba(0,0,0,0.18);}
+.proposal-doc{width:820px;min-height:1060px;margin:28px auto 60px;background:#fff;position:relative;font-family:'Inter',sans-serif;box-shadow:0 8px 60px rgba(0,0,0,0.22);}
 
-/* Background texture */
-.proposal-doc::before{content:'';position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,rgba(198,158,99,0.03) 0px,rgba(198,158,99,0.03) 1px,transparent 1px,transparent 8px);pointer-events:none;}
-
-/* Right decorative element */
-.doc-deco{position:absolute;top:0;right:0;width:90px;height:100%;pointer-events:none;}
-.doc-deco svg{width:100%;height:100%;}
+/* Top accent band */
+.doc-band{height:8px;background:linear-gradient(90deg,#102A4B 0%,#C69E63 60%,#102A4B 100%);}
 
 /* Header */
-.doc-header{padding:36px 48px 28px;display:flex;align-items:flex-start;justify-content:space-between;position:relative;z-index:1;}
-.doc-logo{display:flex;align-items:center;gap:12px;}
-.doc-logo-icon{width:52px;height:52px;}
-.doc-logo-text .fine{font-size:22px;font-weight:900;color:var(--navy);letter-spacing:1px;line-height:1;display:block;}
-.doc-logo-text .touch{font-size:22px;font-weight:900;color:var(--gold);letter-spacing:1px;line-height:1;display:block;}
-.doc-logo-text .sub{font-size:8px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:2px;display:block;}
+.doc-header{padding:30px 48px 22px;display:flex;align-items:center;justify-content:space-between;}
+.doc-logo img{height:80px;width:auto;max-width:240px;}
 .doc-title-block{text-align:right;}
-.doc-title-block .proposal-word{font-size:42px;font-weight:900;color:var(--navy);letter-spacing:2px;line-height:1;display:block;}
-.doc-title-block .proposal-date{font-size:13px;font-weight:700;color:var(--navy);margin-top:4px;display:block;}
-.doc-title-block .proposal-client{font-size:13px;font-weight:700;color:var(--navy);display:block;}
+.doc-title-block .proposal-word{font-size:38px;font-weight:900;color:#102A4B;letter-spacing:3px;line-height:1;display:block;text-transform:uppercase;}
+.doc-title-block .proposal-num{font-size:12px;font-weight:700;color:#C69E63;letter-spacing:2px;margin-top:4px;display:block;text-transform:uppercase;}
+.doc-title-block .proposal-date{font-size:12px;color:#64748B;margin-top:2px;display:block;}
 
-/* Header divider */
-.doc-divider{margin:0 48px 28px;height:1.5px;background:linear-gradient(to right,var(--navy),rgba(16,42,75,0.1));position:relative;z-index:1;}
+/* Gold divider */
+.doc-divider{margin:0;height:2px;background:linear-gradient(90deg,#C69E63,rgba(198,158,99,0.15));}
+
+/* Blue client band */
+.doc-client-band{background:#102A4B;padding:16px 48px;display:flex;align-items:center;justify-content:space-between;}
+.doc-client-band .label{font-size:9px;font-weight:700;color:rgba(198,158,99,0.7);text-transform:uppercase;letter-spacing:2px;margin-bottom:3px;}
+.doc-client-band .value{font-size:15px;font-weight:700;color:#fff;}
+.doc-client-band .sub{font-size:12px;color:rgba(234,230,218,0.6);margin-top:1px;}
 
 /* Body */
-.doc-body{padding:0 48px 48px;position:relative;z-index:1;}
-.doc-section-title{font-size:15px;font-weight:800;color:var(--navy);margin-bottom:8px;margin-top:28px;}
-.doc-text{font-size:14px;color:#2a2a2a;line-height:1.7;}
-.doc-bullet{font-size:14px;color:#2a2a2a;line-height:1.8;padding-left:4px;}
-.doc-bullet::before{content:'• ';color:var(--navy);font-weight:700;}
-.doc-cost{font-size:15px;color:#2a2a2a;line-height:1.7;}
-.doc-note{font-size:14px;color:#2a2a2a;line-height:1.7;margin-top:20px;}
-.doc-thanks{font-size:14px;color:#2a2a2a;line-height:1.7;margin-top:24px;}
+.doc-body{padding:32px 48px 40px;}
+.doc-section-title{font-size:11px;font-weight:800;color:#C69E63;text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;margin-top:28px;display:flex;align-items:center;gap:10px;}
+.doc-section-title::after{content:'';flex:1;height:1px;background:rgba(198,158,99,0.3);}
+.doc-text{font-size:13.5px;color:#2a2a2a;line-height:1.75;}
 
-/* Acceptance */
-.doc-acceptance{margin-top:40px;padding-top:28px;}
-.doc-acceptance-title{font-size:14px;font-weight:600;color:#2a2a2a;margin-bottom:16px;}
-.doc-sig-line{display:flex;align-items:flex-end;gap:12px;margin-bottom:12px;}
-.doc-sig-label{font-size:13px;color:#2a2a2a;white-space:nowrap;}
-.doc-sig-underline{flex:1;border-bottom:1.5px solid #2a2a2a;max-width:280px;}
+/* Items table */
+.doc-items-table{width:100%;border-collapse:collapse;margin-top:4px;}
+.doc-items-table th{font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:1px;padding:8px 10px;text-align:left;background:#f7f8fa;border-bottom:1.5px solid #e2e8f0;}
+.doc-items-table th:last-child{text-align:right;}
+.doc-items-table td{font-size:13px;color:#1a1a1a;padding:9px 10px;border-bottom:1px solid #f0f0f0;vertical-align:top;}
+.doc-items-table td:first-child{width:32px;color:#C69E63;font-weight:700;text-align:center;}
+.doc-items-table tr:last-child td{border-bottom:none;}
+
+/* Total box */
+.doc-total-box{background:#102A4B;border-radius:10px;padding:16px 24px;margin-top:20px;display:flex;align-items:center;justify-content:space-between;}
+.doc-total-box .tl{font-size:12px;font-weight:700;color:rgba(234,230,218,0.7);text-transform:uppercase;letter-spacing:1.5px;}
+.doc-total-box .tv{font-size:28px;font-weight:900;color:#C69E63;letter-spacing:1px;}
+
+/* Payment table */
+.doc-pay-table{width:100%;border-collapse:collapse;margin-top:4px;}
+.doc-pay-table th{font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:1px;padding:8px 12px;text-align:left;background:#f7f8fa;border-bottom:1.5px solid #e2e8f0;}
+.doc-pay-table td{font-size:13px;color:#1a1a1a;padding:9px 12px;border-bottom:1px solid #f0f0f0;}
+.doc-pay-table tr:last-child td{border-bottom:none;}
+.doc-pay-table .pay-val{font-weight:700;color:#102A4B;}
+
+/* Validity & notes */
+.doc-note{font-size:12.5px;color:#64748B;line-height:1.7;margin-top:6px;}
+
+/* Signatures */
+.doc-sig-section{margin-top:36px;display:grid;grid-template-columns:1fr 1fr;gap:40px;}
+.doc-sig-box{border-top:2px solid #102A4B;padding-top:10px;}
+.doc-sig-box .sig-label{font-size:11px;font-weight:700;color:#102A4B;text-transform:uppercase;letter-spacing:1px;}
+.doc-sig-box .sig-name{font-size:12px;color:#64748B;margin-top:4px;}
 
 /* Footer */
-.doc-footer{position:absolute;bottom:28px;left:48px;right:120px;}
-.doc-footer a{font-size:12px;color:var(--navy);text-decoration:none;}
-.doc-footer a span{font-weight:700;}
+.doc-footer-band{background:#f7f8fa;border-top:1px solid #e2e8f0;padding:14px 48px;display:flex;align-items:center;justify-content:space-between;}
+.doc-footer-band .fc{font-size:11.5px;color:#64748B;}
+.doc-footer-band .fc span{color:#102A4B;font-weight:700;}
+.doc-footer-band img{height:28px;width:auto;opacity:.55;}
 
 @media print {
   .print-toolbar{display:none!important;}
@@ -324,64 +341,97 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 <!-- PRINT VIEW -->
 <div class="print-overlay" id="print-overlay">
   <div class="print-toolbar">
-    <span>Proposal Preview</span>
+    <span id="print-toolbar-label">Pré-visualização da Proposta</span>
     <div class="print-toolbar-btns">
-      <button class="btn-print" onclick="window.print()">🖨️ Print / Save PDF</button>
-      <button class="btn-close-print" onclick="closePrint()">✕ Close</button>
+      <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+      <button class="btn-close-print" onclick="closePrint()">✕ Fechar</button>
     </div>
   </div>
   <div class="proposal-doc" id="proposal-doc">
-    <!-- Decorative right element -->
-    <div class="doc-deco">
-      <svg viewBox="0 0 90 1056" fill="none" preserveAspectRatio="none">
-        <path d="M90 0 C50 200, 20 400, 60 600 C90 750, 80 900, 90 1056 L90 0Z" fill="#C69E63" opacity="0.35"/>
-        <path d="M90 0 C65 150, 40 350, 75 550 C95 700, 85 850, 90 1056 L90 0Z" fill="#102A4B" opacity="0.6"/>
-        <path d="M90 80 C60 220, 35 420, 70 620 C92 760, 82 900, 90 1000" stroke="#C69E63" stroke-width="2.5" fill="none" opacity="0.7"/>
-      </svg>
-    </div>
 
-    <!-- Header -->
+    <!-- Top band -->
+    <div class="doc-band"></div>
+
+    <!-- Header: logo + title -->
     <div class="doc-header">
       <div class="doc-logo">
-        <img src="/logo-light-bg.png" alt="Fine Touch Decor & Design" style="height:100px;width:auto;max-width:280px;">
+        <img src="/logo-light-bg.png" alt="Fine Touch Decor & Design">
       </div>
       <div class="doc-title-block">
-        <span class="proposal-word">PROPOSAL</span>
+        <span class="proposal-word">PROPOSTA</span>
+        <span class="proposal-num" id="doc-num"></span>
         <span class="proposal-date" id="doc-date"></span>
-        <span class="proposal-client" id="doc-client"></span>
       </div>
     </div>
 
     <div class="doc-divider"></div>
 
-    <div class="doc-body">
-      <div class="doc-section-title" id="doc-title-text"></div>
-
-      <div class="doc-section-title" style="margin-top:24px;">Project Scope:</div>
-      <div class="doc-text" id="doc-scope"></div>
-
-      <div class="doc-section-title">Scope of Work:</div>
-      <div id="doc-items"></div>
-
-      <div class="doc-section-title">Project Duration:</div>
-      <div class="doc-text" id="doc-duration"></div>
-
-      <div class="doc-section-title">Investment:</div>
-      <div class="doc-cost" id="doc-cost"></div>
-
-      <div class="doc-note">This proposal includes all labor and materials necessary to complete the project as described above.</div>
-      <div class="doc-thanks">Thank you for the opportunity to work on your home.</div>
-
-      <div class="doc-acceptance">
-        <div class="doc-acceptance-title">Acceptance of Proposal</div>
-        <div class="doc-sig-line"><span class="doc-sig-label">Client Signature:</span><div class="doc-sig-underline"></div></div>
-        <div class="doc-sig-line"><span class="doc-sig-label">Date:</span><div class="doc-sig-underline" style="max-width:200px;"></div></div>
+    <!-- Client band -->
+    <div class="doc-client-band">
+      <div>
+        <div class="label">Cliente</div>
+        <div class="value" id="doc-client-name">—</div>
+        <div class="sub" id="doc-project-name"></div>
+      </div>
+      <div style="text-align:right;">
+        <div class="label">Prazo estimado</div>
+        <div class="value" id="doc-duration">—</div>
       </div>
     </div>
 
-    <div class="doc-footer">
-      <a href="http://www.ftdecordesign.com">www.<span>ftdecordesign</span>.com</a>
+    <!-- Body -->
+    <div class="doc-body">
+
+      <!-- Escopo -->
+      <div class="doc-section-title">Escopo do Projeto</div>
+      <div class="doc-text" id="doc-scope"></div>
+
+      <!-- Itens -->
+      <div class="doc-section-title">Serviços Inclusos</div>
+      <table class="doc-items-table" id="doc-items-table">
+        <thead><tr><th>#</th><th>Descrição</th></tr></thead>
+        <tbody id="doc-items-body"></tbody>
+      </table>
+
+      <!-- Total -->
+      <div class="doc-total-box">
+        <div class="tl">Investimento Total</div>
+        <div class="tv" id="doc-total">$0.00</div>
+      </div>
+
+      <!-- Condições de pagamento -->
+      <div class="doc-section-title" id="pay-section-title" style="display:none;">Condições de Pagamento</div>
+      <table class="doc-pay-table" id="doc-pay-table" style="display:none;">
+        <thead><tr><th>#</th><th>Descrição</th><th>Vencimento</th><th style="text-align:right;">Valor</th></tr></thead>
+        <tbody id="doc-pay-body"></tbody>
+      </table>
+
+      <!-- Validade -->
+      <div class="doc-note" style="margin-top:28px;">
+        📌 Esta proposta inclui toda mão de obra e materiais necessários para a execução do projeto conforme descrito acima.<br>
+        ⏳ Proposta válida por <strong>30 dias</strong> a partir da data de emissão.
+      </div>
+
+      <!-- Assinaturas -->
+      <div class="doc-sig-section">
+        <div class="doc-sig-box">
+          <div class="sig-label">Assinatura do Cliente</div>
+          <div class="sig-name" id="doc-sig-client" style="margin-top:36px;"></div>
+        </div>
+        <div class="doc-sig-box">
+          <div class="sig-label">Fine Touch Decor &amp; Design</div>
+          <div class="sig-name" style="margin-top:36px;color:var(--navy);">Fabinho Pereira</div>
+        </div>
+      </div>
+
     </div>
+
+    <!-- Footer band -->
+    <div class="doc-footer-band">
+      <div class="fc">📧 <span>contato@ftdecordesign.com</span> &nbsp;|&nbsp; 🌐 <span>www.ftdecordesign.com</span></div>
+      <img src="/logo-light-bg.png" alt="Fine Touch">
+    </div>
+
   </div>
 </div>
 
@@ -721,20 +771,55 @@ function fmtMoney(v) {
 }
 
 // ─── PRINT VIEW ──────────────────────────────────────────────
-function openPrint(id) {
+async function openPrint(id) {
   const p = proposals.find(x=>x.id===id);
   if (!p) return;
 
-  document.getElementById('doc-date').textContent   = fmtDateShort(p.date);
-  document.getElementById('doc-client').textContent = (p.client_name||'') + (p.project_name?' – '+p.project_name:'');
-  document.getElementById('doc-title-text').textContent = 'PROPOSAL – ' + (p.title||'').toUpperCase();
-  document.getElementById('doc-scope').textContent  = p.project_scope||'';
-  document.getElementById('doc-duration').textContent = 'Estimated completion time: ' + (p.duration||'—');
-  document.getElementById('doc-cost').textContent   = 'Total Project Cost: ' + fmt(p.total_cost);
+  // Número sequencial simples baseado na posição
+  const idx = proposals.slice().reverse().findIndex(x=>x.id===id) + 1;
+  const num = 'FT-' + String(idx).padStart(4,'0');
 
+  document.getElementById('doc-num').textContent        = num;
+  document.getElementById('doc-date').textContent       = 'Data: ' + fmtDate(p.date);
+  document.getElementById('doc-client-name').textContent = p.client_name || '—';
+  document.getElementById('doc-project-name').textContent = p.project_name || '';
+  document.getElementById('doc-duration').textContent   = p.duration || '—';
+  document.getElementById('doc-scope').textContent      = p.project_scope || '';
+  document.getElementById('doc-sig-client').textContent = p.client_name || '';
+  document.getElementById('doc-total').textContent      = fmt(p.total_cost);
+
+  // Scope items table
   const items = p.scope_items || [];
-  document.getElementById('doc-items').innerHTML = items.map(t=>`<div class="doc-bullet">${t}</div>`).join('');
+  document.getElementById('doc-items-body').innerHTML = items.length
+    ? items.map((t,i)=>`<tr><td>${i+1}</td><td>${t}</td></tr>`).join('')
+    : '<tr><td colspan="2" style="color:#64748B;font-style:italic;">—</td></tr>';
 
+  // Busca invoices vinculados ao cliente desta proposta
+  const { data: invs } = await db.from('invoices')
+    .select('invoice_number,notes,due_date,total')
+    .ilike('notes', `%${p.client_name||'XXXNOMATCH'}%`)
+    .order('due_date', {ascending:true});
+
+  const payTable  = document.getElementById('doc-pay-table');
+  const payTitle  = document.getElementById('pay-section-title');
+  const payBody   = document.getElementById('doc-pay-body');
+
+  if (invs && invs.length > 0) {
+    payBody.innerHTML = invs.map((inv,i)=>`
+      <tr>
+        <td>${i+1}</td>
+        <td>${inv.notes?.split('—')[0]?.replace(/Parcela \d+\/\d+:/,'').trim() || inv.invoice_number}</td>
+        <td>${fmtDate(inv.due_date)}</td>
+        <td style="text-align:right;" class="pay-val">${fmt(inv.total)}</td>
+      </tr>`).join('');
+    payTable.style.display = 'table';
+    payTitle.style.display = 'flex';
+  } else {
+    payTable.style.display = 'none';
+    payTitle.style.display = 'none';
+  }
+
+  document.getElementById('print-toolbar-label').textContent = `Proposta — ${p.client_name||''} · ${fmt(p.total_cost)}`;
   document.getElementById('print-overlay').classList.add('open');
 }
 
