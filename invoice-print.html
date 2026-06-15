@@ -11,7 +11,7 @@
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:'Inter',sans-serif; background:#f5f5f5; color:#1a1a1a; }
 
-  .page-wrap { max-width:800px; margin:0 auto; padding:40px 20px; }
+  .page-wrap { max-width:794px; margin:0 auto; padding:40px 20px; }
 
   /* TOOLBAR (screen only) */
   .toolbar { display:flex; gap:10px; justify-content:flex-end; margin-bottom:24px; }
@@ -84,12 +84,13 @@
   /* PRINT STYLES */
   @media print {
     @page { margin:0; size:A4 portrait; }
-    html, body { width:210mm; height:297mm; background:white; }
+    html, body { width:210mm; background:white; }
     .toolbar { display:none !important; }
     .page-wrap { padding:0; max-width:210mm; width:210mm; margin:0; }
     .invoice { box-shadow:none !important; border-radius:0 !important; width:100%; }
     .inv-header { padding:28px 36px; }
     .inv-body { padding:28px 36px; }
+    .inv-logo img { height:80px !important; }
   }
 </style>
 </head>
@@ -144,7 +145,7 @@ async function load() {
     <!-- HEADER -->
     <div class="inv-header">
       <div class="inv-logo">
-        <img src="/logo-dark-bg.png" alt="Fine Touch" style="height:52px;width:auto;">
+        <img src="/logo-dark-bg.png" alt="Fine Touch" style="height:100px;width:auto;max-width:280px;">
       </div>
       <div class="inv-meta">
         <div class="inv-label">Invoice</div>
