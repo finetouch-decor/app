@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fine Touch — Catálogo de Serviços</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+:root {
+  --navy:#102A4B; --navy2:#1a3d6e; --gold:#C69E63; --gold2:#C7B090;
+  --white:#FFFFFF; --bg:#F7F8FA; --border:rgba(15,23,42,0.08);
+  --text:#0F172A; --muted:#64748B;
+  --green:#16a34a; --green-bg:#f0fdf4;
+  --red:#dc2626; --red-bg:#fef2f2;
+  --amber:#d97706; --amber-bg:#fffbeb;
+  --blue:#2563eb; --blue-bg:#eff6ff;
+  --shadow:0 1px 3px rgba(0,0,0,0.06); --sidebar:240px; --radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;}
+.sidebar{width:var(--sidebar);background:var(--navy);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto;}
+.sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,0.1);}
+.sidebar-logo img{width:100%;max-width:180px;height:auto;display:block;}
+.sidebar-nav{flex:1;padding:12px 0;}
+.nav-section{padding:16px 20px 6px;font-size:9px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:2px;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;color:rgba(255,255,255,0.55);font-size:13px;font-weight:500;text-decoration:none;transition:all .15s;}
+.nav-item:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.9);}
+.nav-item.active{background:rgba(198,158,99,0.15);color:var(--gold);border-right:3px solid var(--gold);}
+.nav-item.dim{opacity:0.3;pointer-events:none;}
+.nav-item .icon{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+.sidebar-user{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px;}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--navy);flex-shrink:0;}
+.user-info{flex:1;min-width:0;}
+.user-name{font-size:12px;font-weight:600;color:rgba(255,255,255,0.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-role{font-size:10px;color:var(--gold2);text-transform:uppercase;letter-spacing:1px;}
+.btn-logout{background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:15px;padding:4px;}
+.main{margin-left:var(--sidebar);flex:1;}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
+.topbar h1{font-size:18px;font-weight:700;color:var(--navy);}
+.topbar p{font-size:12px;color:var(--muted);margin-top:1px;}
+.btn{padding:9px 18px;border-radius:8px;border:none;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;}
+.btn-primary{background:var(--navy);color:var(--white);}
+.btn-primary:hover{background:var(--navy2);}
+.btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--navy);}
+.btn-outline:hover{border-color:var(--navy);}
+.content{padding:28px 32px;}
+.filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:22px;flex-wrap:wrap;}
+.cat-btn{padding:6px 14px;border-radius:20px;border:1.5px solid var(--border);background:var(--white);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .15s;}
+.cat-btn.active{background:var(--navy);color:var(--gold);border-color:var(--navy);}
+.search-input{padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;background:var(--white);color:var(--text);width:200px;margin-left:auto;}
+.search-input:focus{border-color:var(--gold);}
+.services-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
+.svc-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);position:relative;transition:all .15s;cursor:pointer;}
+.svc-card:hover{border-color:var(--gold);box-shadow:0 4px 12px rgba(0,0,0,0.08);}
+.svc-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;}
+.svc-name{font-size:14px;font-weight:700;color:var(--navy);line-height:1.3;}
+.svc-type-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;}
+.type-service{background:var(--blue-bg);color:var(--blue);}
+.type-package{background:var(--amber-bg);color:var(--amber);}
+.svc-cat{font-size:11px;color:var(--gold);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+.svc-desc{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px;}
+.svc-meta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+.svc-meta-item{font-size:11px;color:var(--muted);}
+.svc-meta-item strong{color:var(--text);}
+.svc-price-row{display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid var(--border);}
+.svc-price{font-size:18px;font-weight:800;color:var(--navy);}
+.svc-unit{font-size:11px;color:var(--muted);margin-top:2px;}
+.inactive-overlay{position:absolute;inset:0;background:rgba(255,255,255,0.65);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--muted);}
+.empty-state{text-align:center;padding:60px;color:var(--muted);font-size:13px;grid-column:1/-1;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:200;display:none;align-items:center;justify-content:center;padding:20px;}
+.overlay.open{display:flex;}
+.modal{background:var(--white);border-radius:16px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.2);}
+.modal-header{padding:22px 24px 0;display:flex;align-items:center;justify-content:space-between;}
+.modal-header h2{font-size:17px;font-weight:800;color:var(--navy);}
+.modal-close{background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;}
+.modal-body{padding:18px 24px 24px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
+.field input,.field select,.field textarea{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--navy);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:border-color .15s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--gold);}
+.field textarea{resize:vertical;min-height:70px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.type-selector{display:flex;gap:8px;}
+.type-opt{flex:1;padding:12px 10px;border:1.5px solid var(--border);border-radius:9px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg);}
+.type-opt.active{border-color:var(--navy);background:var(--navy);color:var(--white);}
+.type-opt .type-icon{font-size:22px;display:block;margin-bottom:4px;}
+.type-opt .type-label{font-size:11px;font-weight:600;}
+.calc-box{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:14px 16px;margin-bottom:14px;}
+.calc-box-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;}
+.calc-result{font-size:15px;font-weight:700;color:var(--navy);margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.helper-row{display:flex;align-items:center;gap:10px;margin-top:10px;}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;padding:0 24px 22px;}
+.toast{position:fixed;top:20px;right:20px;background:var(--navy);color:var(--white);padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:all .3s;transform:translateY(-10px);}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.success{background:var(--green);}
+.toast.error{background:var(--red);}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-logo"><img src="/logo-dark-bg.png" alt="Fine Touch"></div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Principal</div>
+    <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
+    <div class="nav-section">Captação</div>
+    <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
+    <div class="nav-section">Venda</div>
+    <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
+    <a class="nav-item" href="/proposals"><span class="icon">📄</span>Propostas</a>
+    <a class="nav-item dim"><span class="icon">📝</span>Contratos</a>
+    <a class="nav-item" href="/invoices"><span class="icon">🧾</span>Invoices</a>
+    <div class="nav-section">Execução</div>
+    <a class="nav-item" href="/projects"><span class="icon">🏗️</span>Obras</a>
+    <a class="nav-item" href="/purchases"><span class="icon">🛒</span>Compras</a>
+    <div class="nav-section">Gestão</div>
+    <a class="nav-item" href="/financial"><span class="icon">💰</span>Financeiro</a>
+    <a class="nav-item" href="/reports"><span class="icon">📈</span>Relatórios</a>
+    <a class="nav-item" href="/catalog"><span class="icon">🖼️</span>Catálogo Cliente</a>
+    <a class="nav-item active" href="/services"><span class="icon">📚</span>Serviços</a>
+    <a class="nav-item" href="/marketing"><span class="icon">📣</span>Marketing</a>
+    <a class="nav-item" href="/tasks"><span class="icon">✅</span>Tarefas</a>
+    <div class="nav-section">Admin</div>
+    <a class="nav-item" id="nav-users" href="/users" style="display:none"><span class="icon">👥</span>Usuários</a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-avatar" id="user-avatar">F</div>
+    <div class="user-info"><div class="user-name" id="user-name">...</div><div class="user-role">Fine Touch</div></div>
+    <button class="btn-logout" onclick="logout()">⏻</button>
+  </div>
+</aside>
+<main class="main">
+  <div class="topbar">
+    <div><h1>Serviços</h1><p>Seus serviços e pacotes com preços de referência</p></div>
+    <button class="btn btn-primary" onclick="openModal()">+ Novo Serviço</button>
+  </div>
+  <div class="content">
+    <div class="filter-bar">
+      <button class="cat-btn active" onclick="setFilter('',this)">Todos</button>
+      <button class="cat-btn" onclick="setFilter('Molduras',this)">Molduras</button>
+      <button class="cat-btn" onclick="setFilter('Instalação de Molduras',this)">Instalação</button>
+      <button class="cat-btn" onclick="setFilter('Pintura',this)">Pintura</button>
+      <button class="cat-btn" onclick="setFilter('Design de Interiores',this)">Design</button>
+      <button class="cat-btn" onclick="setFilter('Decoração',this)">Decoração</button>
+      <button class="cat-btn" onclick="setFilter('Outros',this)">Outros</button>
+      <input class="search-input" type="text" placeholder="🔍 Buscar..." oninput="renderGrid()" id="search-input">
+    </div>
+    <div class="services-grid" id="services-grid"><div class="empty-state">Carregando...</div></div>
+  </div>
+</main>
+<div class="overlay" id="overlay" onclick="closeIfOutside(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Novo Serviço</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Tipo</label>
+        <div class="type-selector">
+          <div class="type-opt active" id="type-service" onclick="setType('service')">
+            <span class="type-icon">🔧</span><span class="type-label">Só instalação</span>
+          </div>
+          <div class="type-opt" id="type-package" onclick="setType('package')">
+            <span class="type-icon">📦</span><span class="type-label">Material + instalação</span>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Nome do Serviço</label>
+        <input id="f-name" type="text" placeholder="Ex: Instalação de moldura de teto">
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Categoria</label>
+          <select id="f-category">
+            <option value="Molduras">Molduras</option>
+            <option value="Instalação de Molduras">Instalação de Molduras</option>
+            <option value="Pintura">Pintura</option>
+            <option value="Design de Interiores">Design de Interiores</option>
+            <option value="Decoração">Decoração</option>
+            <option value="Outros">Outros</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Unidade</label>
+          <select id="f-unit">
+            <option value="projeto">Por projeto</option>
+            <option value="m²">Por m²</option>
+            <option value="metro linear">Metro linear</option>
+            <option value="unidade">Por unidade</option>
+            <option value="hora">Por hora</option>
+          </select>
+        </div>
+      </div>
+      <div class="calc-box">
+        <div class="calc-box-title">⏱ Calculadora de dias</div>
+        <div class="form-row">
+          <div class="field" style="margin-bottom:0;">
+            <label>Dias estimados</label>
+            <input id="f-days" type="number" min="0.5" step="0.5" value="1" oninput="recalcPrice()">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Seu valor/dia (US$)</label>
+            <input id="f-day-rate" type="number" min="0" step="50" value="400" oninput="recalcPrice()">
+          </div>
+        </div>
+        <div class="helper-row">
+          <input type="checkbox" id="f-helper" onchange="recalcPrice()" style="width:16px;height:16px;accent-color:var(--navy);cursor:pointer;">
+          <label for="f-helper" style="font-size:13px;font-weight:500;cursor:pointer;">Precisa de ajudante</label>
+          <span style="font-size:11px;color:var(--muted);margin-left:auto;">Valor/dia:</span>
+          <input id="f-helper-rate" type="number" min="0" step="50" value="150" oninput="recalcPrice()" style="width:80px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:'Inter',sans-serif;outline:none;background:var(--white);">
+        </div>
+        <div class="calc-result" id="calc-result"></div>
+      </div>
+      <div class="field">
+        <label>Preço de referência (US$)</label>
+        <input id="f-price" type="number" min="0" step="0.01" placeholder="0.00">
+      </div>
+      <div class="field">
+        <label>Descrição / O que inclui</label>
+        <textarea id="f-desc" placeholder="Ex: Inclui moldura 3 polegadas, primer e pintura de acabamento..."></textarea>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <input type="checkbox" id="f-active" checked style="width:16px;height:16px;accent-color:var(--navy);cursor:pointer;">
+        <label for="f-active" style="font-size:13px;color:var(--navy);font-weight:500;cursor:pointer;">Ativo</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="btn-delete" onclick="deleteItem()" style="display:none;margin-right:auto;color:var(--red);border-color:rgba(220,38,38,0.3);">Excluir</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveItem()">Salvar</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const SUPABASE_URL='https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY='sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+let items=[],editId=null,currentFilter='',currentType='service';
+async function init(){
+  const{data:{session}}=await db.auth.getSession();
+  if(!session){window.location.href='/login.html';return;}
+  const{data:prof}=await db.from('user_profiles').select('status,role').eq('id',session.user.id).single();
+  if(!prof||(prof.status!=='approved'&&prof.role!=='admin')){window.location.href='/pending.html';return;}
+  if(prof.role==='admin'){const u=document.getElementById('nav-users');if(u)u.style.display='flex';}
+  const name=session.user.user_metadata?.full_name||session.user.email?.split('@')[0]||'User';
+  document.getElementById('user-name').textContent=name;
+  document.getElementById('user-avatar').textContent=name.charAt(0).toUpperCase();
+  await load();
+}
+db.auth.onAuthStateChange((e,s)=>{if(e==='SIGNED_OUT')window.location.href='/login.html';});
+async function logout(){await db.auth.signOut();}
+async function load(){
+  const{data}=await db.from('catalog_services').select('*').order('category').order('name');
+  items=data||[];renderGrid();
+}
+function setFilter(cat,btn){
+  currentFilter=cat;
+  document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');renderGrid();
+}
+function renderGrid(){
+  const q=document.getElementById('search-input').value.toLowerCase();
+  let list=items;
+  if(currentFilter)list=list.filter(i=>i.category===currentFilter);
+  if(q)list=list.filter(i=>(i.name||'').toLowerCase().includes(q)||(i.description||'').toLowerCase().includes(q));
+  if(!list.length){document.getElementById('services-grid').innerHTML='<div class="empty-state">Nenhum serviço. Clique em "+ Novo Serviço" para começar.</div>';return;}
+  const typeLabel={service:'Instalação',package:'Mat. + Instalação'};
+  const typeBadge={service:'type-service',package:'type-package'};
+  document.getElementById('services-grid').innerHTML=list.map(item=>`
+    <div class="svc-card" onclick="openModal('${item.id}')">
+      ${!item.active?'<div class="inactive-overlay">Inativo</div>':''}
+      <div class="svc-card-top">
+        <div class="svc-name">${item.name}</div>
+        <span class="svc-type-badge ${typeBadge[item.type]||'type-service'}">${typeLabel[item.type]||'Serviço'}</span>
+      </div>
+      <div class="svc-cat">${item.category||'—'}</div>
+      ${item.description?`<div class="svc-desc">${item.description}</div>`:''}
+      <div class="svc-meta">
+        ${item.estimated_days?`<div class="svc-meta-item">⏱ <strong>${item.estimated_days}</strong> dia${item.estimated_days!=1?'s':''}</div>`:''}
+        ${item.needs_helper?`<div class="svc-meta-item">👷 com ajudante</div>`:''}
+      </div>
+      <div class="svc-price-row">
+        <div>
+          <div class="svc-price">$${Number(item.base_price||0).toLocaleString('en-US',{minimumFractionDigits:0})}</div>
+          <div class="svc-unit">${item.unit||'por projeto'}</div>
+        </div>
+        <span style="font-size:11px;color:var(--muted);">clique para editar</span>
+      </div>
+    </div>`).join('');
+}
+function setType(type){
+  currentType=type;
+  document.getElementById('type-service').classList.toggle('active',type==='service');
+  document.getElementById('type-package').classList.toggle('active',type==='package');
+}
+function recalcPrice(){
+  const days=parseFloat(document.getElementById('f-days').value)||0;
+  const rate=parseFloat(document.getElementById('f-day-rate').value)||0;
+  const helper=document.getElementById('f-helper').checked;
+  const hRate=parseFloat(document.getElementById('f-helper-rate').value)||0;
+  const unit=document.getElementById('f-unit').value;
+  const total=days*rate+(helper?days*hRate:0);
+  document.getElementById('calc-result').innerHTML=
+    `Sugerido: <strong style="color:var(--navy);">$${total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>
+     <span style="font-size:11px;color:var(--muted);">${unit}</span>
+     <button type="button" onclick="document.getElementById('f-price').value='${total.toFixed(2)}'"
+       style="padding:3px 10px;border-radius:6px;border:1.5px solid var(--gold);background:transparent;color:var(--gold);font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Usar →</button>`;
+}
+function openModal(id=null){
+  editId=id;
+  const item=id?items.find(x=>x.id===id):null;
+  document.getElementById('modal-title').textContent=item?'Editar Serviço':'Novo Serviço';
+  document.getElementById('btn-delete').style.display=item?'flex':'none';
+  setType(item?.type||'service');
+  document.getElementById('f-name').value=item?.name||'';
+  document.getElementById('f-category').value=item?.category||'Molduras';
+  document.getElementById('f-unit').value=item?.unit||'projeto';
+  document.getElementById('f-days').value=item?.estimated_days||1;
+  document.getElementById('f-helper').checked=item?.needs_helper||false;
+  document.getElementById('f-price').value=item?.base_price||'';
+  document.getElementById('f-desc').value=item?.description||'';
+  document.getElementById('f-active').checked=item?.active!==false;
+  recalcPrice();
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('overlay').classList.remove('open');editId=null;}
+function closeIfOutside(e){if(e.target.id==='overlay')closeModal();}
+async function saveItem(){
+  const name=document.getElementById('f-name').value.trim();
+  if(!name){showToast('Informe o nome','error');return;}
+  const payload={name,type:currentType,category:document.getElementById('f-category').value,unit:document.getElementById('f-unit').value,estimated_days:parseFloat(document.getElementById('f-days').value)||1,needs_helper:document.getElementById('f-helper').checked,base_price:parseFloat(document.getElementById('f-price').value)||0,description:document.getElementById('f-desc').value.trim(),active:document.getElementById('f-active').checked};
+  let error;
+  if(editId){({error}=await db.from('catalog_services').update(payload).eq('id',editId));}
+  else{({error}=await db.from('catalog_services').insert(payload));}
+  if(error){showToast('Erro: '+error.message,'error');return;}
+  showToast(editId?'Atualizado!':'Adicionado!','success');
+  closeModal();await load();
+}
+async function deleteItem(){
+  if(!confirm('Excluir este serviço?'))return;
+  await db.from('catalog_services').delete().eq('id',editId);
+  showToast('Removido.','');closeModal();await load();
+}
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',3000);
+}
+init();
+</script>
+</body>
+</html>
