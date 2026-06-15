@@ -145,6 +145,39 @@
   .btn-gold { background:var(--gold); color:var(--white); }
   .btn-danger { background:var(--red-bg); color:var(--red); border:1.5px solid rgba(160,48,48,0.2); }
 
+  /* DRAWER HISTÓRICO */
+  .drawer-bg { display:none; position:fixed; inset:0; background:rgba(16,42,75,0.4); z-index:300; }
+  .drawer-bg.open { display:block; }
+  .drawer { position:fixed; top:0; right:0; bottom:0; width:420px; background:#fff; z-index:301; box-shadow:-8px 0 40px rgba(0,0,0,0.15); display:flex; flex-direction:column; transform:translateX(100%); transition:transform .25s ease; }
+  .drawer-bg.open .drawer { transform:translateX(0); }
+  .drawer-head { background:var(--navy); padding:20px 22px; display:flex; align-items:flex-start; justify-content:space-between; flex-shrink:0; }
+  .drawer-head-info .name { font-size:17px; font-weight:800; color:#fff; }
+  .drawer-head-info .sub { font-size:12px; color:var(--gold2); margin-top:3px; }
+  .drawer-close { background:rgba(255,255,255,0.12); border:none; color:#fff; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .drawer-close:hover { background:rgba(255,255,255,0.22); }
+  .drawer-edit-btn { margin-top:10px; padding:6px 14px; border-radius:8px; border:1.5px solid rgba(255,255,255,0.25); background:transparent; color:#fff; font-size:12px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif; }
+  .drawer-edit-btn:hover { background:rgba(255,255,255,0.12); }
+  .drawer-body { flex:1; overflow-y:auto; padding:20px; }
+  .drawer-section { margin-bottom:22px; }
+  .drawer-section-title { font-size:10px; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .drawer-section-title::after { content:''; flex:1; height:1px; background:rgba(198,158,99,0.25); }
+  .drawer-item { background:#f8f9fb; border:1px solid var(--border); border-radius:9px; padding:12px 14px; margin-bottom:8px; }
+  .drawer-item .di-title { font-size:13px; font-weight:600; color:var(--navy); }
+  .drawer-item .di-sub { font-size:11px; color:var(--muted); margin-top:3px; }
+  .drawer-item .di-row { display:flex; align-items:center; justify-content:space-between; margin-top:6px; }
+  .drawer-item .di-val { font-size:13px; font-weight:700; color:var(--navy); }
+  .di-badge { font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; }
+  .di-badge.green { background:#f0fdf4; color:#16a34a; }
+  .di-badge.amber { background:#fffbeb; color:#d97706; }
+  .di-badge.blue  { background:#eff6ff; color:#2563eb; }
+  .di-badge.red   { background:#fef2f2; color:#dc2626; }
+  .di-badge.navy  { background:rgba(16,42,75,0.08); color:var(--navy); }
+  .drawer-empty { font-size:12px; color:var(--muted); text-align:center; padding:16px; border:1.5px dashed var(--border); border-radius:8px; }
+  .drawer-summary { background:var(--navy); border-radius:10px; padding:14px 16px; display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px; }
+  .drawer-summary .ds-item .ds-label { font-size:9px; font-weight:700; color:rgba(234,230,218,0.5); text-transform:uppercase; letter-spacing:1px; }
+  .drawer-summary .ds-item .ds-val { font-size:16px; font-weight:800; color:#fff; margin-top:2px; }
+  .drawer-summary .ds-item .ds-val.gold { color:var(--gold); }
+
   /* MODAL */
   .overlay { display:none; position:fixed; inset:0; background:rgba(16,42,75,0.5); z-index:200; align-items:center; justify-content:center; }
   .overlay.open { display:flex; }
@@ -324,6 +357,46 @@
   </div>
 </div>
 
+<!-- DRAWER HISTÓRICO DO CLIENTE -->
+<div class="drawer-bg" id="drawer-bg" onclick="closeDrawer(event)">
+  <div class="drawer" id="drawer">
+    <div class="drawer-head">
+      <div class="drawer-head-info">
+        <div class="name" id="dr-name">—</div>
+        <div class="sub" id="dr-sub">—</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+        <button class="drawer-close" onclick="closeDrawerDirect()">✕</button>
+        <button class="drawer-edit-btn" id="dr-edit-btn" onclick="editFromDrawer()">✏️ Editar</button>
+      </div>
+    </div>
+    <div class="drawer-body">
+
+      <!-- Resumo financeiro -->
+      <div class="drawer-summary" id="dr-summary"></div>
+
+      <!-- Propostas -->
+      <div class="drawer-section">
+        <div class="drawer-section-title">📄 Propostas</div>
+        <div id="dr-proposals"></div>
+      </div>
+
+      <!-- Invoices -->
+      <div class="drawer-section">
+        <div class="drawer-section-title">🧾 Invoices</div>
+        <div id="dr-invoices"></div>
+      </div>
+
+      <!-- Obras -->
+      <div class="drawer-section">
+        <div class="drawer-section-title">🏗️ Obras</div>
+        <div id="dr-projects"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -433,8 +506,11 @@ function renderKanban() {
            data-id="${c.id}"
            ondragstart="dragStart(event,'${c.id}')"
            ondragend="dragEnd(event)"
-           onclick="openModal('${c.id}')">
-        <h4>${c.nome}</h4>
+           onclick="openHistorico('${c.id}')">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
+          <h4 style="flex:1;">${c.nome}</h4>
+          <button onclick="event.stopPropagation();openModal('${c.id}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:2px 6px;font-size:11px;cursor:pointer;color:var(--muted);flex-shrink:0;" title="Editar">✏️</button>
+        </div>
         <div class="meta">${[c.tipo,c.local].filter(Boolean).join(' · ')}</div>
         ${c.valor?`<div class="valor">${fmtValor(c.valor)}</div>`:''}
         ${c.retorno?`<div style="font-size:11px;margin-top:4px" class="${retornoClass(c.retorno)}">${retornoLabel(c.retorno)}</div>`:''}
@@ -533,6 +609,94 @@ function openModal(id) {
 }
 function closeModal(){document.getElementById('overlay').classList.remove('open');editId=null;editClientId=null;}
 function closeIfOutside(e){if(e.target.id==='overlay')closeModal();}
+
+// ── HISTÓRICO DO CLIENTE ──────────────────────────────────────
+let drawerLeadId = null;
+
+async function openHistorico(id) {
+  drawerLeadId = id;
+  const lead = records.find(r => r.id === id);
+  if (!lead) return;
+
+  document.getElementById('dr-name').textContent = lead.nome || '—';
+  document.getElementById('dr-sub').textContent  = [lead.tipo, lead.local].filter(Boolean).join(' · ') || '—';
+  document.getElementById('dr-summary').innerHTML = '<div class="ds-item"><div class="ds-label">Carregando...</div></div>';
+  document.getElementById('dr-proposals').innerHTML = '<div class="drawer-empty">Carregando...</div>';
+  document.getElementById('dr-invoices').innerHTML  = '<div class="drawer-empty">Carregando...</div>';
+  document.getElementById('dr-projects').innerHTML  = '<div class="drawer-empty">Carregando...</div>';
+
+  document.getElementById('drawer-bg').classList.add('open');
+
+  if (!lead.client_id) {
+    document.getElementById('dr-summary').innerHTML = '';
+    ['dr-proposals','dr-invoices','dr-projects'].forEach(id =>
+      document.getElementById(id).innerHTML = '<div class="drawer-empty">Cliente não vinculado</div>');
+    return;
+  }
+
+  const cid = lead.client_id;
+  const [propRes, invRes, projRes] = await Promise.all([
+    db.from('proposals').select('*').ilike('client_name', lead.nome || '').order('created_at', {ascending:false}),
+    db.from('invoices').select('*').eq('client_id', cid).order('issue_date', {ascending:false}),
+    db.from('projects').select('*').eq('client_id', cid).order('created_at', {ascending:false}),
+  ]);
+
+  const props = propRes.data || [];
+  const invs  = invRes.data  || [];
+  const projs = projRes.data || [];
+
+  // Resumo
+  const totalFat  = invs.filter(i=>i.status==='paid').reduce((s,i)=>s+Number(i.total||0),0);
+  const totalPend = invs.filter(i=>i.status!=='paid'&&i.status!=='cancelled').reduce((s,i)=>s+Number(i.total||0),0);
+  const lucro     = projs.reduce((s,p)=>s+Number(p.profit_real||0),0);
+  document.getElementById('dr-summary').innerHTML = `
+    <div class="ds-item"><div class="ds-label">Faturado</div><div class="ds-val gold">$${Math.round(totalFat).toLocaleString('en-US')}</div></div>
+    <div class="ds-item"><div class="ds-label">A receber</div><div class="ds-val">$${Math.round(totalPend).toLocaleString('en-US')}</div></div>
+    <div class="ds-item"><div class="ds-label">Obras</div><div class="ds-val">${projs.length}</div></div>
+    <div class="ds-item"><div class="ds-label">Lucro real</div><div class="ds-val gold">${lucro>0?'$'+Math.round(lucro).toLocaleString('en-US'):'—'}</div></div>`;
+
+  // Propostas
+  const pBadge = {draft:'navy',sent:'amber',accepted:'green',rejected:'red'};
+  const pLabel = {draft:'Rascunho',sent:'Enviada',accepted:'Aprovada',rejected:'Rejeitada'};
+  document.getElementById('dr-proposals').innerHTML = props.length
+    ? props.map(p=>`<div class="drawer-item">
+        <div class="di-row"><div class="di-title">${p.title||'Sem título'}</div><span class="di-badge ${pBadge[p.status]||'navy'}">${pLabel[p.status]||p.status}</span></div>
+        <div class="di-sub">${fmtDate(p.date)}</div>
+        <div class="di-row"><div style="font-size:11px;color:var(--muted);">${p.project_name||''}</div><div class="di-val">$${Number(p.total_cost||0).toLocaleString('en-US')}</div></div>
+      </div>`).join('')
+    : '<div class="drawer-empty">Nenhuma proposta</div>';
+
+  // Invoices
+  const iBadge = {paid:'green',sent:'amber',draft:'navy',overdue:'red',cancelled:'red'};
+  const iLabel = {paid:'Pago',sent:'Enviado',draft:'Rascunho',overdue:'Vencido',cancelled:'Cancelado'};
+  document.getElementById('dr-invoices').innerHTML = invs.length
+    ? invs.map(i=>`<div class="drawer-item">
+        <div class="di-row"><div class="di-title">${i.invoice_number||'—'}</div><span class="di-badge ${iBadge[i.status]||'navy'}">${iLabel[i.status]||i.status}</span></div>
+        <div class="di-sub">Venc: ${fmtDate(i.due_date)}</div>
+        <div class="di-row"><div style="font-size:11px;color:var(--muted);">${(i.notes||'').slice(0,50)}</div><div class="di-val">$${Number(i.total||0).toLocaleString('en-US')}</div></div>
+      </div>`).join('')
+    : '<div class="drawer-empty">Nenhum invoice</div>';
+
+  // Obras
+  const oBadge = {active:'blue',completed:'green',cancelled:'red'};
+  const oLabel = {active:'Ativa',completed:'Concluída',cancelled:'Cancelada'};
+  document.getElementById('dr-projects').innerHTML = projs.length
+    ? projs.map(p=>`<div class="drawer-item">
+        <div class="di-row"><div class="di-title">${p.name||'—'}</div><span class="di-badge ${oBadge[p.status]||'navy'}">${oLabel[p.status]||p.status}</span></div>
+        <div class="di-sub">${p.project_number||''} · Início: ${fmtDate(p.start_date)}</div>
+        <div class="di-row"><div style="font-size:11px;color:var(--muted);">Lucro real</div><div class="di-val">${p.profit_real!=null?'$'+Number(p.profit_real).toLocaleString('en-US'):'—'}</div></div>
+      </div>`).join('')
+    : '<div class="drawer-empty">Nenhuma obra</div>';
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d+'T00:00:00').toLocaleDateString('pt-BR');
+}
+
+function closeDrawer(e) { if (e.target.id === 'drawer-bg') closeDrawerDirect(); }
+function closeDrawerDirect() { document.getElementById('drawer-bg').classList.remove('open'); }
+function editFromDrawer() { closeDrawerDirect(); if (drawerLeadId) openModal(drawerLeadId); }
 
 // SAVE
 async function saveClient() {
