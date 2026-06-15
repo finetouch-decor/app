@@ -552,14 +552,16 @@ async function openDetalhe(id) {
   document.getElementById('det-body').innerHTML = '<div class="spinner"></div>';
   document.getElementById('modal-detalhe').classList.add('open');
 
-  // busca invoices e compras em paralelo
-  const [invRes, purRes] = await Promise.all([
+  // busca invoices, compras e tarefas em paralelo
+  const [invRes, purRes, taskRes] = await Promise.all([
     db.from('invoices').select('invoice_number,total,subtotal,status,paid_date,due_date').eq('client_id', p.client_id).order('due_date'),
     db.from('purchases').select('id,supplier_name,total_amount,status,order_date,purchase_items(description,quantity,unit,unit_price)').eq('project_id', id).order('order_date'),
+    db.from('tasks').select('id,title,status,priority,due_date').eq('project_id', id).order('created_at'),
   ]);
 
-  const invs  = invRes.data  || [];
-  const purs  = purRes.data  || [];
+  const invs  = invRes.data   || [];
+  const purs  = purRes.data   || [];
+  const tasks = taskRes.data  || [];
 
   const receitaTotal  = invs.filter(i=>i.status==='paid').reduce((s,i)=>s+Number(i.total||i.subtotal||0),0);
   const receitaPend   = invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+Number(i.total||i.subtotal||0),0);
@@ -656,6 +658,43 @@ async function openDetalhe(id) {
   }
   html += '</div>';
 
+  // ── TAREFAS DA OBRA ──
+  const doneTasks = tasks.filter(t => t.status === 'done').length;
+  html += `<div style="margin-bottom:20px;" id="det-tasks-section">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+      ✅ Tarefas
+      <span style="font-size:10px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:1px 8px;">${doneTasks}/${tasks.length}</span>
+      ${tasks.length>0?`<div style="flex:1;height:4px;background:var(--border);border-radius:4px;overflow:hidden;"><div style="height:100%;background:var(--green);width:${Math.round(doneTasks/tasks.length*100)}%;transition:width .3s;"></div></div>`:''}
+    </div>
+    <div id="task-list-${id}">`;
+
+  if (!tasks.length) {
+    html += `<div style="color:var(--muted);font-size:12px;padding:12px;background:var(--bg);border-radius:8px;text-align:center;">Nenhuma tarefa. Adicione abaixo.</div>`;
+  } else {
+    const prioColor = {high:'var(--red)',medium:'var(--amber)',low:'var(--green)'};
+    html += tasks.map(t => {
+      const done = t.status === 'done';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--white);border:1px solid var(--border);border-radius:9px;margin-bottom:6px;${done?'opacity:.55':''}">
+        <input type="checkbox" ${done?'checked':''} onchange="toggleTask('${t.id}', this.checked, '${id}')"
+          style="width:16px;height:16px;accent-color:var(--green);cursor:pointer;flex-shrink:0;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;color:var(--navy);${done?'text-decoration:line-through;':''}">${t.title}</div>
+          ${t.due_date?`<div style="font-size:11px;color:var(--muted);">📅 ${fmtDate(t.due_date)}</div>`:''}
+        </div>
+        ${t.priority?`<div style="width:6px;height:6px;border-radius:50%;background:${prioColor[t.priority]||'var(--muted)'};flex-shrink:0;" title="${t.priority}"></div>`:''}
+        <button onclick="deleteTask('${t.id}','${id}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:2px 4px;opacity:.5;" title="Remover">✕</button>
+      </div>`;
+    }).join('');
+  }
+
+  html += `</div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <input id="new-task-input-${id}" type="text" placeholder="Nova tarefa..." onkeydown="if(event.key==='Enter')addTask('${id}')"
+        style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;background:var(--bg);">
+      <button onclick="addTask('${id}')" style="padding:8px 14px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">+ Add</button>
+    </div>
+  </div>`;
+
   // ── BOTÕES DE AÇÃO ──
   if (!isClosed) {
     html += `<div style="padding:14px;background:var(--amber-bg);border:1px solid rgba(217,119,6,.2);border-radius:10px;display:flex;align-items:center;justify-content:space-between;">
@@ -667,6 +706,26 @@ async function openDetalhe(id) {
   }
 
   document.getElementById('det-body').innerHTML = html;
+}
+
+async function addTask(projectId) {
+  const inp = document.getElementById('new-task-input-' + projectId);
+  const title = inp.value.trim();
+  if (!title) return;
+  inp.value = '';
+  const { error } = await db.from('tasks').insert({ title, project_id: projectId, status: 'todo' });
+  if (error) { showToast('Erro ao criar tarefa', 'error'); return; }
+  openDetalhe(projectId);
+}
+
+async function toggleTask(taskId, done, projectId) {
+  await db.from('tasks').update({ status: done ? 'done' : 'todo' }).eq('id', taskId);
+  openDetalhe(projectId);
+}
+
+async function deleteTask(taskId, projectId) {
+  await db.from('tasks').delete().eq('id', taskId);
+  openDetalhe(projectId);
 }
 
 init();
