@@ -602,6 +602,8 @@ function openModal(id) {
     document.getElementById('f-daily-count').value=q.daily_count||'';
     document.getElementById('f-daily-rate').value=q.daily_rate_val||'';
     document.getElementById('f-markup').value=q.markup_pct!=null?q.markup_pct:30;
+    document.getElementById('f-discount-pct').value=q.discount_pct||0;
+    document.getElementById('f-discount-val').value=q.discount_val||0;
     document.getElementById('f-notes').value=q.notes_internal||'';
     (q.quote_items||[]).forEach(i=>addMatRow(i.description,i.quantity,i.unit_price));
     (q.other_costs||[]).forEach(o=>addOtherRow(o.description,o.value));
@@ -610,6 +612,8 @@ function openModal(id) {
      'f-daily-count','f-daily-rate','f-notes','f-number'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('f-status').value='draft';
     document.getElementById('f-markup').value='30';
+    document.getElementById('f-discount-pct').value='0';
+    document.getElementById('f-discount-val').value='0';
     document.getElementById('f-date').value=new Date().toISOString().slice(0,10);
   }
   if(!matRowIds.length) addMatRow();
@@ -810,7 +814,7 @@ async function saveQuote(andProposal=false) {
 async function genProposal(quoteId) {
   const q=allQuotes.find(x=>x.id===quoteId);
   if(!q){showToast('Orçamento não encontrado','error');return;}
-  const salePrice=Number(q.sale_price)||Number(q.total)||0;
+  const salePrice=Number(q.total)||Number(q.sale_price)||0;
 
   // Busca templates do catálogo para pré-preencher escopo
   const {data:catalog}=await db.from('catalog_services').select('name,project_overview,scope_template,important_notes').not('scope_template','is',null);
