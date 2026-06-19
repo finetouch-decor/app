@@ -160,6 +160,51 @@
   .kw-med  { background:#C69E6318; color:#8a6520; }
   .kw-low  { background:#a0303018; color:var(--red); }
 
+  /* PLAN TABS — abas internas de plano */
+  .plan-tab-bar { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:20px; }
+  .plan-tab-btn { padding:7px 14px; border-radius:20px; border:1.5px solid var(--border); background:var(--white); font-size:12px; font-weight:600; color:var(--muted); cursor:pointer; transition:all .15s; }
+  .plan-tab-btn.active { background:var(--navy); color:var(--cream); border-color:var(--navy); }
+
+  /* PROGRESS HEADER */
+  .plan-progress-header { background:var(--white); border:1px solid var(--border); border-radius:14px; padding:18px 22px; margin-bottom:20px; box-shadow:var(--shadow); }
+  .plan-prog-row { display:flex; align-items:center; gap:14px; }
+  .plan-prog-pct { font-size:32px; font-weight:800; color:var(--navy); min-width:60px; }
+  .plan-prog-info { flex:1; }
+  .plan-prog-label { font-size:13px; font-weight:700; color:var(--navy); margin-bottom:6px; }
+  .plan-prog-bar { height:10px; background:var(--cream2); border-radius:8px; overflow:hidden; }
+  .plan-prog-fill { height:100%; border-radius:8px; background:linear-gradient(90deg,var(--gold),#e0b870); transition:width .5s ease; }
+  .plan-prog-sub { font-size:11px; color:var(--muted); margin-top:5px; }
+
+  /* CHECKLIST */
+  .checklist-group { margin-bottom:20px; }
+  .checklist-group-title { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1.2px; margin-bottom:10px; padding-left:4px; }
+  .check-item { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:8px; display:flex; align-items:flex-start; gap:12px; box-shadow:var(--shadow); transition:all .2s; cursor:pointer; }
+  .check-item:hover { border-color:var(--gold); }
+  .check-item.done { opacity:0.55; background:var(--cream2); }
+  .check-item.done .check-title { text-decoration:line-through; color:var(--muted); }
+  .check-box { width:22px; height:22px; border-radius:6px; border:2px solid var(--border); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:13px; margin-top:1px; transition:all .2s; background:var(--white); }
+  .check-item.done .check-box { background:var(--green); border-color:var(--green); color:white; }
+  .check-body { flex:1; }
+  .check-title { font-size:13px; font-weight:700; color:var(--navy); margin-bottom:3px; }
+  .check-desc { font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:6px; }
+  .check-competitor { background:#4285F418; border-radius:8px; padding:6px 10px; font-size:11px; color:#1a3a6e; line-height:1.4; }
+  .check-competitor strong { color:#1a56b0; }
+  .check-badges { display:flex; gap:6px; margin-bottom:6px; flex-wrap:wrap; }
+  .badge-priority-high { background:#a0303018; color:var(--red); font-size:9px; font-weight:700; padding:2px 7px; border-radius:10px; text-transform:uppercase; }
+  .badge-priority-med  { background:#C69E6318; color:#8a6520; font-size:9px; font-weight:700; padding:2px 7px; border-radius:10px; text-transform:uppercase; }
+  .badge-priority-low  { background:#88888818; color:#555; font-size:9px; font-weight:700; padding:2px 7px; border-radius:10px; text-transform:uppercase; }
+
+  /* COMPETITOR TABLE */
+  .comp-table-wrap { background:var(--white); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); margin-bottom:20px; }
+  .comp-table-wrap th { white-space:nowrap; }
+  .comp-metric { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .comp-metric-val { font-size:14px; font-weight:800; color:var(--navy); }
+  .comp-metric-bar-wrap { width:60px; height:5px; background:var(--cream2); border-radius:4px; overflow:hidden; }
+  .comp-metric-bar { height:100%; border-radius:4px; }
+  .comp-us { background:rgba(198,158,99,0.07); }
+  .comp-highlight { color:var(--green); font-weight:700; }
+  .comp-low { color:var(--red); }
+
   /* COMPETITORS */
   .comp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; margin-bottom:20px; }
   .comp-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:16px; box-shadow:var(--shadow); }
@@ -276,6 +321,11 @@
     <div class="tab-bar">
       <button class="tab-btn active" id="tab-btn-resumo" onclick="switchTab('resumo')">📊 Resumo</button>
       <button class="tab-btn" id="tab-btn-google-ads" onclick="switchTab('google-ads')">🔍 Google Ads <span class="tab-badge">LIVE</span></button>
+      <button class="tab-btn" id="tab-btn-site-seo" onclick="switchTab('site-seo')">🌐 Site &amp; SEO</button>
+      <button class="tab-btn" id="tab-btn-my-business" onclick="switchTab('my-business')">📍 My Business</button>
+      <button class="tab-btn" id="tab-btn-blog" onclick="switchTab('blog')">✍️ Blog</button>
+      <button class="tab-btn" id="tab-btn-reviews" onclick="switchTab('reviews')">⭐ Reviews</button>
+      <button class="tab-btn" id="tab-btn-competitors" onclick="switchTab('competitors')">🏆 Concorrentes</button>
     </div>
 
     <div class="content">
@@ -416,6 +466,72 @@
         </div>
 
       </div><!-- /tab-google-ads -->
+
+      <!-- ══ TAB SITE & SEO ══ -->
+      <div id="tab-site-seo" style="display:none">
+        <div class="plan-progress-header">
+          <div class="plan-prog-row">
+            <div class="plan-prog-pct" id="prog-pct-site-seo">0%</div>
+            <div class="plan-prog-info">
+              <div class="plan-prog-label">Site &amp; SEO — Otimização do ftdecordesign.com</div>
+              <div class="plan-prog-bar"><div class="plan-prog-fill" id="prog-bar-site-seo" style="width:0%"></div></div>
+              <div class="plan-prog-sub" id="prog-sub-site-seo">0 de 0 tarefas concluídas</div>
+            </div>
+          </div>
+        </div>
+        <div id="checklist-site-seo"></div>
+      </div>
+
+      <!-- ══ TAB MY BUSINESS ══ -->
+      <div id="tab-my-business" style="display:none">
+        <div class="plan-progress-header">
+          <div class="plan-prog-row">
+            <div class="plan-prog-pct" id="prog-pct-my-business">0%</div>
+            <div class="plan-prog-info">
+              <div class="plan-prog-label">Google My Business — Dominar o Google Maps</div>
+              <div class="plan-prog-bar"><div class="plan-prog-fill" id="prog-bar-my-business" style="width:0%"></div></div>
+              <div class="plan-prog-sub" id="prog-sub-my-business">0 de 0 tarefas concluídas</div>
+            </div>
+          </div>
+        </div>
+        <div id="checklist-my-business"></div>
+      </div>
+
+      <!-- ══ TAB BLOG ══ -->
+      <div id="tab-blog" style="display:none">
+        <div class="plan-progress-header">
+          <div class="plan-prog-row">
+            <div class="plan-prog-pct" id="prog-pct-blog">0%</div>
+            <div class="plan-prog-info">
+              <div class="plan-prog-label">Blog &amp; Conteúdo — Rankear no Google organicamente</div>
+              <div class="plan-prog-bar"><div class="plan-prog-fill" id="prog-bar-blog" style="width:0%"></div></div>
+              <div class="plan-prog-sub" id="prog-sub-blog">0 de 0 tarefas concluídas</div>
+            </div>
+          </div>
+        </div>
+        <div id="checklist-blog"></div>
+      </div>
+
+      <!-- ══ TAB REVIEWS ══ -->
+      <div id="tab-reviews" style="display:none">
+        <div class="plan-progress-header">
+          <div class="plan-prog-row">
+            <div class="plan-prog-pct" id="prog-pct-reviews">0%</div>
+            <div class="plan-prog-info">
+              <div class="plan-prog-label">Reviews — Construir autoridade e prova social</div>
+              <div class="plan-prog-bar"><div class="plan-prog-fill" id="prog-bar-reviews" style="width:0%"></div></div>
+              <div class="plan-prog-sub" id="prog-sub-reviews">0 de 0 tarefas concluídas</div>
+            </div>
+          </div>
+        </div>
+        <div id="checklist-reviews"></div>
+      </div>
+
+      <!-- ══ TAB CONCORRENTES ══ -->
+      <div id="tab-competitors" style="display:none">
+        <div id="competitors-content"></div>
+      </div>
+
     </div><!-- /content -->
   </main>
 </div>
@@ -482,13 +598,314 @@ const statusLabel  = { active:'Ativa', paused:'Pausada', ended:'Encerrada' };
 const statusClass  = { active:'b-active', paused:'b-paused', ended:'b-ended' };
 const sourceLabel  = { google_ads:'Google Ads', fb_marketplace:'FB Marketplace', instagram:'Instagram', facebook:'Facebook', referral:'Indicação', organic:'Orgânico', other:'Outro', '':'Não informado' };
 
+const ALL_TABS = ['resumo','google-ads','site-seo','my-business','blog','reviews','competitors'];
+
 function switchTab(tab) {
-  document.getElementById('tab-resumo').style.display     = tab === 'resumo'     ? '' : 'none';
-  document.getElementById('tab-google-ads').style.display = tab === 'google-ads' ? '' : 'none';
-  document.getElementById('tab-btn-resumo').classList.toggle('active',     tab === 'resumo');
-  document.getElementById('tab-btn-google-ads').classList.toggle('active', tab === 'google-ads');
+  ALL_TABS.forEach(t => {
+    document.getElementById('tab-'+t).style.display = t === tab ? '' : 'none';
+    document.getElementById('tab-btn-'+t).classList.toggle('active', t === tab);
+  });
   document.getElementById('btn-topbar-ads').style.display = tab === 'resumo' ? '' : 'none';
   if (tab === 'google-ads') loadAndRenderGoogleAds(currentPeriod);
+  if (['site-seo','my-business','blog','reviews'].includes(tab)) renderChecklist(tab);
+  if (tab === 'competitors') renderCompetitorsTab();
+}
+
+// ── PLANO DE MARKETING ─────────────────────────────────────────
+const MARKETING_PLAN = {
+  'site-seo': [
+    { group:'🔴 Alta Prioridade', tasks:[
+      { id:'seo-schema', title:'Adicionar Schema Markup JSON-LD', priority:'high',
+        desc:'Código que o Google lê para exibir estrelas, endereço e serviços direto no resultado de busca (rich snippets). Implementação: LocalBusiness + Service + Review schemas.',
+        comp:'Avileve e Accent Walls Orlando já têm — por isso aparecem com estrelas e endereço na busca. Você não aparece assim.' },
+      { id:'seo-city-pages', title:'Criar landing pages por cidade', priority:'high',
+        desc:'Páginas dedicadas: /orlando · /winter-garden · /kissimmee · /lake-nona · /winter-park. Cada uma com 600+ palavras, fotos de projetos locais e depoimentos da cidade.',
+        comp:'Avileve tem 8+ páginas regionais (accentwallsceiling.com/orlando-florida). Por isso aparece para "accent wall Orlando" — você não tem nenhuma.' },
+      { id:'seo-service-pages', title:'Criar páginas por serviço', priority:'high',
+        desc:'Páginas separadas: /accent-wall · /tv-media-wall · /fireplace-wall · /slat-wall · /pvc-marble-panels. O Google indexa cada serviço como URL independente.',
+        comp:'Accent Walls Orlando tem 5 páginas de serviço indexadas. Hoje seu site é 1 URL só — o Google não consegue rankear serviços individuais.' },
+      { id:'seo-title-meta', title:'Corrigir title tags e meta descriptions', priority:'high',
+        desc:'Seu site não tem title tag nem meta description definidos. Esses são os textos que aparecem no Google. Exemplo: "Accent Wall Orlando FL | Fine Touch Decor & Design | Free Quote".',
+        comp:'Todos os concorrentes têm title tags otimizadas. Sem isso, o Google inventa um texto genérico para você.' },
+    ]},
+    { group:'🟡 Média Prioridade', tasks:[
+      { id:'seo-faq', title:'Adicionar seção FAQ ao site', priority:'med',
+        desc:'Perguntas frequentes com respostas. Rankeiam para buscas de "quanto custa accent wall Orlando", "como funciona a instalação", etc. Google pode mostrar no featured snippet.',
+        comp:'Accent Walls Orlando tem FAQ estruturada — aparece no topo com caixa de resposta direta no Google.' },
+      { id:'seo-blog-link', title:'Linkar blog ao site principal', priority:'med',
+        desc:'Criar subdomínio blog.ftdecordesign.com ou seção /blog. Cada post gera uma nova URL indexável e traz tráfego orgânico de longo prazo.',
+        comp:'Avileve publica 5+ posts/mês e domina buscas como "fireplace wall Orlando 2026" e "top interior trends Florida".' },
+      { id:'seo-alt-images', title:'Adicionar alt text em todas as imagens', priority:'med',
+        desc:'Textos descritivos em todas as imagens do portfólio. O Google Imagens é uma fonte de tráfego ignorada — "accent wall before after Orlando" pode trazer visitas.',
+        comp:'Concorrentes com portfólio otimizado aparecem no Google Imagens antes de você.' },
+      { id:'seo-speed', title:'Verificar e otimizar velocidade (Core Web Vitals)', priority:'med',
+        desc:'Google usa velocidade como fator de ranking. Testar com PageSpeed Insights e corrigir LCP, CLS, FID. Meta: 90+ no mobile.',
+        comp:'Avileve tem site rápido — uma das razões de dominar o ranking em mobile Florida.' },
+    ]},
+    { group:'🟢 Baixa Prioridade', tasks:[
+      { id:'seo-sitemap', title:'Submeter sitemap.xml no Google Search Console', priority:'low',
+        desc:'Garante que o Google encontre e indexe todas as páginas novas rapidamente. Especialmente importante após criar as novas páginas de cidade e serviço.',
+        comp:'Padrão básico que todos os concorrentes bem posicionados fazem.' },
+      { id:'seo-citations', title:'Criar perfis em Yelp, Angi, HomeAdvisor, Thumbtack', priority:'low',
+        desc:'NAP (Nome, Endereço, Telefone) consistente nessas plataformas é sinal de confiança para o Google. Meta: 20+ citations com dados idênticos.',
+        comp:'Avileve está listada em 15+ diretórios. Cada citation é um voto de confiança para o Google.' },
+      { id:'seo-backlinks', title:'Obter backlinks de designers de interiores de Orlando', priority:'low',
+        desc:'Parcerias com decoradores, arquitetos e designers locais para mencionar Fine Touch nos seus sites. Um link de um site relevante vale mais que 100 links aleatórios.',
+        comp:'Accent Walls Orlando tem menções em blogs de decoração Florida — isso eleva a autoridade de domínio.' },
+    ]},
+  ],
+  'my-business': [
+    { group:'🔴 Alta Prioridade', tasks:[
+      { id:'gmb-services', title:'Preencher TODOS os serviços com descrição detalhada', priority:'high',
+        desc:'Adicionar cada serviço (Accent Wall, TV Wall, Fireplace Wall, Slat Wall, PVC Marble Panels) com descrição de 150-200 palavras e fotos. O Google usa isso para exibir nas buscas locais.',
+        comp:'Avileve tem 8 serviços detalhados no perfil — aparece para qualquer variação de busca de serviço na região.' },
+      { id:'gmb-photos', title:'Fazer upload de 20+ fotos de projetos concluídos', priority:'high',
+        desc:'Fotos de before/after de cada tipo de projeto. Perfis com 20+ fotos recebem 35% mais cliques. Nomear os arquivos antes de subir: "accent-wall-orlando-fine-touch-1.jpg".',
+        comp:'Concorrentes com galeria completa recebem 2-3x mais chamadas via Google Maps que perfis com poucas fotos.' },
+      { id:'gmb-posts', title:'Publicar 1 post por semana no GMB', priority:'high',
+        desc:'Posts de projeto concluído, promoção ou dica de decoração. Aparecem direto no painel do Google quando alguém busca sua empresa. Mantém o perfil "ativo" para o algoritmo.',
+        comp:'Avileve posta semanalmente — Google prioriza perfis ativos no Maps. Perfis sem posts recentes perdem posição.' },
+      { id:'gmb-qa', title:'Adicionar 10+ perguntas e respostas (Q&A)', priority:'high',
+        desc:'Criar as próprias perguntas e responder: "Vocês atendem Winter Garden?", "Quanto custa uma accent wall?", "Em quanto tempo instalam?". Aparecem no painel do Google.',
+        comp:'Accent Walls Orlando tem 8 Q&As — quando alguém busca perguntas sobre o serviço, eles aparecem com a resposta pronta.' },
+    ]},
+    { group:'🟡 Média Prioridade', tasks:[
+      { id:'gmb-hours', title:'Verificar e completar horários de atendimento', priority:'med',
+        desc:'Horários completos incluindo sábado. Adicionar "horário especial" para feriados. Google penaliza perfis com horários incorretos quando clientes reclamam.',
+        comp:'Básico que todos os concorrentes bem avaliados fazem corretamente.' },
+      { id:'gmb-description', title:'Reescrever descrição do negócio (750 caracteres)', priority:'med',
+        desc:'Usar os 750 caracteres disponíveis. Incluir: serviços, cidades atendidas, diferenciais, tempo de instalação, free quote. Exemplo: "Fine Touch Decor & Design instala accent walls, TV walls e fireplace walls em Orlando, Winter Garden..."',
+        comp:'Avileve usa todos os 750 caracteres com palavras-chave locais — isso pesa no ranking do Maps.' },
+      { id:'gmb-area', title:'Definir área de atendimento exata (raio e cidades)', priority:'med',
+        desc:'Adicionar todas as cidades: Orlando, Winter Garden, Montverde, Kissimmee, Lake Nona, Winter Park, Windermere, Leesburg, The Villages. Aparece para buscas locais nessas cidades.',
+        comp:'Concorrentes com área bem definida aparecem para buscas em cidades específicas. Sem isso, você fica invisível em cidades vizinhas.' },
+      { id:'gmb-attributes', title:'Preencher todos os atributos do perfil', priority:'med',
+        desc:'Atributos como: "Black-owned", "Women-owned", "Online estimates", "Credit cards accepted", "Free WiFi". Filtros que clientes usam para encontrar negócios.',
+        comp:'Perfis completos com atributos recebem 70% mais visualizações que perfis básicos.' },
+    ]},
+    { group:'🟢 Baixa Prioridade', tasks:[
+      { id:'gmb-products', title:'Adicionar produtos/portfólio com fotos e preços', priority:'low',
+        desc:'Seção "Products" do GMB: listar tipos de accent wall com foto, descrição e faixa de preço ($800-$2500). Aparece como catálogo no painel do Google.',
+        comp:'Poucos concorrentes usam essa seção — é uma oportunidade de se destacar.' },
+      { id:'gmb-website-link', title:'Vincular link direto para formulário de orçamento', priority:'low',
+        desc:'URL do perfil GMB deve apontar para a seção #contact do site, não para a home. Aumenta taxa de conversão de visita GMB → lead.',
+        comp:'Accent Walls Orlando linka direto para o formulário — reduz fricção de quem encontra pelo Maps.' },
+    ]},
+  ],
+  'blog': [
+    { group:'🔴 Alta Prioridade — Publicar primeiro', tasks:[
+      { id:'blog-cost', title:'Post: "How much does an accent wall cost in Orlando? (2026)"', priority:'high',
+        desc:'Essa é a busca #1 de intenção de compra. Responder com faixas de preço por tipo de serviço, materiais, tamanho. 800+ palavras. Incluir CTA para orçamento grátis.',
+        comp:'Avileve tem exatamente esse post e ranqueia na posição 1-3 para essa busca. Você não tem nenhum post.' },
+      { id:'blog-ideas', title:'Post: "Best accent wall ideas for Florida homes 2026"', priority:'high',
+        desc:'Galeria com 10+ ideias com fotos dos seus projetos reais. Fácil de ranquear pois é conteúdo visual. Incluir tipos: wood slat, PVC marble, shiplap, boiserie.',
+        comp:'Accent Walls Design domina "accent wall ideas Orlando" com esse tipo de post. Recebe 500+ visitas/mês.' },
+      { id:'blog-tv-vs-fireplace', title:'Post: "TV Wall vs Fireplace Wall: which adds more value in Orlando?"', priority:'high',
+        desc:'Comparativo com fotos, prós e contras, faixas de preço. Ranqueia para buscas de comparação — pessoas nessa fase estão prestes a contratar.',
+        comp:'Nenhum concorrente local tem esse post específico — oportunidade de ser o primeiro a rankear.' },
+      { id:'blog-winter-garden', title:'Post: "Accent wall installation in Winter Garden FL — 2026 guide"', priority:'high',
+        desc:'Post focado em Winter Garden (sua cidade base). Mencionar bairros, projetos realizados lá, tempo de instalação, serviço local. Rankeia para buscas locais.',
+        comp:'Avileve tem posts específicos por cidade. HandyRex domina "accent wall Orlando FL" com post local.' },
+    ]},
+    { group:'🟡 Média Prioridade', tasks:[
+      { id:'blog-limewash', title:'Post: "Limewash walls trend 2026 — Orlando interior design"', priority:'med',
+        desc:'Tendência crescente em 2026 segundo buscas. Mostrar projetos com limewash, processo de aplicação, preços. Fácil de rankear por ser nicho específico.',
+        comp:'Avileve tem post sobre limewash e aparece no topo para essa busca em Orlando.' },
+      { id:'blog-process', title:'Post: "Our 7-step accent wall installation process"', priority:'med',
+        desc:'Detalhar seu processo único de instalação com fotos. Builds confiança e ranqueia para buscas de processo/como funciona. Reaproveitar conteúdo já no site.',
+        comp:'Concorrentes com posts de processo têm taxa de conversão 40% maior — clientes sabem o que esperar.' },
+      { id:'blog-before-after', title:'Post mensal: before & after de projeto concluído', priority:'med',
+        desc:'1 post por mês com projeto real. Fotos de antes e depois, cidade, tipo de serviço, tempo de execução. Conteúdo que as pessoas compartilham e que rankeia no Google Imagens.',
+        comp:'Accent Walls Design posta before/afters mensalmente — cada post traz tráfego passivo por anos.' },
+    ]},
+    { group:'🟢 Baixa Prioridade', tasks:[
+      { id:'blog-calendar', title:'Criar calendário editorial — 4 posts/mês', priority:'low',
+        desc:'Planejar temas com antecedência: 1 post de custo, 1 de tendência, 1 before/after, 1 de cidade. Consistência é mais importante que qualidade inicial.',
+        comp:'Avileve publica 4-6x/mês consistentemente há mais de 1 ano — isso é o que constrói autoridade de domínio.' },
+      { id:'blog-social', title:'Distribuir cada post nas redes sociais e GMB', priority:'low',
+        desc:'Cada post publicado → compartilhar no Instagram, Facebook e postar link no GMB. Amplifica o alcance e gera backlinks sociais.',
+        comp:'Concorrentes com distribuição cross-channel dobram o tráfego de cada post sem escrever conteúdo extra.' },
+    ]},
+  ],
+  'reviews': [
+    { group:'🔴 Alta Prioridade', tasks:[
+      { id:'rev-google-20', title:'Meta: 20 reviews no Google com 5 estrelas', priority:'high',
+        desc:'Pedir review para cada cliente no dia da conclusão do projeto via WhatsApp. Script: "Olá [nome], ficamos felizes com o resultado! Poderia nos deixar uma avaliação no Google? Leva menos de 1 minuto 🙏 [link direto]".',
+        comp:'Avileve tem 40+ reviews · Accent Walls Orlando tem 25+ reviews · Você precisa de pelo menos 20 para competir no Maps ranking.' },
+      { id:'rev-link', title:'Criar link direto para review no Google', priority:'high',
+        desc:'Gerar link curto do tipo: g.page/r/[seu-ID]/review. Colocar esse link no WhatsApp Business, rodapé do site, email de conclusão de projeto.',
+        comp:'Concorrentes com link direto recebem 3x mais reviews que os que pedem sem link.' },
+      { id:'rev-respond', title:'Responder 100% das reviews — positivas e negativas', priority:'high',
+        desc:'Google valoriza respostas a reviews no algoritmo do Maps. Responder em até 24h. Template positiva: "Obrigado [nome]! Foi um prazer transformar sua parede 🏠" Template negativa: resposta empática + solução.',
+        comp:'Avileve responde todas as reviews — é um dos motivos de manter posição alta no Maps.' },
+      { id:'rev-houzz', title:'Solicitar reviews no Houzz após cada projeto', priority:'high',
+        desc:'Mesmo script do Google, adaptado para o Houzz. Meta: 10 reviews no Houzz até agosto 2026 — condição para avaliar Houzz Pro ($150-400/mês).',
+        comp:'Concorrentes no Houzz com 10+ reviews recebem leads qualificados de alto poder aquisitivo direto da plataforma.' },
+    ]},
+    { group:'🟡 Média Prioridade', tasks:[
+      { id:'rev-yelp', title:'Criar perfil e coletar reviews no Yelp', priority:'med',
+        desc:'Yelp aparece nos resultados de busca "accent wall Orlando" — perfil com 5+ reviews ocupa posição no Google. Não pedir diretamente (viola termos do Yelp), mas compartilhar perfil nos materiais.',
+        comp:'HandyRex e Golden Hands aparecem no Yelp para "accent wall Orlando" — cada review Yelp ajuda no SEO geral.' },
+      { id:'rev-testimonials', title:'Adicionar depoimentos com foto ao site', priority:'med',
+        desc:'Pedir autorização de 5-8 clientes para usar nome, foto e depoimento no site. Aumenta taxa de conversão da landing page em 20-30%.',
+        comp:'Avileve tem 5 depoimentos com nome completo e cidade. Accent Walls Orlando tem fotos dos clientes — transmite confiança.' },
+      { id:'rev-case-studies', title:'Criar 3 case studies completos de projetos', priority:'med',
+        desc:'Cliente, cidade, desafio, solução, resultado com fotos. Conteúdo que converte visitantes em leads. Pode ser postado como blog, no site e no Houzz como projeto.',
+        comp:'Avileve tem case studies com medidas, materiais usados e resultado final — aumenta o ticket médio ao demonstrar qualidade.' },
+    ]},
+    { group:'🟢 Baixa Prioridade', tasks:[
+      { id:'rev-angi', title:'Criar perfil no Angi (antigo Angie\'s List)', priority:'low',
+        desc:'Plataforma de home services com alta intenção de compra. Perfil gratuito com reviews. Leads qualificados de homeowners em Orlando área.',
+        comp:'Accent Bros e Golden Hands aparecem no Angi para accent wall Orlando — cada lead do Angi é um cliente com intenção real de contratar.' },
+      { id:'rev-thumbtack', title:'Criar perfil no Thumbtack', priority:'low',
+        desc:'Plataforma de serviços locais muito usada em Florida. Perfil gratuito + reviews. Complementa Google My Business no rankeamento geral.',
+        comp:'Concorrentes com presença no Thumbtack fecham 2-3 projetos extras por mês vindos da plataforma.' },
+    ]},
+  ],
+};
+
+function loadTaskProgress() {
+  try { return JSON.parse(localStorage.getItem('ft_mkt_tasks') || '{}'); } catch(e) { return {}; }
+}
+function saveTaskProgress(progress) {
+  localStorage.setItem('ft_mkt_tasks', JSON.stringify(progress));
+}
+
+function toggleTask(tabKey, taskId) {
+  const progress = loadTaskProgress();
+  progress[taskId] = !progress[taskId];
+  saveTaskProgress(progress);
+  renderChecklist(tabKey);
+}
+
+function renderChecklist(tabKey) {
+  const plan = MARKETING_PLAN[tabKey];
+  if (!plan) return;
+  const progress = loadTaskProgress();
+  const allTasks = plan.flatMap(g => g.tasks);
+  const done = allTasks.filter(t => progress[t.id]).length;
+  const total = allTasks.length;
+  const pct = total > 0 ? Math.round((done/total)*100) : 0;
+
+  document.getElementById('prog-pct-'+tabKey).textContent = pct+'%';
+  document.getElementById('prog-bar-'+tabKey).style.width = pct+'%';
+  document.getElementById('prog-sub-'+tabKey).textContent = `${done} de ${total} tarefas concluídas`;
+
+  const prioLabel = { high:'Alta', med:'Média', low:'Baixa' };
+  const prioClass = { high:'badge-priority-high', med:'badge-priority-med', low:'badge-priority-low' };
+
+  const html = plan.map(group => `
+    <div class="checklist-group">
+      <div class="checklist-group-title">${group.group}</div>
+      ${group.tasks.map(task => {
+        const isDone = !!progress[task.id];
+        return `<div class="check-item ${isDone?'done':''}" onclick="toggleTask('${tabKey}','${task.id}')">
+          <div class="check-box">${isDone?'✓':''}</div>
+          <div class="check-body">
+            <div class="check-badges">
+              <span class="${prioClass[task.priority]}">${prioLabel[task.priority]}</span>
+            </div>
+            <div class="check-title">${task.title}</div>
+            <div class="check-desc">${task.desc}</div>
+            <div class="check-competitor">🏆 <strong>O que os concorrentes fazem:</strong> ${task.comp}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+
+  document.getElementById('checklist-'+tabKey).innerHTML = html;
+}
+
+function renderCompetitorsTab() {
+  const comps = [
+    { name:'Avileve', url:'accentwallsceiling.com', area:'Florida toda', ads:true,  seo:95, reviews:42, rating:4.9, cities:8,  blog:true,  schema:true,  gmb:true,  note:'Líder do mercado — presença em todo o estado' },
+    { name:'Accent Walls Orlando', url:'accentwallsorlando.com', area:'Orlando / Central FL', ads:false, seo:72, reviews:26, rating:4.8, cities:3, blog:true, schema:true, gmb:true, note:'Maior concorrente direto em Orlando' },
+    { name:'Florida Media Walls', url:'tvmediawall.com', area:'Florida toda', ads:true,  seo:68, reviews:18, rating:4.7, cities:5,  blog:false, schema:false, gmb:true,  note:'Focado em TV Media Walls — nicho específico' },
+    { name:'Accent Walls Design', url:'accentwallsdesign.com', area:'Orlando / FL', ads:false, seo:55, reviews:12, rating:4.6, cities:2, blog:true,  schema:false, gmb:true,  note:'Blog ativo, fraco em paid media' },
+    { name:'Accent Bros', url:'accentbros.com', area:'Central FL', ads:false, seo:32, reviews:4, rating:4.5, cities:1, blog:false, schema:false, gmb:false, note:'Novo no mercado (2026) — ainda fraco digitalmente' },
+    { name:'⭐ Fine Touch (você)', url:'ftdecordesign.com', area:'Orlando / South FL', ads:true, seo:28, reviews:0, rating:5.0, cities:0, blog:false, schema:false, gmb:true, isUs:true, note:'Google Ads ativo · Site bonito · SEO a construir' },
+  ];
+
+  const yes = '<span style="color:var(--green);font-weight:700">✓ Sim</span>';
+  const no  = '<span style="color:var(--red);font-weight:700">✗ Não</span>';
+
+  const table = `
+    <div class="comp-table-wrap" style="margin-bottom:20px">
+      <div class="leads-header"><span class="leads-title">🏆 Comparativo de Presença Digital — Orlando/Florida 2026</span></div>
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>Empresa</th><th>Score SEO</th><th>Reviews</th><th>Rating</th>
+          <th>Páginas Cidade</th><th>Google Ads</th><th>Blog</th><th>Schema</th><th>GMB</th>
+        </tr></thead>
+        <tbody>
+          ${comps.map(c => `<tr class="${c.isUs?'comp-us':''}">
+            <td>
+              <div style="font-weight:700;color:var(--navy)">${c.name}</div>
+              <div style="font-size:10px;color:var(--muted)">${c.area}</div>
+              <div style="font-size:10px;color:var(--blue)">${c.url}</div>
+            </td>
+            <td>
+              <div style="font-weight:800;font-size:16px;color:${c.seo>70?'var(--green)':c.seo>40?'var(--navy)':'var(--red)'}">${c.seo}</div>
+              <div style="width:60px;height:5px;background:var(--cream2);border-radius:4px;overflow:hidden;margin-top:4px">
+                <div style="width:${c.seo}%;height:100%;background:${c.seo>70?'var(--green)':c.seo>40?'var(--blue)':'var(--red)'};border-radius:4px"></div>
+              </div>
+            </td>
+            <td style="font-weight:700;color:${c.reviews>20?'var(--green)':'var(--muted)'}">${c.reviews}</td>
+            <td style="font-weight:700">★${c.rating}</td>
+            <td style="font-weight:700;color:${c.cities>2?'var(--green)':c.cities>0?'var(--navy)':'var(--red)'}">${c.cities}</td>
+            <td>${c.ads?yes:no}</td>
+            <td>${c.blog?yes:no}</td>
+            <td>${c.schema?yes:no}</td>
+            <td>${c.gmb?yes:no}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      </div>
+    </div>`;
+
+  const insights = `
+    <div class="ai-section" style="margin-bottom:20px">
+      <div class="ai-header">
+        <div class="ai-icon">🎯</div>
+        <div><div class="ai-title">O que fazer para ultrapassar cada concorrente</div><div class="ai-sub">Análise baseada na presença digital atual de cada um</div></div>
+      </div>
+      <div class="ai-list">
+        <div class="ai-item"><div class="ai-item-icon">🟢</div><div class="ai-item-text"><strong>Accent Bros (mais fácil de ultrapassar):</strong> Novo no mercado, sem SEO, sem reviews, sem blog. Qualquer ação de SEO básica já te coloca na frente.</div></div>
+        <div class="ai-item"><div class="ai-item-icon">🟡</div><div class="ai-item-text"><strong>Accent Walls Design:</strong> Tem blog mas fraco em ads e schema. Ativando schema markup + Google Ads você já aparece acima em paid e com rich snippets.</div></div>
+        <div class="ai-item"><div class="ai-item-icon">🟡</div><div class="ai-item-text"><strong>Florida Media Walls:</strong> Focado só em TV walls. Seu portfólio completo (accent wall + fireplace + slat wall) é um diferencial. Crie páginas por serviço para superá-los nos nichos que eles ignoram.</div></div>
+        <div class="ai-item"><div class="ai-item-icon">🟠</div><div class="ai-item-text"><strong>Accent Walls Orlando:</strong> Concorrente direto mais forte. Ponto fraco: sem Google Ads. Você já tem Ads ativos — vantagem real. Corrija SEO + reviews para igualar e depois superar.</div></div>
+        <div class="ai-item"><div class="ai-item-icon">🔴</div><div class="ai-item-text"><strong>Avileve (líder):</strong> Domina com páginas por cidade + blog + schema + 40+ reviews. Estratégia: hiperfoco em Winter Garden / Dr. Phillips / Lake Nona — cidades onde eles são mais fracos. Com 6 meses de execução consistente, você pode ultrapassá-los nessas cidades.</div></div>
+        <div class="ai-item"><div class="ai-item-icon">💡</div><div class="ai-item-text"><strong>Sua vantagem competitiva atual:</strong> Rating 5.0★, Google Ads ativo, site visualmente superior ao de todos os concorrentes. A base está certa — falta construir presença orgânica em cima disso.</div></div>
+      </div>
+    </div>`;
+
+  const kw = `
+    <div class="kw-section">
+      <div class="kw-header"><span class="leads-title">🔑 Keywords que os concorrentes rankeiam — você não</span><span style="font-size:11px;color:var(--muted)">Oportunidades de SEO orgânico</span></div>
+      <table>
+        <thead><tr><th>Keyword</th><th>Quem ranqueia</th><th>Dificuldade</th><th>Ação</th></tr></thead>
+        <tbody>
+          ${[
+            {kw:'accent wall Orlando',        comp:'Avileve, Accent Walls Orlando', dif:'Alta',   action:'Criar página /orlando'},
+            {kw:'accent wall installation Orlando', comp:'HandyRex, Accent Walls Design', dif:'Média',  action:'Criar post de blog + página'},
+            {kw:'tv wall Orlando',            comp:'Florida Media Walls, Avileve', dif:'Média',  action:'Criar página /tv-media-wall'},
+            {kw:'fireplace wall Orlando',     comp:'Avileve',                      dif:'Baixa',  action:'Criar página /fireplace-wall'},
+            {kw:'accent wall cost Orlando',   comp:'Avileve (post de blog)',        dif:'Baixa',  action:'Publicar post de blog'},
+            {kw:'slat wall contractor Florida', comp:'Nenhum concorrente local',   dif:'Mínima', action:'Oportunidade imediata — criar página'},
+            {kw:'pvc marble wall Orlando',    comp:'Nenhum',                        dif:'Mínima', action:'Primeira empresa a rankear — crie agora'},
+            {kw:'boiserie wall Florida',      comp:'Nenhum',                        dif:'Mínima', action:'Nicho exclusivo — você seria o único'},
+          ].map(r => `<tr>
+            <td style="font-weight:600">${r.kw}</td>
+            <td style="font-size:12px;color:var(--muted)">${r.comp}</td>
+            <td><span class="badge ${r.dif==='Alta'?'b-ended':r.dif==='Baixa'||r.dif==='Mínima'?'b-active':'b-paused'}">${r.dif}</span></td>
+            <td style="font-size:12px;color:var(--blue);font-weight:600">${r.action}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  document.getElementById('competitors-content').innerHTML = table + insights + kw;
 }
 
 async function init() {
