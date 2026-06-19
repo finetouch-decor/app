@@ -93,22 +93,22 @@ export default async function handler(req, res) {
     // 4. Processar resultados
     const daily = (dailyJson.results || []).map(r => ({
       date: r.segments?.date,
-      clicks: r.metrics?.clicks || 0,
-      impressions: r.metrics?.impressions || 0,
-      cost: parseFloat(((r.metrics?.costMicros || 0) / 1_000_000).toFixed(2)),
+      clicks: parseInt(r.metrics?.clicks || 0, 10),
+      impressions: parseInt(r.metrics?.impressions || 0, 10),
+      cost: parseFloat(((parseInt(r.metrics?.costMicros || 0, 10)) / 1_000_000).toFixed(2)),
       ctr: parseFloat(((r.metrics?.ctr || 0) * 100).toFixed(2)),
-      cpc: parseFloat(((r.metrics?.averageCpc || 0) / 1_000_000).toFixed(2)),
+      cpc: parseFloat(((parseInt(r.metrics?.averageCpc || 0, 10)) / 1_000_000).toFixed(2)),
     }));
 
     const keywords = (kwJson.results || []).map(r => ({
       text: r.adGroupCriterion?.keyword?.text,
       matchType: r.adGroupCriterion?.keyword?.matchType,
-      clicks: r.metrics?.clicks || 0,
-      impressions: r.metrics?.impressions || 0,
-      cost: parseFloat(((r.metrics?.costMicros || 0) / 1_000_000).toFixed(2)),
+      clicks: parseInt(r.metrics?.clicks || 0, 10),
+      impressions: parseInt(r.metrics?.impressions || 0, 10),
+      cost: parseFloat(((parseInt(r.metrics?.costMicros || 0, 10)) / 1_000_000).toFixed(2)),
       ctr: parseFloat(((r.metrics?.ctr || 0) * 100).toFixed(2)),
-      cpc: parseFloat(((r.metrics?.averageCpc || 0) / 1_000_000).toFixed(2)),
-      conversions: r.metrics?.conversions || 0,
+      cpc: parseFloat(((parseInt(r.metrics?.averageCpc || 0, 10)) / 1_000_000).toFixed(2)),
+      conversions: parseFloat(r.metrics?.conversions || 0),
     }));
 
     res.status(200).json({
