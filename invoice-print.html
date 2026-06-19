@@ -54,20 +54,22 @@
   /* ITEMS TABLE */
   .items-table { width:100%; border-collapse:collapse; margin-bottom:24px; }
   .items-table thead tr { background:#102A4B; }
-  .items-table th { padding:10px 14px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#C7B090; }
+  .items-table th { padding:12px 16px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#C7B090; }
   .items-table th:last-child { text-align:right; }
-  .items-table td { padding:13px 14px; font-size:13px; border-bottom:1px solid #EAE6DA; }
-  .items-table td:last-child { text-align:right; font-weight:600; color:#102A4B; }
+  .items-table td { padding:16px 16px; font-size:14px; border-bottom:1px solid #EAE6DA; }
+  .items-table td.desc { font-size:15px; font-weight:600; color:#102A4B; }
+  .items-table td:last-child { text-align:right; font-size:15px; font-weight:700; color:#102A4B; }
   .items-table tbody tr:last-child td { border-bottom:none; }
+  .items-table tbody tr:hover td { background:#faf8f4; }
 
   /* TOTALS */
   .totals-wrap { display:flex; justify-content:flex-end; margin-bottom:32px; }
-  .totals-box { min-width:260px; }
-  .total-row { display:flex; justify-content:space-between; padding:7px 0; font-size:13px; color:#7a7060; border-bottom:1px solid #EAE6DA; }
+  .totals-box { min-width:300px; }
+  .total-row { display:flex; justify-content:space-between; padding:8px 0; font-size:13px; color:#7a7060; border-bottom:1px solid #EAE6DA; }
   .total-row:last-child { border-bottom:none; }
-  .total-grand { display:flex; justify-content:space-between; padding:14px 16px; background:#102A4B; border-radius:8px; margin-top:8px; }
-  .total-grand .label { font-size:13px; font-weight:600; color:#C7B090; }
-  .total-grand .val   { font-size:20px; font-weight:800; color:#C69E63; }
+  .total-grand { display:flex; justify-content:space-between; align-items:center; padding:18px 20px; background:#102A4B; border-radius:8px; margin-top:12px; }
+  .total-grand .label { font-size:14px; font-weight:700; color:#C7B090; text-transform:uppercase; letter-spacing:1px; }
+  .total-grand .val   { font-size:28px; font-weight:800; color:#C69E63; }
 
   /* NOTES */
   .inv-notes { background:#F5F2EC; border-left:3px solid #C69E63; border-radius:0 8px 8px 0; padding:14px 16px; margin-bottom:28px; font-size:13px; color:#7a7060; line-height:1.6; }
@@ -222,12 +224,12 @@ async function load() {
         <tbody>
           ${items.length ? items.map(i=>`
             <tr>
-              <td>${i.description}</td>
-              <td style="text-align:right">${i.quantity}</td>
-              <td style="text-align:right">${fmt(i.unit_price)}</td>
+              <td class="desc">${i.description}</td>
+              <td style="text-align:right;color:#7a7060">${i.quantity}</td>
+              <td style="text-align:right;color:#7a7060">${fmt(i.unit_price)}</td>
               <td>${fmt(i.total)}</td>
             </tr>`).join('')
-          : `<tr><td colspan="4" style="color:#7a7060;font-style:italic">${inv.notes||'Invoice payment'}</td><td></td><td></td><td>${fmt(amount)}</td></tr>`}
+          : `<tr><td class="desc" colspan="3">${inv.notes||'Invoice payment'}</td><td>${fmt(amount)}</td></tr>`}
         </tbody>
       </table>
 
