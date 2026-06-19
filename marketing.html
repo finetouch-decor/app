@@ -488,7 +488,7 @@ function switchTab(tab) {
   document.getElementById('tab-btn-resumo').classList.toggle('active',     tab === 'resumo');
   document.getElementById('tab-btn-google-ads').classList.toggle('active', tab === 'google-ads');
   document.getElementById('btn-topbar-ads').style.display = tab === 'resumo' ? '' : 'none';
-  if (tab === 'google-ads') renderGoogleAds(currentPeriod);
+  if (tab === 'google-ads') loadAndRenderGoogleAds(currentPeriod);
 }
 
 async function init() {
@@ -620,11 +620,54 @@ function setPeriod(days, btn) {
   currentPeriod = days;
   document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  renderGoogleAds(days);
+  loadAndRenderGoogleAds(days);
 }
 
-function renderGoogleAds(days) {
-  const data = generateDailyData(days);
+let adsCache = {};
+
+async function loadAndRenderGoogleAds(days) {
+  // Mostra loading
+  const banner = document.getElementById('ga-live-banner');
+  if (banner) banner.textContent = '🔄 Carregando dados...';
+
+  // Cache por período (5 min)
+  const now = Date.now();
+  if (adsCache[days] && (now - adsCache[days].ts) < 300_000) {
+    renderGoogleAds(days, adsCache[days].data);
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/google-ads?period=${days}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const apiData = await res.json();
+    adsCache[days] = { ts: now, data: apiData };
+    renderGoogleAds(days, apiData);
+    if (banner) {
+      const d = new Date(apiData.fetchedAt);
+      banner.textContent = `✅ Dados ao vivo — atualizado ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`;
+    }
+  } catch (err) {
+    console.warn('API falhou, usando dados locais:', err);
+    if (banner) banner.textContent = '⚠️ Usando dados locais (API indisponível)';
+    renderGoogleAds(days, null);
+  }
+}
+
+function renderGoogleAds(days, apiData) {
+  // Usa dados da API se disponíveis, senão fallback local
+  let data;
+  if (apiData && apiData.daily && apiData.daily.length > 0) {
+    data = apiData.daily.map(d => ({
+      date: new Date(d.date + 'T12:00:00'),
+      clicks: d.clicks,
+      impr: d.impressions,
+      cost: d.cost,
+      leads: 0,
+    }));
+  } else {
+    data = generateDailyData(days);
+  }
   const totalClicks = data.reduce((s,d)=>s+d.clicks,0);
   const totalImpr   = data.reduce((s,d)=>s+d.impr,0);
   const totalCost   = data.reduce((s,d)=>s+d.cost,0);
@@ -717,7 +760,7 @@ function renderGoogleAds(days) {
 
   renderSeasonality();
   renderAlerts(data, cplNum, maxCPL);
-  renderKeywords();
+  renderKeywords(apiData && apiData.keywords);
   renderCompetitors();
   renderAI(cplNum, maxCPL);
 }
@@ -775,17 +818,25 @@ function renderAlerts(data, cplNum, maxCPL) {
     </div>`).join('');
 }
 
-function renderKeywords() {
-  const kws = [
-    {kw:'accent wall',                      impr:545, clicks:48, cpc:23.41, leads:0, score:7, type:'BROAD'},
-    {kw:'accent wall ideas',                impr:0,   clicks:0,  cpc:0,     leads:0, score:3, type:'EXACT'},
-    {kw:'wall decoration ideas living room', impr:1,  clicks:0,  cpc:0,     leads:0, score:3, type:'BROAD'},
-    {kw:'tv wall design ideas',             impr:0,   clicks:0,  cpc:0,     leads:0, score:3, type:'EXACT'},
-    {kw:'accent wall ideas for bedroom',    impr:0,   clicks:0,  cpc:0,     leads:0, score:3, type:'EXACT'},
-    {kw:'accent wall contractor near me',   impr:4,   clicks:0,  cpc:0,     leads:0, score:5, type:'EXACT'},
-    {kw:'accent wall installation Orlando', impr:0,   clicks:0,  cpc:0,     leads:0, score:4, type:'EXACT'},
-    {kw:'accent wall design Orlando',       impr:0,   clicks:0,  cpc:0,     leads:0, score:4, type:'PHRASE'},
-  ];
+function renderKeywords(apiKws) {
+  const kws = apiKws && apiKws.length > 0
+    ? apiKws.map(k => ({
+        kw: k.text,
+        impr: k.impressions,
+        clicks: k.clicks,
+        cpc: k.cpc,
+        leads: k.conversions || 0,
+        score: k.clicks > 20 ? 7 : k.clicks > 5 ? 5 : k.impressions > 0 ? 4 : 3,
+        type: k.matchType,
+      }))
+    : [
+        {kw:'accent wall',                      impr:545, clicks:48, cpc:23.41, leads:0, score:7, type:'BROAD'},
+        {kw:'accent wall ideas',                impr:0,   clicks:0,  cpc:0,     leads:0, score:3, type:'EXACT'},
+        {kw:'wall decoration ideas living room', impr:1,  clicks:0,  cpc:0,     leads:0, score:3, type:'BROAD'},
+        {kw:'accent wall contractor near me',   impr:4,   clicks:0,  cpc:0,     leads:0, score:5, type:'EXACT'},
+        {kw:'accent wall installation Orlando', impr:0,   clicks:0,  cpc:0,     leads:0, score:4, type:'EXACT'},
+        {kw:'accent wall design Orlando',       impr:0,   clicks:0,  cpc:0,     leads:0, score:4, type:'PHRASE'},
+      ];
   document.getElementById('kw-table').innerHTML = kws.map(k=>{
     const ctr = ((k.clicks/k.impr)*100).toFixed(1);
     const sc = k.score >= 8 ? 'kw-high' : k.score >= 6 ? 'kw-med' : 'kw-low';
