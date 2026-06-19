@@ -594,21 +594,26 @@ function renderResume() {
 }
 
 // ── GOOGLE ADS ─────────────────────────────────────────────────
+// DADOS REAIS — Google Ads API (atualizado automaticamente via script)
+const REAL_DAILY_DATA = [
+  { date: new Date('2026-06-08'), clicks: 0,  impr: 1,   cost: 0,      leads: 0 },
+  { date: new Date('2026-06-11'), clicks: 5,  impr: 18,  cost: 141.94, leads: 0 },
+  { date: new Date('2026-06-12'), clicks: 6,  impr: 98,  cost: 93.75,  leads: 0 },
+  { date: new Date('2026-06-13'), clicks: 8,  impr: 98,  cost: 145.24, leads: 0 },
+  { date: new Date('2026-06-14'), clicks: 4,  impr: 48,  cost: 141.22, leads: 0 },
+  { date: new Date('2026-06-15'), clicks: 6,  impr: 101, cost: 154.56, leads: 0 },
+  { date: new Date('2026-06-16'), clicks: 9,  impr: 53,  cost: 143.65, leads: 0 },
+  { date: new Date('2026-06-17'), clicks: 6,  impr: 60,  cost: 141.82, leads: 0 },
+  { date: new Date('2026-06-18'), clicks: 4,  impr: 73,  cost: 161.57, leads: 0 },
+];
+
 function generateDailyData(days) {
-  const weekPattern = [0.5, 1.2, 1.4, 1.3, 1.5, 1.1, 0.6];
-  const data = [];
-  const now = new Date();
-  for (let i = days-1; i >= 0; i--) {
-    const d = new Date(now); d.setDate(d.getDate()-i);
-    const w = weekPattern[d.getDay()];
-    const jitter = 0.6 + Math.random()*0.8;
-    const clicks = Math.round(Math.max(0, (48/27) * w * jitter));
-    const impr   = Math.round(clicks * (8 + Math.random()*6));
-    const cost   = clicks * (18 + Math.random()*12);
-    const leads  = Math.random() < (clicks > 3 ? 0.25 : 0.05) ? 1 : 0;
-    data.push({ date: d, clicks, impr, cost, leads });
-  }
-  return data;
+  // Usa dados reais quando disponíveis, filtrando pelo período
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const filtered = REAL_DAILY_DATA.filter(d => d.date >= cutoff);
+  // Se não há dados suficientes para o período, retorna o que há
+  return filtered.length > 0 ? filtered : REAL_DAILY_DATA;
 }
 
 function setPeriod(days, btn) {
@@ -772,14 +777,14 @@ function renderAlerts(data, cplNum, maxCPL) {
 
 function renderKeywords() {
   const kws = [
-    {kw:'accent wall installation florida',        impr:2840, clicks:142, cpc:18.40, leads:6, score:8},
-    {kw:'tv wall design miami',                    impr:1920, clicks:98,  cpc:22.10, leads:4, score:7},
-    {kw:'custom accent wall near me',              impr:1540, clicks:87,  cpc:15.80, leads:5, score:9},
-    {kw:'slat wall installation fort lauderdale',  impr:980,  clicks:54,  cpc:24.50, leads:3, score:7},
-    {kw:'living room feature wall contractor',     impr:760,  clicks:41,  cpc:19.20, leads:2, score:6},
-    {kw:'tv entertainment wall florida',           impr:640,  clicks:29,  cpc:28.40, leads:1, score:5},
-    {kw:'wood panel accent wall cost',             impr:520,  clicks:18,  cpc:12.60, leads:1, score:6},
-    {kw:'"accent wall" OR "feature wall" florida', impr:440,  clicks:14,  cpc:31.20, leads:0, score:4},
+    {kw:'accent wall',                      impr:545, clicks:48, cpc:23.41, leads:0, score:7, type:'BROAD'},
+    {kw:'accent wall ideas',                impr:0,   clicks:0,  cpc:0,     leads:0, score:3, type:'EXACT'},
+    {kw:'wall decoration ideas living room', impr:1,  clicks:0,  cpc:0,     leads:0, score:3, type:'BROAD'},
+    {kw:'tv wall design ideas',             impr:0,   clicks:0,  cpc:0,     leads:0, score:3, type:'EXACT'},
+    {kw:'accent wall ideas for bedroom',    impr:0,   clicks:0,  cpc:0,     leads:0, score:3, type:'EXACT'},
+    {kw:'accent wall contractor near me',   impr:4,   clicks:0,  cpc:0,     leads:0, score:5, type:'EXACT'},
+    {kw:'accent wall installation Orlando', impr:0,   clicks:0,  cpc:0,     leads:0, score:4, type:'EXACT'},
+    {kw:'accent wall design Orlando',       impr:0,   clicks:0,  cpc:0,     leads:0, score:4, type:'PHRASE'},
   ];
   document.getElementById('kw-table').innerHTML = kws.map(k=>{
     const ctr = ((k.clicks/k.impr)*100).toFixed(1);
@@ -822,8 +827,8 @@ function renderCompetitors() {
 
 function renderAI(cplNum, maxCPL) {
   const suggestions = [
-    {icon:'🎯', text:`<strong>Aumente o orçamento em Outubro (+40%):</strong> Sazonalidade mostra pico em out/nov na Florida. Planeje as campanhas com antecedência.`},
-    {icon:'🔑', text:`<strong>Pause keywords de baixo retorno:</strong> "tv entertainment wall florida" gerou 1 lead com CPC R$28. Redirecione para "custom accent wall near me" (score 9/10).`},
+    {icon:'🎯', text:`<strong>Campanha ativa desde 08/Jun:</strong> "accent wall" (BROAD) gerou 100% dos seus 48 cliques. Adicione variações exact match como "accent wall Orlando" e "accent wall contractor near me" para capturar intenção mais alta.`},
+    {icon:'🔑', text:`<strong>CPC médio R$23,41 — Keyword única:</strong> Toda verba está concentrada em 1 keyword. Diversifique com "tv wall design Orlando", "slat wall installation" e "custom accent wall near me" para reduzir risco.`},
     {icon:'📱', text:`<strong>Crie campanha separada para TV Wall:</strong> Campanha dedicada com extensões de imagem aumenta CTR ~30% nesse segmento.`},
     {icon:'🌟', text:`<strong>Ative extensões de avaliações:</strong> Com 5.0★, Review Extensions aumentam CTR em 15-25% sem custo adicional.`},
     {icon:'💡', text:`<strong>Landing pages por serviço:</strong> Páginas específicas para Accent Wall e TV Wall aumentam Quality Score e reduzem CPC médio.`},
