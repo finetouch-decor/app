@@ -355,7 +355,15 @@ textarea{resize:vertical;min-height:64px;}
           <span style="color:rgba(255,255,255,0.35);font-size:11px;">margem sobre o custo</span>
         </div>
         <div class="s-divider"></div>
-        <div class="s-row grand"><span class="s-label">PREÇO DE VENDA AO CLIENTE</span><span class="s-val" id="s-sale">$0.00</span></div>
+        <div class="s-row"><span class="s-label">PREÇO DE VENDA AO CLIENTE</span><span class="s-val" id="s-sale">$0.00</span></div>
+        <div class="markup-row" style="margin-top:8px">
+          <label>Desconto %</label>
+          <input class="markup-input" type="number" id="f-discount-pct" value="0" min="0" max="100" step="1" oninput="syncDiscount('pct')">
+          <label style="margin-left:8px">ou $</label>
+          <input class="markup-input" type="number" id="f-discount-val" value="0" min="0" step="1" oninput="syncDiscount('val')">
+        </div>
+        <div class="s-divider"></div>
+        <div class="s-row grand"><span class="s-label">TOTAL COM DESCONTO</span><span class="s-val" id="s-final">$0.00</span></div>
       </div>
 
     </div>
@@ -694,6 +702,24 @@ function recalc() {
   document.getElementById('s-other').textContent=fmtN(otherSum);
   document.getElementById('s-cost').textContent=fmtN(totalCost);
   document.getElementById('s-sale').textContent=fmtN(sale);
+  window._salePrice = sale;
+  syncDiscount('pct');
+}
+
+function syncDiscount(changed) {
+  const sale = window._salePrice || 0;
+  if (sale <= 0) return;
+  if (changed === 'pct') {
+    const pct = parseFloat(document.getElementById('f-discount-pct').value) || 0;
+    const val = sale * pct / 100;
+    document.getElementById('f-discount-val').value = val.toFixed(2);
+    document.getElementById('s-final').textContent = fmtN(sale - val);
+  } else {
+    const val = parseFloat(document.getElementById('f-discount-val').value) || 0;
+    const pct = sale > 0 ? (val / sale * 100) : 0;
+    document.getElementById('f-discount-pct').value = pct.toFixed(1);
+    document.getElementById('s-final').textContent = fmtN(sale - val);
+  }
 }
 
 function fmtN(v){return'$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
@@ -730,10 +756,13 @@ async function saveQuote(andProposal=false) {
   const dc=parseFloat(document.getElementById('f-daily-count').value)||0;
   const dr=parseFloat(document.getElementById('f-daily-rate').value)||0;
   const markup=parseFloat(document.getElementById('f-markup').value)||0;
+  const discountPct=parseFloat(document.getElementById('f-discount-pct').value)||0;
   const matSum=items.reduce((s,i)=>s+i.total,0);
   const labor=lh*lr,travel=tk*tr2,daily=dc*dr,otherSum=others.reduce((s,o)=>s+o.value,0);
   const totalCost=matSum+labor+travel+daily+otherSum;
   const salePrice=totalCost*(1+markup/100);
+  const discountVal=salePrice*discountPct/100;
+  const finalPrice=salePrice-discountVal;
 
   const payload={
     client_id: document.getElementById('f-client').value||null,
@@ -743,10 +772,12 @@ async function saveQuote(andProposal=false) {
     travel_km:tk, travel_rate:tr2,
     daily_count:dc, daily_rate_val:dr,
     markup_pct:markup,
+    discount_pct:discountPct,
+    discount_val:discountVal,
     other_costs:others,
     total_cost:totalCost,
     sale_price:salePrice,
-    total:salePrice,
+    total:finalPrice,
     notes_internal:document.getElementById('f-notes').value.trim(),
   };
 
