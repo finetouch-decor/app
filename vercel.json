@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/",          "destination": "/login.html" },
     { "source": "/dashboard", "destination": "/dashboard.html" },
     { "source": "/app",       "destination": "/finetouch-app.html" },
     { "source": "/quotes",    "destination": "/quotes.html" },
