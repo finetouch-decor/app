@@ -1,1 +1,19 @@
-{}
+{
+  "rewrites": [
+    { "source": "/dashboard", "destination": "/dashboard.html" },
+    { "source": "/app",       "destination": "/finetouch-app.html" },
+    { "source": "/quotes",    "destination": "/quotes.html" },
+    { "source": "/proposals", "destination": "/proposals.html" },
+    { "source": "/invoices",  "destination": "/invoices.html" },
+    { "source": "/projects",  "destination": "/projects.html" },
+    { "source": "/purchases", "destination": "/purchases.html" },
+    { "source": "/financial", "destination": "/financial.html" },
+    { "source": "/reports",   "destination": "/reports.html" },
+    { "source": "/marketing", "destination": "/marketing.html" },
+    { "source": "/services",  "destination": "/services.html" },
+    { "source": "/tasks",     "destination": "/tasks.html" },
+    { "source": "/users",     "destination": "/users.html" },
+    { "source": "/login",     "destination": "/login.html" },
+    { "source": "/pending",   "destination": "/pending.html" }
+  ]
+}
