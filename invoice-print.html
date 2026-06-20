@@ -142,7 +142,7 @@ async function load() {
 
   const { data: inv, error } = await db
     .from('invoices')
-    .select('*, clients(name,email,phone,address,city,state), quotes(quote_number,total,quote_items(description,quantity,unit_price,total))')
+    .select('*, clients(name,email,phone,address,city,state), quotes(quote_number,project_name,total,quote_items(description,quantity,unit_price,total))')
     .eq('id', id)
     .single();
 
@@ -210,6 +210,19 @@ async function load() {
           <span style="text-transform:capitalize">${inv.status||'—'}</span>
         </div>
       </div>
+
+      <!-- PROJECT NAME -->
+      ${inv.quotes?.project_name ? `
+      <div style="background:#F5F2EC;border-left:4px solid #C69E63;border-radius:0 8px 8px 0;padding:14px 20px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#7a7060;margin-bottom:4px;">Project</div>
+          <div style="font-size:20px;font-weight:800;color:#102A4B;">${inv.quotes.project_name}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#7a7060;margin-bottom:4px;">Total</div>
+          <div style="font-size:24px;font-weight:800;color:#C69E63;">${fmt(amount)}</div>
+        </div>
+      </div>` : ''}
 
       <!-- ITEMS -->
       <table class="items-table">
