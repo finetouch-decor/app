@@ -679,6 +679,7 @@ let parcelasProposalId = null;
 let parcelasTotal = 0;
 let parcelasClientId = null;
 let parcelasClientName = '';
+let parcelasProjectName = '';
 let parcelaCount = 0;
 
 async function generateInvoice(id) {
@@ -687,6 +688,7 @@ async function generateInvoice(id) {
   parcelasProposalId = id;
   parcelasTotal = Number(p.total_cost) || 0;
   parcelasClientName = p.client_name || '';
+  parcelasProjectName = p.title || '';
 
   // busca client_id
   const { data: cls } = await db.from('clients').select('id,name').ilike('name', p.client_name || '');
@@ -809,6 +811,8 @@ async function criarInvoices() {
     payloads.push({
       invoice_number: num,
       client_id:      parcelasClientId,
+      project_name:   parcelasProjectName || null,
+      project_total:  parcelasTotal || null,
       status:         'sent',
       issue_date:     hoje,
       due_date:       venc,
