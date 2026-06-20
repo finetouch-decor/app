@@ -629,7 +629,11 @@ function printInvoice(id) {
   window.open('/invoice-print?id=' + id, '_blank');
 }
 
-init();
+init().then(() => {
+  const params = new URLSearchParams(window.location.search);
+  const editId = params.get('edit');
+  if (editId) openEditModal(editId);
+});
 </script>
 </body>
 </html>
