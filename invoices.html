@@ -343,7 +343,7 @@ async function genInvNum() {
 
 async function loadAll() {
   const [{ data: inv }, { data: q }, { data: cl }] = await Promise.all([
-    db.from('invoices').select('*, clients(name), quotes(quote_number,total)').order('created_at',{ascending:false}),
+    db.from('invoices').select('*, clients(name,phone), quotes(quote_number,total)').order('created_at',{ascending:false}),
     db.from('quotes').select('id,quote_number,total,client_id,clients(id,name,email,phone,city)').eq('status','approved').order('created_at',{ascending:false}),
     db.from('clients').select('id,name').order('name')
   ]);
@@ -434,6 +434,7 @@ function render() {
         <button class="btn btn-sm" onclick="openEditModal('${i.id}')" style="background:#C69E63;color:#102A4B;font-weight:600;">✏️ Editar</button>
         <button class="btn btn-sm" onclick="confirmDelete('${i.id}')" style="background:#fee2e2;color:#a03030;font-weight:600;">🗑 Excluir</button>
         <button class="btn btn-outline btn-sm" onclick="printInvoice('${i.id}')" title="Gerar PDF" style="flex-shrink:0">🖨️ PDF</button>
+        ${i.clients?.phone ? `<button class="btn btn-sm" onclick="sendSMS('${i.id}','${i.clients.phone}','${i.invoice_number||''}','${fmt(i.amount)}')" style="background:#0ea5e9;color:#fff;font-weight:600;flex-shrink:0">📱 SMS</button>` : ''}
       </div>
     </div>`;
   }).join('')}</div>`;
@@ -626,6 +627,23 @@ async function deleteInvoice() {
 
 function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
 function closeIfOutside(e, id) { if(e.target.id===id) closeOverlay(id); }
+
+async function sendSMS(id, phone, invoiceNumber, amount) {
+  if (!confirm(`Enviar SMS para ${phone}?`)) return;
+  const link = `${location.origin}/invoice-print?id=${id}`;
+  try {
+    const r = await fetch('/api/send-sms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: phone, invoiceNumber, amount, link })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    showToast('SMS enviado!', 'success');
+  } catch(e) {
+    showToast('Erro: ' + e.message, 'error');
+  }
+}
 
 function printInvoice(id) {
   window.open('/invoice-print?id=' + id, '_blank');
