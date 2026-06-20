@@ -176,11 +176,11 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 
 @media print {
   @page { margin:0; size:A4 portrait; }
-  * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
-  .sidebar, .topbar, .main-header, .print-toolbar, .btn-print { display:none!important; }
-  body, .app, .main, .content, .page-wrap { background:#fff!important; display:block!important; margin:0!important; padding:0!important; width:100%!important; }
-  .print-overlay { position:static!important; background:#fff!important; overflow:visible!important; display:block!important; padding:0!important; }
-  .proposal-doc { margin:0!important; box-shadow:none!important; width:210mm!important; max-width:100%!important; border-radius:0!important; }
+  * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; color-adjust:exact!important; }
+  body > * { display:none!important; }
+  .print-overlay { display:block!important; position:static!important; background:#fff!important; overflow:visible!important; padding:0!important; width:100%!important; }
+  .print-toolbar { display:none!important; }
+  .proposal-doc { display:block!important; margin:0!important; box-shadow:none!important; width:210mm!important; max-width:100%!important; border-radius:0!important; }
 }
 </style>
 </head>
