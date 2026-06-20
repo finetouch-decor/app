@@ -276,6 +276,8 @@
     <div class="modal-body">
       <div class="form-2col">
         <div class="field" style="grid-column:1/-1"><label>Descrição / Referência</label><input id="mf-desc" placeholder="Ex: Saldo final — Reforma Johnson"></div>
+        <div class="field"><label>Nome do Projeto</label><input id="mf-project-name" placeholder="Ex: Accent Wall TV Room"></div>
+        <div class="field"><label>Total do Projeto (US$)</label><input type="number" id="mf-project-total" step="0.01" min="0" placeholder="0.00"></div>
         <div class="field"><label>Cliente</label><select id="mf-client"></select></div>
         <div class="field"><label>Orçamento (opcional)</label><select id="mf-quote"></select></div>
         <div class="field"><label>Valor (US$)</label><input type="number" id="mf-amount" step="0.01" min="0" placeholder="0.00"></div>
@@ -493,7 +495,9 @@ async function saveInvoiceFromQuote() {
 function openManualModal() {
   editInvId = null;
   document.getElementById('manual-title').textContent = 'Nova Invoice';
-  document.getElementById('mf-desc').value   = '';
+  document.getElementById('mf-desc').value         = '';
+  document.getElementById('mf-project-name').value = '';
+  document.getElementById('mf-project-total').value= '';
   document.getElementById('mf-client').value = '';
   document.getElementById('mf-quote').value  = '';
   document.getElementById('mf-amount').value = '';
@@ -511,7 +515,9 @@ function openEditModal(id) {
   const i = invoices.find(x=>x.id===id);
   if (!i) return;
   document.getElementById('manual-title').textContent = 'Editar Invoice';
-  document.getElementById('mf-desc').value   = i.notes || '';
+  document.getElementById('mf-desc').value         = i.notes || '';
+  document.getElementById('mf-project-name').value = i.project_name || '';
+  document.getElementById('mf-project-total').value= i.project_total || '';
   document.getElementById('mf-client').value = i.client_id || '';
   document.getElementById('mf-quote').value  = i.quote_id || '';
   document.getElementById('mf-amount').value = i.total || i.subtotal || '';
@@ -530,6 +536,8 @@ async function saveManualInvoice() {
 
   const data = {
     notes:          document.getElementById('mf-desc').value.trim() || document.getElementById('mf-notes').value.trim(),
+    project_name:   document.getElementById('mf-project-name').value.trim() || null,
+    project_total:  parseFloat(document.getElementById('mf-project-total').value) || null,
     client_id:      document.getElementById('mf-client').value || null,
     quote_id:       document.getElementById('mf-quote').value || null,
     status:         document.getElementById('mf-status').value,

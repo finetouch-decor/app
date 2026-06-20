@@ -142,7 +142,7 @@ async function load() {
 
   const { data: inv, error } = await db
     .from('invoices')
-    .select('*, clients(name,email,phone,address,city,state), quotes(quote_number,project_name,total,sale_price,quote_items(description,quantity,unit_price,total))')
+    .select('*,project_name,project_total, clients(name,email,phone,address,city,state), quotes(quote_number,project_name,total,sale_price,quote_items(description,quantity,unit_price,total))')
     .eq('id', id)
     .single();
 
@@ -151,8 +151,8 @@ async function load() {
   const client = inv.clients || {};
   const items  = inv.quotes?.quote_items || [];
   const amount = Number(inv.total || inv.subtotal || 0);
-  const projectName = inv.quotes?.project_name || inv.project_name || '';
-  const projectTotal = Number(inv.quotes?.total || inv.quotes?.sale_price || 0);
+  const projectName = inv.project_name || inv.quotes?.project_name || '';
+  const projectTotal = Number(inv.project_total || inv.quotes?.total || inv.quotes?.sale_price || 0);
 
   // Update page title
   document.title = `${inv.invoice_number} — Fine Touch`;
