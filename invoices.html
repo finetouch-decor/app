@@ -431,6 +431,8 @@ function render() {
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
         ${i.status!=='paid' ? `<button class="btn btn-sm" onclick="markPaid('${i.id}')" style="background:#fff;border:1px solid var(--border);color:var(--muted);font-weight:600;">💰 Marcar Recebido</button>` : `<span style="font-size:11px;color:#16a34a;font-weight:700;">✅ Recebido em ${fmtDate(i.paid_date)}</span>`}
+        <button class="btn btn-sm" onclick="openEditModal('${i.id}')" style="background:#C69E63;color:#102A4B;font-weight:600;">✏️ Editar</button>
+        <button class="btn btn-sm" onclick="confirmDelete('${i.id}')" style="background:#fee2e2;color:#a03030;font-weight:600;">🗑 Excluir</button>
         <button class="btn btn-outline btn-sm" onclick="printInvoice('${i.id}')" title="Gerar PDF" style="flex-shrink:0">🖨️ PDF</button>
       </div>
     </div>`;
@@ -627,6 +629,14 @@ function closeIfOutside(e, id) { if(e.target.id===id) closeOverlay(id); }
 
 function printInvoice(id) {
   window.open('/invoice-print?id=' + id, '_blank');
+}
+
+async function confirmDelete(id) {
+  if (!confirm('Excluir esta invoice?')) return;
+  const { error } = await db.from('invoices').delete().eq('id', id);
+  if (error) { showToast('Erro: ' + error.message, 'error'); return; }
+  showToast('Invoice excluída.', 'success');
+  await loadAll();
 }
 
 init().then(() => {
