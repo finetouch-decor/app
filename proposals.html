@@ -175,10 +175,12 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 .doc-footer-band img{height:28px;width:auto;opacity:.55;}
 
 @media print {
-  .print-toolbar{display:none!important;}
-  .print-overlay{position:static;background:#fff;}
-  .proposal-doc{margin:0;box-shadow:none;width:100%;}
-  body{background:#fff;}
+  @page { margin:0; size:A4 portrait; }
+  * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
+  .sidebar, .topbar, .main-header, .print-toolbar, .btn-print { display:none!important; }
+  body, .app, .main, .content, .page-wrap { background:#fff!important; display:block!important; margin:0!important; padding:0!important; width:100%!important; }
+  .print-overlay { position:static!important; background:#fff!important; overflow:visible!important; display:block!important; padding:0!important; }
+  .proposal-doc { margin:0!important; box-shadow:none!important; width:210mm!important; max-width:100%!important; border-radius:0!important; }
 }
 </style>
 </head>
