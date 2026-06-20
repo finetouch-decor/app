@@ -815,6 +815,7 @@ async function criarInvoices() {
     payloads.push({
       invoice_number: num,
       client_id:      parcelasClientId,
+      proposal_id:    parcelasProposalId || null,
       project_name:   parcelasProjectName || null,
       project_total:  parcelasTotal || null,
       status:         'sent',
@@ -880,10 +881,10 @@ async function openPrint(id) {
     ? items.map((t,i)=>{const txt=typeof t==='string'?t:(t.item||'');return txt.startsWith('---')?`<tr><td colspan="2" style="padding-top:14px;font-size:10px;font-weight:800;color:#C69E63;letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid #e2e8f0;">${txt.replace(/---/g,'').trim()}</td></tr>`:`<tr><td>${i+1}</td><td>${txt}</td></tr>`;}).join('')
     : '<tr><td colspan="2" style="color:#64748B;font-style:italic;">—</td></tr>';
 
-  // Busca invoices vinculados ao cliente desta proposta
+  // Busca invoices vinculados a esta proposta específica
   const { data: invs } = await db.from('invoices')
     .select('invoice_number,notes,due_date,total')
-    .ilike('notes', `%${p.client_name||'XXXNOMATCH'}%`)
+    .eq('proposal_id', id)
     .order('due_date', {ascending:true});
 
   const payTable  = document.getElementById('doc-pay-table');
