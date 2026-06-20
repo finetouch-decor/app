@@ -142,7 +142,7 @@ async function load() {
 
   const { data: inv, error } = await db
     .from('invoices')
-    .select('*,project_name,project_total, clients(name,email,phone,address,city,state), quotes(quote_number,project_name,total,sale_price,quote_items(description,quantity,unit_price,total))')
+    .select('*, clients(name,email,phone,address,city,state), quotes(quote_number,project_name,total,sale_price,quote_items(description,quantity,unit_price,total))')
     .eq('id', id)
     .single();
 
