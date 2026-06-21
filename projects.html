@@ -347,6 +347,28 @@ async function loadProjects() {
   const { data, error } = await db.from('projects').select('*,clients(name)').order('created_at',{ascending:false});
   if (error) { showToast('Erro ao carregar obras', 'error'); return; }
   allProjects = data || [];
+
+  // busca totais reais de invoices e compras para todos os projetos
+  const [invAll, purAll] = await Promise.all([
+    db.from('invoices').select('project_id,total,subtotal,status'),
+    db.from('purchases').select('project_id,total'),
+  ]);
+  const invMap = {};
+  const purMap = {};
+  (invAll.data||[]).forEach(i => {
+    if (!invMap[i.project_id]) invMap[i.project_id] = {revenue:0};
+    if (i.status === 'paid') invMap[i.project_id].revenue += Number(i.total||i.subtotal||0);
+  });
+  (purAll.data||[]).forEach(p => {
+    if (!purMap[p.project_id]) purMap[p.project_id] = {cost:0};
+    purMap[p.project_id].cost += Number(p.total||0);
+  });
+  allProjects.forEach(p => {
+    p._revenue = (invMap[p.id]?.revenue) || Number(p.actual_revenue)||0;
+    p._cost    = (purMap[p.id]?.cost)    || Number(p.actual_cost)||0;
+    p._profit  = p._revenue - p._cost;
+  });
+
   renderKPIs();
   renderCards();
 }
@@ -355,7 +377,7 @@ function renderKPIs() {
   const total  = allProjects.length;
   const active = allProjects.filter(p => p.status === 'active').length;
   const done   = allProjects.filter(p => p.status === 'completed').length;
-  const lucro  = allProjects.reduce((s,p) => s + (Number(p.profit_real)||0), 0);
+  const lucro  = allProjects.reduce((s,p) => s + (p._profit||0), 0);
   document.getElementById('kpi-strip').innerHTML =
     '<div class="kpi t-navy"><div class="kpi-label">Total Obras</div><div class="kpi-value">'+total+'</div><div class="kpi-sub">registradas</div></div>' +
     '<div class="kpi t-amber"><div class="kpi-label">Em Andamento</div><div class="kpi-value">'+active+'</div><div class="kpi-sub">em execução</div></div>' +
@@ -380,9 +402,9 @@ function renderCards() {
   grid.innerHTML = rows.map(p => {
     const isClosed = p.status === 'completed';
     const budget   = Number(p.budget)||0;
-    const revenue  = Number(p.actual_revenue)||0;
-    const cost     = Number(p.actual_cost)||0;
-    const profit   = Number(p.profit_real)||0;
+    const revenue  = p._revenue||0;
+    const cost     = p._cost||0;
+    const profit   = p._profit||0;
     const margin   = revenue > 0 ? Math.round(profit / revenue * 100) : 0;
     let rbox;
     if (isClosed) {
