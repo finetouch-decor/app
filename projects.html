@@ -213,7 +213,7 @@ textarea{resize:vertical;min-height:60px;}
         <div class="form-section-title">Dados da Obra</div>
         <div class="form-grid col-2">
           <div><label>Nome da Obra</label><input type="text" id="o-name" placeholder="Ex: Apartamento Jardins"></div>
-          <div><label>Cliente</label><select id="o-client"><option value="">Selecionar...</option></select></div>
+          <div><label>Cliente</label><select id="o-client" onchange="onClientChange()"><option value="">Selecionar...</option></select></div>
         </div>
         <div class="form-grid col-3" style="margin-top:10px">
           <div><label>Início</label><input type="date" id="o-start"></div>
@@ -420,14 +420,28 @@ function fmtN(v)     { return '$'+Number(v||0).toLocaleString('en-US',{minimumFr
 function fmtDate(d)  { if(!d) return '—'; const p=(d+'').split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
 
 let allQuotesList = [];
-async function loadQuotesSelect(selectedId=null) {
+async function loadQuotesSelect(selectedId=null, filterClientId=null) {
   if (!allQuotesList.length) {
-    const {data} = await db.from('quotes').select('id,quote_number,sale_price,total,clients(name)').order('created_at',{ascending:false});
+    const {data} = await db.from('quotes').select('id,quote_number,sale_price,total,client_id,clients(name)').order('created_at',{ascending:false});
     allQuotesList = data || [];
   }
+  const filtered = filterClientId
+    ? allQuotesList.filter(q => q.client_id === filterClientId)
+    : allQuotesList;
   const sel = document.getElementById('o-quote');
-  sel.innerHTML = '<option value="">— Nenhum —</option>' +
-    allQuotesList.map(q => `<option value="${q.id}" ${q.id===selectedId?'selected':''}>${q.quote_number} · ${q.clients?.name||'—'} · $${Number(q.sale_price||q.total||0).toLocaleString('en-US',{minimumFractionDigits:0})}</option>`).join('');
+  sel.innerHTML = '<option value="">— Nenhum (criar do zero) —</option>' +
+    filtered.map(q => `<option value="${q.id}" ${q.id===selectedId?'selected':''}>${q.quote_number} · $${Number(q.sale_price||q.total||0).toLocaleString('en-US',{minimumFractionDigits:0})}</option>`).join('');
+}
+
+function onClientChange() {
+  const clientId = document.getElementById('o-client').value;
+  loadQuotesSelect(null, clientId||null);
+  // preenche nome da obra automaticamente se vazio
+  if (clientId && !document.getElementById('o-name').value.trim()) {
+    const cl = document.getElementById('o-client');
+    const name = cl.options[cl.selectedIndex]?.text || '';
+    document.getElementById('o-name').value = name ? `Obra — ${name}` : '';
+  }
 }
 
 async function openModalObra(id) {
@@ -446,7 +460,7 @@ async function openModalObra(id) {
     document.getElementById('o-state').value   = p.state||'';
     document.getElementById('o-address').value = p.address||'';
     document.getElementById('o-desc').value    = p.description||'';
-    await loadQuotesSelect(p.quote_id||null);
+    await loadQuotesSelect(p.quote_id||null, p.client_id||null);
   } else {
     ['o-name','o-budget','o-city','o-state','o-address','o-desc'].forEach(i => document.getElementById(i).value='');
     document.getElementById('o-client').value = '';
@@ -454,7 +468,7 @@ async function openModalObra(id) {
     document.getElementById('o-type').value   = 'residential';
     document.getElementById('o-start').value  = new Date().toISOString().slice(0,10);
     document.getElementById('o-end').value    = '';
-    await loadQuotesSelect(null);
+    await loadQuotesSelect(null, null);
   }
   document.getElementById('modal-obra').classList.add('open');
 }
@@ -570,7 +584,7 @@ async function openDetalhe(id) {
 
   // busca invoices, compras e tarefas em paralelo
   const [invRes, purRes, taskRes] = await Promise.all([
-    db.from('invoices').select('invoice_number,total,subtotal,status,paid_date,due_date').eq('client_id', p.client_id).order('due_date'),
+    db.from('invoices').select('invoice_number,total,subtotal,status,paid_date,due_date').eq('project_id', id).order('due_date'),
     db.from('purchases').select('id,supplier_name,total_amount,status,order_date,purchase_items(description,quantity,unit,unit_price)').eq('project_id', id).order('order_date'),
     db.from('tasks').select('id,title,status,priority,due_date').eq('project_id', id).order('created_at'),
   ]);

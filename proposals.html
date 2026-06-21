@@ -686,6 +686,7 @@ async function approveProposal(id) {
 let parcelasProposalId = null;
 let parcelasTotal = 0;
 let parcelasClientId = null;
+let parcelasProjectId = null;
 let parcelasClientName = '';
 let parcelasProjectName = '';
 let parcelaCount = 0;
@@ -698,9 +699,14 @@ async function generateInvoice(id) {
   parcelasClientName = p.client_name || '';
   parcelasProjectName = p.title || '';
 
-  // busca client_id
+  // busca client_id e project_id vinculado
   const { data: cls } = await db.from('clients').select('id,name').ilike('name', p.client_name || '');
   parcelasClientId = cls?.[0]?.id || null;
+  parcelasProjectId = null;
+  if (parcelasClientId) {
+    const { data: projs } = await db.from('projects').select('id').eq('client_id', parcelasClientId).eq('status','active').order('created_at',{ascending:false}).limit(1);
+    parcelasProjectId = projs?.[0]?.id || null;
+  }
 
   document.getElementById('parc-subtitle').textContent = parcelasClientName + ' — defina as parcelas';
   document.getElementById('parc-total-display').textContent = fmtMoney(parcelasTotal);
@@ -820,6 +826,7 @@ async function criarInvoices() {
       invoice_number: num,
       client_id:      parcelasClientId,
       proposal_id:    parcelasProposalId || null,
+      project_id:     parcelasProjectId || null,
       project_name:   parcelasProjectName || null,
       project_total:  parcelasTotal || null,
       status:         'sent',
