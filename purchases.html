@@ -348,11 +348,11 @@ function filterSuppliers(val) {
   if (!matches.length && !q) { dd.style.display = 'none'; return; }
 
   const items = matches.map(s =>
-    `<div onclick="selectSupplier('${s.name.replace(/'/g,"\\'")}'))" style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0;" onmouseover="this.style.background='#f7f8fa'" onmouseout="this.style.background=''">${s.name}</div>`
+    `<div onclick="selectSupplier('${s.name.replace(/'/g,"\\'")}')` + `" style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0;" onmouseover="this.style.background='#f7f8fa'" onmouseout="this.style.background=''">${s.name}</div>`
   ).join('');
 
   const addNew = q && !allSuppliers.find(s => s.name.toLowerCase() === q)
-    ? `<div onclick="addAndSelectSupplier('${val.trim().replace(/'/g,"\\'")}'))" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--gold);font-weight:600;border-top:1px solid #f0f0f0;" onmouseover="this.style.background='#fffbf0'" onmouseout="this.style.background=''">+ Adicionar "${val.trim()}"</div>`
+    ? `<div onclick="addAndSelectSupplier('${val.trim().replace(/'/g,"\\'")}')` + `" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--gold);font-weight:600;border-top:1px solid #f0f0f0;" onmouseover="this.style.background='#fffbf0'" onmouseout="this.style.background=''">+ Adicionar "${val.trim()}"</div>`
     : '';
 
   dd.innerHTML = items + addNew;
