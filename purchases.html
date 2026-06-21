@@ -235,7 +235,10 @@ textarea{resize:vertical;min-height:60px;}
         <div class="form-grid col-2">
           <div>
             <label>Fornecedor</label>
-            <input type="text" id="f-supplier" placeholder="Ex: Leroy Merlin, Tok&Stok...">
+            <div style="position:relative;">
+              <input type="text" id="f-supplier" placeholder="Digite ou selecione..." autocomplete="off" oninput="filterSuppliers(this.value)" onfocus="filterSuppliers(this.value)">
+              <div id="supplier-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.1);z-index:100;max-height:180px;overflow-y:auto;"></div>
+            </div>
           </div>
           <div>
             <label>Obra / Projeto</label>
@@ -323,13 +326,56 @@ async function init() {
   document.getElementById('user-name').textContent=name;
   document.getElementById('user-avatar').textContent=name.charAt(0).toUpperCase();
   document.getElementById('user-role').textContent=prof.role==='admin'?'Administrador':'Usuário';
-  await loadProjects();
-  await loadPurchases();
+  await Promise.all([loadProjects(), loadPurchases(), loadSuppliers()]);
 }
 db.auth.onAuthStateChange((e,s)=>{if(e==='SIGNED_OUT')window.location.href='/';});
 async function logout(){await db.auth.signOut();}
 
 // ── LOAD ───────────────────────────────────────────────────
+let allSuppliers = [];
+async function loadSuppliers() {
+  const { data } = await db.from('suppliers').select('id,name').order('name');
+  allSuppliers = data || [];
+}
+
+function filterSuppliers(val) {
+  const dd = document.getElementById('supplier-dropdown');
+  const q = val.trim().toLowerCase();
+  const matches = q
+    ? allSuppliers.filter(s => s.name.toLowerCase().includes(q))
+    : allSuppliers;
+
+  if (!matches.length && !q) { dd.style.display = 'none'; return; }
+
+  const items = matches.map(s =>
+    `<div onclick="selectSupplier('${s.name.replace(/'/g,"\\'")}'))" style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0;" onmouseover="this.style.background='#f7f8fa'" onmouseout="this.style.background=''">${s.name}</div>`
+  ).join('');
+
+  const addNew = q && !allSuppliers.find(s => s.name.toLowerCase() === q)
+    ? `<div onclick="addAndSelectSupplier('${val.trim().replace(/'/g,"\\'")}'))" style="padding:10px 14px;cursor:pointer;font-size:13px;color:var(--gold);font-weight:600;border-top:1px solid #f0f0f0;" onmouseover="this.style.background='#fffbf0'" onmouseout="this.style.background=''">+ Adicionar "${val.trim()}"</div>`
+    : '';
+
+  dd.innerHTML = items + addNew;
+  dd.style.display = (matches.length || addNew) ? 'block' : 'none';
+}
+
+function selectSupplier(name) {
+  document.getElementById('f-supplier').value = name;
+  document.getElementById('supplier-dropdown').style.display = 'none';
+}
+
+async function addAndSelectSupplier(name) {
+  const { data } = await db.from('suppliers').insert({ name }).select().single();
+  if (data) allSuppliers.push(data);
+  selectSupplier(name);
+  showToast('Fornecedor "' + name + '" salvo!', 'success');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#f-supplier') && !e.target.closest('#supplier-dropdown'))
+    document.getElementById('supplier-dropdown').style.display = 'none';
+});
+
 async function loadProjects() {
   const {data} = await db.from('projects').select('id,name,project_number,budget,clients(name)').order('name');
   projects = data||[];
