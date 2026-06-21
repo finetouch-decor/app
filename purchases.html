@@ -331,11 +331,16 @@ async function logout(){await db.auth.signOut();}
 
 // ── LOAD ───────────────────────────────────────────────────
 async function loadProjects() {
-  const {data} = await db.from('projects').select('id,name').order('name');
+  const {data} = await db.from('projects').select('id,name,project_number,budget,clients(name)').order('name');
   projects = data||[];
   const sel = document.getElementById('f-project');
   sel.innerHTML = '<option value="">Selecionar projeto...</option>' +
-    projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+    projects.map(p=>{
+      const client = p.clients?.name || '';
+      const num = p.project_number || '';
+      const budget = p.budget ? ' · $'+Number(p.budget).toLocaleString('en-US',{minimumFractionDigits:0}) : '';
+      return `<option value="${p.id}">${client} — ${p.name} [${num}]${budget}</option>`;
+    }).join('');
 }
 
 async function loadPurchases() {
