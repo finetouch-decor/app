@@ -585,7 +585,7 @@ async function openDetalhe(id) {
   // busca invoices, compras e tarefas em paralelo
   const [invRes, purRes, taskRes] = await Promise.all([
     db.from('invoices').select('invoice_number,total,subtotal,status,paid_date,due_date').eq('project_id', id).order('due_date'),
-    db.from('purchases').select('id,supplier_name,total_amount,status,order_date,purchase_items(description,quantity,unit,unit_price)').eq('project_id', id).order('order_date'),
+    db.from('purchases').select('id,supplier_name,total,status,order_date,purchase_items(description,quantity,unit,unit_price)').eq('project_id', id).order('order_date'),
     db.from('tasks').select('id,title,status,priority,due_date').eq('project_id', id).order('created_at'),
   ]);
 
@@ -595,7 +595,7 @@ async function openDetalhe(id) {
 
   const receitaTotal  = invs.filter(i=>i.status==='paid').reduce((s,i)=>s+Number(i.total||i.subtotal||0),0);
   const receitaPend   = invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+Number(i.total||i.subtotal||0),0);
-  const custoMaterial = purs.reduce((s,pu)=>s+Number(pu.total_amount||0),0);
+  const custoMaterial = purs.reduce((s,pu)=>s+Number(pu.total||0),0);
   const custoSalvo    = Number(p.actual_cost)||0;
   const custoTotal    = custoMaterial || custoSalvo;
   const lucro         = receitaTotal - custoTotal;
@@ -671,7 +671,7 @@ async function openDetalhe(id) {
             <div style="font-size:13px;font-weight:700;color:var(--navy);">${pu.supplier_name||'Fornecedor'}</div>
             <div style="font-size:11px;color:var(--muted);">${fmtDate(pu.order_date)}</div>
           </div>
-          <div style="font-size:14px;font-weight:800;color:var(--navy);">${fmt(Number(pu.total_amount||0))}</div>
+          <div style="font-size:14px;font-weight:800;color:var(--navy);">${fmt(Number(pu.total||0))}</div>
         </div>`;
       if (pu.purchase_items?.length) {
         html += `<div style="padding:8px 14px;">`;
