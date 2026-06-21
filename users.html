@@ -123,9 +123,32 @@
 </aside>
 
 <main class="main">
-  <div class="page-header">
-    <div class="page-title">Gerenciamento de Usuários</div>
-    <div class="page-sub">Aprove ou rejeite solicitações de acesso ao sistema</div>
+  <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <div class="page-title">Gerenciamento de Usuários</div>
+      <div class="page-sub">Aprove ou rejeite solicitações de acesso ao sistema</div>
+    </div>
+    <button class="btn-approve" style="padding:10px 20px;font-size:13px;" onclick="openInviteModal()">+ Convidar Usuário</button>
+  </div>
+
+  <!-- Modal Convite -->
+  <div id="overlay-invite" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;padding:32px;width:400px;max-width:90vw;">
+      <div style="font-size:18px;font-weight:800;color:var(--navy);margin-bottom:20px;">Convidar Novo Usuário</div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px;">NOME COMPLETO</label>
+        <input id="inv-name" type="text" placeholder="Ex: Maria Silva" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;box-sizing:border-box;">
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px;">EMAIL</label>
+        <input id="inv-email" type="email" placeholder="email@exemplo.com" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;box-sizing:border-box;">
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:20px;">A pessoa receberá um email com link para criar a senha e acessar o sistema.</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="closeInviteModal()" style="padding:10px 18px;border:1.5px solid var(--border);background:transparent;border-radius:8px;cursor:pointer;font-size:13px;">Cancelar</button>
+        <button onclick="sendInvite()" class="btn-approve" style="padding:10px 20px;font-size:13px;" id="inv-btn">Enviar Convite</button>
+      </div>
+    </div>
   </div>
 
   <div class="stats-row" id="stats-row">
@@ -261,6 +284,38 @@ async function revoke(userId) {
   if (error) { showToast('Erro ao revogar.', 'error'); return; }
   showToast('Acesso revogado.', '');
   await loadUsers();
+}
+
+function openInviteModal() {
+  document.getElementById('overlay-invite').style.display = 'flex';
+  document.getElementById('inv-name').value = '';
+  document.getElementById('inv-email').value = '';
+}
+function closeInviteModal() {
+  document.getElementById('overlay-invite').style.display = 'none';
+}
+async function sendInvite() {
+  const name  = document.getElementById('inv-name').value.trim();
+  const email = document.getElementById('inv-email').value.trim();
+  if (!email) { showToast('Email obrigatório', 'error'); return; }
+  const btn = document.getElementById('inv-btn');
+  btn.textContent = 'Enviando...'; btn.disabled = true;
+  try {
+    const res = await fetch('/api/invite-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, full_name: name }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Erro');
+    showToast('Convite enviado para ' + email, 'success');
+    closeInviteModal();
+    await loadUsers();
+  } catch(e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.textContent = 'Enviar Convite'; btn.disabled = false;
+  }
 }
 
 async function logout() { await db.auth.signOut(); }
