@@ -456,6 +456,7 @@ function render() {
             <div class="proj-stat"><div class="proj-stat-label">Lucro</div><div class="proj-stat-value ${f.profit>=0?'pos':'neg'}">${fmt(f.profit)}</div></div>
           </div>
           <span class="proj-chevron" id="chev-${p.id}">›</span>
+          <button onclick="event.stopPropagation();deleteObra('${p.id}')" style="background:#fee2e2;color:#a03030;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;">🗑 Excluir</button>
         </div>
 
         <div class="proj-detail" id="detail-${p.id}">
@@ -867,6 +868,16 @@ async function deleteExtra(id) {
 }
 
 function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
+async function deleteObra(id) {
+  if (!confirm('Excluir esta obra? Compras e custos vinculados também serão removidos.')) return;
+  await db.from('purchases').delete().eq('project_id', id);
+  await db.from('transactions').delete().eq('project_id', id);
+  const { error } = await db.from('projects').delete().eq('id', id);
+  if (error) { showToast('Erro: ' + error.message, 'error'); return; }
+  showToast('Obra excluída.', 'success');
+  await loadData();
+}
+
 function closeIfOutside(e, id) { if(e.target.id===id) closeOverlay(id); }
 
 // ─── SCHEMA FIX: add supplier_name column if needed ──────────

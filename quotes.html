@@ -572,12 +572,22 @@ function renderTable() {
       <td><div class="td-actions">
         <button class="btn btn-sm btn-ghost" onclick="openModal('${q.id}')">✏️ Editar</button>
         <button class="btn btn-sm btn-gold" onclick="genProposal('${q.id}')">📄 Proposta</button>
+        <button class="btn btn-sm" onclick="deleteQuote('${q.id}')" style="background:#fee2e2;color:#a03030;font-weight:600;">🗑 Excluir</button>
       </div></td>
     </tr>`;
   }).join('');
 }
 
 function statusLbl(s){return{draft:'Rascunho',sent:'Enviado',approved:'Aprovado',rejected:'Rejeitado'}[s]||'Rascunho';}
+
+async function deleteQuote(id) {
+  if (!confirm('Excluir este orçamento? Esta ação não pode ser desfeita.')) return;
+  await db.from('quote_items').delete().eq('quote_id', id);
+  const { error } = await db.from('quotes').delete().eq('id', id);
+  if (error) { showToast('Erro: ' + error.message, 'error'); return; }
+  showToast('Orçamento excluído.', 'success');
+  await loadQuotes();
+}
 function fmt(v){if(!v&&v!==0)return'—';return'$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 
 // ── MODAL ──────────────────────────────────────────────────

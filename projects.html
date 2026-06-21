@@ -397,8 +397,8 @@ function renderCards() {
              '<div style="font-size:11px;margin-top:2px;opacity:.7">Orçamento estimado</div></div>';
     }
     const footer = isClosed
-      ? '<button class="btn btn-sm btn-ghost" onclick="openModalObra(\''+p.id+'\')">✏️ Editar</button><span style="font-size:11px;color:var(--green);font-weight:600;margin-left:auto;">✅ Fechada em '+fmtDate(p.closed_at)+'</span>'
-      : '<button class="btn btn-sm btn-ghost" onclick="openModalObra(\''+p.id+'\')">✏️ Editar</button><button class="btn btn-sm btn-success" onclick="openFechamento(\''+p.id+'\')">📊 Fechar Obra</button>';
+      ? '<button class="btn btn-sm btn-ghost" onclick="openModalObra(\''+p.id+'\')">✏️ Editar</button><button class="btn btn-sm" onclick="deleteObra(\''+p.id+'\')" style="background:#fee2e2;color:#a03030;font-weight:600;">🗑 Excluir</button><span style="font-size:11px;color:var(--green);font-weight:600;margin-left:auto;">✅ Fechada em '+fmtDate(p.closed_at)+'</span>'
+      : '<button class="btn btn-sm btn-ghost" onclick="openModalObra(\''+p.id+'\')">✏️ Editar</button><button class="btn btn-sm btn-success" onclick="openFechamento(\''+p.id+'\')">📊 Fechar Obra</button><button class="btn btn-sm" onclick="deleteObra(\''+p.id+'\')" style="background:#fee2e2;color:#a03030;font-weight:600;">🗑 Excluir</button>';
     return '<div class="project-card" style="cursor:pointer;" onclick="openDetalhe(\''+p.id+'\')">' +
       '<div class="pc-header"><div><div class="pc-name">'+(p.name||'—')+'</div><div class="pc-client">'+(p.clients?.name||'—')+(p.city?' · '+p.city:'')+'</div></div>' +
       '<span class="badge b-'+(p.status||'planning')+'">'+statusLbl(p.status)+'</span></div>' +
@@ -756,6 +756,16 @@ async function toggleTask(taskId, done, projectId) {
 async function deleteTask(taskId, projectId) {
   await db.from('tasks').delete().eq('id', taskId);
   openDetalhe(projectId);
+}
+
+async function deleteObra(id) {
+  if (!confirm('Excluir esta obra? Compras e tarefas vinculadas também serão removidas.')) return;
+  await db.from('tasks').delete().eq('project_id', id);
+  await db.from('purchases').delete().eq('project_id', id);
+  const { error } = await db.from('projects').delete().eq('id', id);
+  if (error) { showToast('Erro: ' + error.message, 'error'); return; }
+  showToast('Obra excluída.', 'success');
+  await loadProjects();
 }
 
 init();
