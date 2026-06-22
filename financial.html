@@ -398,7 +398,7 @@ const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let projects = [], purchases = [], extras = [];
+let projects = [], purchases = [], extras = [], invoiceRevMap = {};
 let currentProjectId = null, itemCount = 0;
 let activeObraId = '';
 
@@ -424,14 +424,21 @@ function today() { return new Date().toISOString().slice(0,10); }
 function showToast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+type; setTimeout(()=>t.className='toast',2800); }
 
 async function loadData() {
-  const [{ data: proj }, { data: purch }, { data: ext }] = await Promise.all([
+  const [{ data: proj }, { data: purch }, { data: ext }, { data: invs }] = await Promise.all([
     db.from('projects').select('id,name,project_number,quote_id,clients(name),quotes(total,quote_number)').order('created_at',{ascending:false}),
     db.from('purchases').select('*, purchase_items(*)').order('order_date',{ascending:false}),
-    db.from('transactions').select('*').eq('type','expense').order('date',{ascending:false})
+    db.from('transactions').select('*').eq('type','expense').order('date',{ascending:false}),
+    db.from('invoices').select('project_id,total,subtotal,status'),
   ]);
   projects = proj || [];
   purchases = purch || [];
   extras = ext || [];
+  invoiceRevMap = {};
+  (invs||[]).forEach(i => {
+    if (i.status === 'paid') {
+      invoiceRevMap[i.project_id] = (invoiceRevMap[i.project_id]||0) + Number(i.total||i.subtotal||0);
+    }
+  });
   populateObraSelector();
   render();
 }
@@ -451,7 +458,7 @@ function selectObra(id) {
 }
 
 function getProjFinancials(p) {
-  const revenue   = Number(p.quotes?.total || 0);
+  const revenue   = invoiceRevMap[p.id] || Number(p.quotes?.total || 0);
   const projPurch = purchases.filter(x => x.project_id === p.id);
   const projExtra = extras.filter(x => x.project_id === p.id);
   const costPurch = projPurch.reduce((s,x) => s + (x.purchase_items||[]).reduce((si,i)=>si+Number(i.total||0),0), 0);
@@ -467,7 +474,7 @@ function render() {
   const visPurchases = activeObraId ? purchases.filter(p=>p.project_id===activeObraId) : purchases;
   const visExtras    = activeObraId ? extras.filter(e=>e.project_id===activeObraId) : extras;
 
-  const allRevenue   = visProjects.reduce((s,p)=>s+Number(p.quotes?.total||0),0);
+  const allRevenue   = visProjects.reduce((s,p)=>s+(invoiceRevMap[p.id]||Number(p.quotes?.total||0)),0);
   const allPurchases = visPurchases.reduce((s,p)=>s+(p.purchase_items||[]).reduce((si,i)=>si+Number(i.total||0),0),0);
   const allExtras    = visExtras.reduce((s,e)=>s+Number(e.amount||0),0);
   const allProfit    = allRevenue - allPurchases - allExtras;
@@ -627,7 +634,7 @@ function renderCharts(visProjects, visPurchases, visExtras) {
   const meses = getMeses6();
 
   // ── DADOS GERAIS ──
-  const allRevenue  = visProjects.reduce((s,p)=>s+Number(p.quotes?.total||0),0);
+  const allRevenue  = visProjects.reduce((s,p)=>s+(invoiceRevMap[p.id]||Number(p.quotes?.total||0)),0);
   const allPurchAmt = visPurchases.reduce((s,p)=>s+(p.purchase_items||[]).reduce((si,i)=>si+Number(i.total||0),0),0);
   const allExtAmt   = visExtras.reduce((s,e)=>s+Number(e.amount||0),0);
   const allProfit   = allRevenue - allPurchAmt - allExtAmt;
