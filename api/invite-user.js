@@ -5,7 +5,7 @@ module.exports = async function handler(req, res) {
   if (!email) return res.status(400).json({ error: 'Email obrigatório' });
 
   const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SERVICE_KEY  = process.env.SUPABASE_SECRET_KEY;
+  const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   // Envia convite via Supabase Auth Admin REST API
   const invRes = await fetch(`${SUPABASE_URL}/auth/v1/invite`, {
