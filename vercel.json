@@ -17,5 +17,9 @@
     { "source": "/users",     "destination": "/users.html" },
     { "source": "/login",     "destination": "/login.html" },
     { "source": "/pending",   "destination": "/pending.html" }
+  ],
+  "crons": [
+    { "path": "/api/marketing-sync", "schedule": "0 12 * * *" },
+    { "path": "/api/marketing-sync", "schedule": "0 0 * * *" }
   ]
 }

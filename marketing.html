@@ -510,6 +510,7 @@
           </div>
         </div>
         <div id="checklist-blog"></div>
+        <div id="blog-sync-info" style="padding:8px 20px;font-size:11px;color:var(--muted);text-align:right;"></div>
       </div>
 
       <!-- ══ TAB REVIEWS ══ -->
@@ -822,6 +823,14 @@ function renderChecklist(tabKey) {
     </div>`).join('');
 
   document.getElementById('checklist-'+tabKey).innerHTML = html;
+
+  // mostra timestamp da última sincronização automática
+  if (tabKey === 'blog') {
+    const el = document.getElementById('blog-sync-info');
+    if (el) el.textContent = window._blogLastSync
+      ? `🔄 Verificado automaticamente em ${window._blogLastSync}`
+      : '🔄 Próxima verificação automática: 08h / 20h (horário de Brasília)';
+  }
 }
 
 function renderCompetitorsTab() {
@@ -938,12 +947,32 @@ function today()     { return new Date().toISOString().slice(0,10); }
 function showToast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+type; setTimeout(()=>t.className='toast',2800); }
 
 async function loadData() {
-  const [{ data: camp }, { data: lds }] = await Promise.all([
+  const [{ data: camp }, { data: lds }, { data: mktData }] = await Promise.all([
     db.from('marketing_campaigns').select('*').order('created_at',{ascending:false}),
-    db.from('leads').select('id,status,estimated_value,source,clients(name)').order('created_at',{ascending:false})
+    db.from('leads').select('id,status,estimated_value,source,clients(name)').order('created_at',{ascending:false}),
+    db.from('marketing_data').select('key,value,updated_at'),
   ]);
   campaigns = camp || [];
   leads     = lds  || [];
+  // processa dados de sync automático
+  (mktData||[]).forEach(row => {
+    if (row.key === 'blog') {
+      // marca tasks do blog como publicadas automaticamente
+      const blogStatus = row.value || {};
+      Object.entries(blogStatus).forEach(([taskId, info]) => {
+        if (info.published) {
+          const stored = getProgress();
+          if (!stored[taskId]) { stored[taskId] = true; saveProgress(stored); }
+        }
+      });
+      // mostra timestamp da última verificação
+      const ts = Object.values(blogStatus)[0]?.checkedAt;
+      if (ts) window._blogLastSync = new Date(ts).toLocaleString('pt-BR');
+    }
+    if (row.key === 'gmb_reviews' && row.value?.reviews) {
+      window._gmbData = row.value;
+    }
+  });
   renderResume();
 }
 
