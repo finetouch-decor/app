@@ -769,24 +769,35 @@ const MARKETING_PLAN = {
   ],
 };
 
-function loadTaskProgress() {
-  try { return JSON.parse(localStorage.getItem('ft_mkt_tasks') || '{}'); } catch(e) { return {}; }
-}
-function saveTaskProgress(progress) {
-  localStorage.setItem('ft_mkt_tasks', JSON.stringify(progress));
+// progresso vem do Supabase — cache local para não recarregar a cada clique
+let _taskProgress = null;
+
+async function loadTaskProgress() {
+  if (_taskProgress) return _taskProgress;
+  const { data } = await db.from('marketing_tasks').select('id,done');
+  _taskProgress = {};
+  (data||[]).forEach(r => { if (r.done) _taskProgress[r.id] = true; });
+  return _taskProgress;
 }
 
-function toggleTask(tabKey, taskId) {
-  const progress = loadTaskProgress();
-  progress[taskId] = !progress[taskId];
-  saveTaskProgress(progress);
+async function toggleTask(tabKey, taskId) {
+  const progress = await loadTaskProgress();
+  const newVal = !progress[taskId];
+  progress[taskId] = newVal;
+  // salva no Supabase
+  await db.from('marketing_tasks').upsert({
+    id: taskId,
+    done: newVal,
+    done_at: newVal ? new Date().toISOString() : null,
+    done_by: 'manual',
+  }, { onConflict: 'id' });
   renderChecklist(tabKey);
 }
 
-function renderChecklist(tabKey) {
+async function renderChecklist(tabKey) {
   const plan = MARKETING_PLAN[tabKey];
   if (!plan) return;
-  const progress = loadTaskProgress();
+  const progress = await loadTaskProgress();
   const allTasks = plan.flatMap(g => g.tasks);
   const done = allTasks.filter(t => progress[t.id]).length;
   const total = allTasks.length;
@@ -953,22 +964,15 @@ async function loadData() {
   // processa dados de sync automático
   (mktData||[]).forEach(row => {
     if (row.key === 'blog') {
-      // marca tasks do blog como publicadas automaticamente
-      const blogStatus = row.value || {};
-      Object.entries(blogStatus).forEach(([taskId, info]) => {
-        if (info.published) {
-          const stored = getProgress();
-          if (!stored[taskId]) { stored[taskId] = true; saveProgress(stored); }
-        }
-      });
-      // mostra timestamp da última verificação
-      const ts = Object.values(blogStatus)[0]?.checkedAt;
+      const ts = row.value?.checkedAt;
       if (ts) window._blogLastSync = new Date(ts).toLocaleString('pt-BR');
     }
     if (row.key === 'gmb_reviews' && row.value?.reviews) {
       window._gmbData = row.value;
     }
   });
+  // invalida cache de progresso para recarregar do banco
+  _taskProgress = null;
   renderResume();
 }
 

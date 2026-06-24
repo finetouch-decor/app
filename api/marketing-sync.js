@@ -1,45 +1,68 @@
-// Roda 2x/dia via Vercel Cron: verifica blog posts + GMB reviews
+// Roda 2x/dia via Vercel Cron — verifica blog posts + GMB reviews e salva no Supabase
 module.exports = async function handler(req, res) {
-  // Permite chamada manual via GET ou cron via GET
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  const results = {};
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SERVICE_KEY,
+    'Authorization': `Bearer ${SERVICE_KEY}`,
+    'Prefer': 'resolution=merge-duplicates',
+  };
 
   // ── 1. VERIFICAR POSTS DO BLOG ────────────────────────────────
   const blogPosts = [
-    { id: 'blog-post1a', slug: 'accent-wall-cost-orlando-fl',        title: 'How Much Does an Accent Wall Cost in Orlando, FL?' },
-    { id: 'blog-post2',  slug: 'wood-slat-wall-panels-orlando',       title: 'Wood Slat Wall Panels in Orlando' },
-    { id: 'blog-post3',  slug: 'accent-wall-winter-garden',           title: 'Accent Walls in Winter Garden' },
-    { id: 'blog-post4',  slug: 'tv-panel-wall-vs-media-wall',         title: 'TV Panel Wall vs Media Wall' },
-    { id: 'blog-post5',  slug: 'pvc-marble-panels-florida',           title: 'PVC Marble Panels Florida' },
-    { id: 'blog-post6',  slug: 'fireplace-accent-wall-orlando',       title: 'Fireplace Accent Wall Orlando' },
-    { id: 'blog-post7',  slug: 'wall-paneling-short-term-rentals-florida', title: 'Wall Paneling for Short-Term Rentals' },
-    { id: 'blog-post8',  slug: 'accent-wall-contractors-orlando-fl',  title: 'Best Accent Wall Contractors in Orlando' },
+    { id: 'blog-post1',  slug: 'blog',                                   label: 'Blog criado em ftdecordesign.com/blog' },
+    { id: 'blog-post1a', slug: 'accent-wall-cost-orlando-fl',            label: 'How Much Does an Accent Wall Cost in Orlando, FL?' },
+    { id: 'blog-post2',  slug: 'wood-slat-wall-panels-orlando',          label: 'Wood Slat Wall Panels in Orlando' },
+    { id: 'blog-post3',  slug: 'accent-wall-winter-garden',              label: 'What Are Accent Walls — Winter Garden' },
+    { id: 'blog-post4',  slug: 'tv-panel-wall-vs-media-wall',            label: 'TV Panel Wall vs Media Wall' },
+    { id: 'blog-post5',  slug: 'pvc-marble-panels-florida',              label: 'PVC Marble Panels Florida' },
+    { id: 'blog-post6',  slug: 'fireplace-accent-wall-orlando',          label: 'Fireplace Accent Wall Orlando' },
+    { id: 'blog-post7',  slug: 'wall-paneling-short-term-rentals-florida', label: 'Wall Paneling — Short-Term Rentals' },
+    { id: 'blog-post8',  slug: 'accent-wall-contractors-orlando-fl',     label: 'Best Accent Wall Contractors in Orlando' },
   ];
 
-  const blogStatus = {};
+  const now = new Date().toISOString();
+  const blogResults = [];
+
   await Promise.all(blogPosts.map(async (post) => {
+    const base = post.id === 'blog-post1'
+      ? 'https://ftdecordesign.com/blog'
+      : `https://ftdecordesign.com/blog/${post.slug}`;
     try {
-      const url = `https://ftdecordesign.com/blog/${post.slug}`;
-      const r = await fetch(url, { method: 'HEAD', redirect: 'follow' });
-      blogStatus[post.id] = { published: r.ok, url, checkedAt: new Date().toISOString() };
+      const r = await fetch(base, { method: 'HEAD', redirect: 'follow' });
+      blogResults.push({ id: post.id, published: r.ok, url: base, label: post.label });
     } catch {
-      blogStatus[post.id] = { published: false, checkedAt: new Date().toISOString() };
+      blogResults.push({ id: post.id, published: false, url: base, label: post.label });
     }
   }));
-  results.blog = blogStatus;
+
+  // Salvar status geral do blog em marketing_data
+  await fetch(`${SUPABASE_URL}/rest/v1/marketing_data`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ key: 'blog', value: { posts: blogResults, checkedAt: now }, updated_at: now }),
+  });
+
+  // Marcar como done em marketing_tasks os posts confirmados publicados
+  await Promise.all(blogResults.filter(p => p.published).map(p =>
+    fetch(`${SUPABASE_URL}/rest/v1/marketing_tasks`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ id: p.id, done: true, done_at: now, done_by: 'auto-sync' }),
+    })
+  ));
 
   // ── 2. GMB REVIEWS (se token configurado) ────────────────────
-  const GMB_REFRESH_TOKEN = process.env.GMB_REFRESH_TOKEN;
-  const GMB_ACCOUNT_ID    = process.env.GMB_ACCOUNT_ID;
-  const GMB_LOCATION_ID   = process.env.GMB_LOCATION_ID;
-  const GOOGLE_CLIENT_ID  = process.env.GOOGLE_CLIENT_ID;
+  const GMB_REFRESH_TOKEN   = process.env.GMB_REFRESH_TOKEN;
+  const GMB_ACCOUNT_ID      = process.env.GMB_ACCOUNT_ID;
+  const GMB_LOCATION_ID     = process.env.GMB_LOCATION_ID;
+  const GOOGLE_CLIENT_ID    = process.env.GOOGLE_CLIENT_ID;
   const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+
+  let gmbResult = { pending_setup: true };
 
   if (GMB_REFRESH_TOKEN && GMB_ACCOUNT_ID && GMB_LOCATION_ID) {
     try {
-      // Renovar access token
       const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -51,44 +74,35 @@ module.exports = async function handler(req, res) {
         }),
       });
       const { access_token } = await tokenRes.json();
-
-      // Buscar reviews
       const reviewRes = await fetch(
         `https://mybusinessaccountmanagement.googleapis.com/v1/accounts/${GMB_ACCOUNT_ID}/locations/${GMB_LOCATION_ID}/reviews?pageSize=50`,
         { headers: { Authorization: `Bearer ${access_token}` } }
       );
       const reviewData = await reviewRes.json();
-      results.gmb_reviews = {
+      gmbResult = {
         reviews: (reviewData.reviews || []).map(r => ({
           author: r.reviewer?.displayName || 'Anônimo',
           rating: r.starRating,
           comment: r.comment || '',
           date: r.createTime,
         })),
-        totalRating: reviewData.averageRating,
+        averageRating: reviewData.averageRating,
         totalCount: reviewData.totalReviewCount,
-        checkedAt: new Date().toISOString(),
+        checkedAt: now,
       };
     } catch (e) {
-      results.gmb_reviews = { error: e.message, checkedAt: new Date().toISOString() };
+      gmbResult = { error: e.message, checkedAt: now };
     }
-  } else {
-    results.gmb_reviews = { pending_setup: true };
   }
 
-  // ── 3. SALVAR NO SUPABASE ─────────────────────────────────────
-  await Promise.all(Object.entries(results).map(([key, value]) =>
-    fetch(`${SUPABASE_URL}/rest/v1/marketing_data`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SERVICE_KEY,
-        'Authorization': `Bearer ${SERVICE_KEY}`,
-        'Prefer': 'resolution=merge-duplicates',
-      },
-      body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
-    })
-  ));
+  await fetch(`${SUPABASE_URL}/rest/v1/marketing_data`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ key: 'gmb_reviews', value: gmbResult, updated_at: now }),
+  });
 
-  return res.status(200).json({ ok: true, results });
+  return res.status(200).json({
+    ok: true,
+    blog: blogResults,
+    gmb: gmbResult,
+  });
 };
