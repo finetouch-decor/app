@@ -1,10 +1,17 @@
-// Endpoint temporário para descobrir GMB Account ID e Location ID
+// Endpoint para descobrir GMB Account ID e Location ID usando token salvo no Supabase
 module.exports = async function handler(req, res) {
   const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID;
   const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-  const GMB_REFRESH_TOKEN    = process.env.GMB_REFRESH_TOKEN;
+  const SUPABASE_URL         = process.env.SUPABASE_URL;
+  const SERVICE_KEY          = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!GMB_REFRESH_TOKEN) return res.status(400).json({ error: 'GMB_REFRESH_TOKEN not set' });
+  // Buscar refresh token do Supabase
+  const dbRes = await fetch(`${SUPABASE_URL}/rest/v1/marketing_data?key=eq.gmb_refresh_token&select=value`, {
+    headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` },
+  });
+  const dbData = await dbRes.json();
+  const refresh_token = dbData?.[0]?.value?.token;
+  if (!refresh_token) return res.status(400).json({ error: 'No refresh token in DB. Visit /api/gmb-auth first.' });
 
   // Obter access token
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -13,7 +20,7 @@ module.exports = async function handler(req, res) {
     body: new URLSearchParams({
       client_id: GOOGLE_CLIENT_ID,
       client_secret: GOOGLE_CLIENT_SECRET,
-      refresh_token: GMB_REFRESH_TOKEN,
+      refresh_token,
       grant_type: 'refresh_token',
     }),
   });
@@ -27,7 +34,6 @@ module.exports = async function handler(req, res) {
     headers: { Authorization: `Bearer ${access_token}` },
   });
   const accData = await accRes.json();
-
   if (!accRes.ok) return res.status(400).json({ error: 'Accounts failed', details: accData });
 
   // Para cada account, listar locations
@@ -37,7 +43,7 @@ module.exports = async function handler(req, res) {
       headers: { Authorization: `Bearer ${access_token}` },
     });
     const locData = await locRes.json();
-    result.push({ account: acc.name, accountDisplayName: acc.accountName, locations: locData.locations || [] });
+    result.push({ account: acc.name, accountDisplayName: acc.accountName, locations: locData.locations || [], locationsRaw: locData });
   }
 
   return res.status(200).json({ ok: true, accounts: result });
