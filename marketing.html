@@ -287,7 +287,7 @@
       <div class="nav-section">Venda</div>
       <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
       <a class="nav-item" href="/proposals"><span class="icon">📄</span>Propostas</a>
-      <a class="nav-item dim"><span class="icon">📝</span>Contratos</a>
+      <a class="nav-item dim"><span class="icon">📝</span><s style="opacity:.45">Contratos</s></a>
       <a class="nav-item" href="/invoices"><span class="icon">🧾</span>Invoices</a>
       <div class="nav-section">Execução</div>
       <a class="nav-item" href="/projects"><span class="icon">🏗️</span>Obras</a>
@@ -632,8 +632,8 @@ const MARKETING_PLAN = {
       { id:'seo-faq', title:'Adicionar seção FAQ ao site', priority:'med',
         desc:'Perguntas frequentes com respostas. Rankeiam para buscas de "quanto custa accent wall Orlando", "como funciona a instalação", etc. Google pode mostrar no featured snippet.',
         comp:'Accent Walls Orlando tem FAQ estruturada — aparece no topo com caixa de resposta direta no Google.' },
-      { id:'seo-blog-link', title:'Linkar blog ao site principal', priority:'med',
-        desc:'Criar subdomínio blog.ftdecordesign.com ou seção /blog. Cada post gera uma nova URL indexável e traz tráfego orgânico de longo prazo.',
+      { id:'seo-blog-link', title:'✅ Blog criado em ftdecordesign.com/blog', priority:'med',
+        desc:'Blog publicado em ftdecordesign.com/blog. Cada post gera uma nova URL indexável e traz tráfego orgânico de longo prazo.',
         comp:'Avileve publica 5+ posts/mês e domina buscas como "fireplace wall Orlando 2026" e "top interior trends Florida".' },
       { id:'seo-alt-images', title:'Adicionar alt text em todas as imagens', priority:'med',
         desc:'Textos descritivos em todas as imagens do portfólio. O Google Imagens é uma fonte de tráfego ignorada — "accent wall before after Orlando" pode trazer visitas.',
@@ -693,38 +693,46 @@ const MARKETING_PLAN = {
     ]},
   ],
   'blog': [
-    { group:'🔴 Alta Prioridade — Publicar primeiro', tasks:[
-      { id:'blog-cost', title:'Post: "How much does an accent wall cost in Orlando? (2026)"', priority:'high',
-        desc:'Essa é a busca #1 de intenção de compra. Responder com faixas de preço por tipo de serviço, materiais, tamanho. 800+ palavras. Incluir CTA para orçamento grátis.',
-        comp:'Avileve tem exatamente esse post e ranqueia na posição 1-3 para essa busca. Você não tem nenhum post.' },
-      { id:'blog-ideas', title:'Post: "Best accent wall ideas for Florida homes 2026"', priority:'high',
-        desc:'Galeria com 10+ ideias com fotos dos seus projetos reais. Fácil de ranquear pois é conteúdo visual. Incluir tipos: wood slat, PVC marble, shiplap, boiserie.',
-        comp:'Accent Walls Design domina "accent wall ideas Orlando" com esse tipo de post. Recebe 500+ visitas/mês.' },
-      { id:'blog-tv-vs-fireplace', title:'Post: "TV Wall vs Fireplace Wall: which adds more value in Orlando?"', priority:'high',
-        desc:'Comparativo com fotos, prós e contras, faixas de preço. Ranqueia para buscas de comparação — pessoas nessa fase estão prestes a contratar.',
-        comp:'Nenhum concorrente local tem esse post específico — oportunidade de ser o primeiro a rankear.' },
-      { id:'blog-winter-garden', title:'Post: "Accent wall installation in Winter Garden FL — 2026 guide"', priority:'high',
-        desc:'Post focado em Winter Garden (sua cidade base). Mencionar bairros, projetos realizados lá, tempo de instalação, serviço local. Rankeia para buscas locais.',
-        comp:'Avileve tem posts específicos por cidade. HandyRex domina "accent wall Orlando FL" com post local.' },
+    { group:'✅ Publicado', tasks:[
+      { id:'blog-post1', title:'✅ Blog criado em ftdecordesign.com/blog', priority:'high',
+        desc:'Blog ativo em ftdecordesign.com/blog. Estrutura pronta para receber posts semanais.',
+        comp:'Passo 1 concluído — cada post novo é uma URL indexável pelo Google.' },
+      { id:'blog-post1a', title:'✅ 30 Jun — "How Much Does an Accent Wall Cost in Orlando, FL? (2026 Guide)"', priority:'high',
+        desc:'Slug: accent-wall-cost-orlando-fl · Keywords: accent wall cost orlando, accent wall price florida · Publicado em ftdecordesign.com/blog · Gap: nenhum concorrente tinha esse post com "orlando" no título.',
+        comp:'Post #1 do calendário editorial. Intenção de compra direta. Primeiro a rankear para essa keyword local.' },
     ]},
-    { group:'🟡 Média Prioridade', tasks:[
-      { id:'blog-limewash', title:'Post: "Limewash walls trend 2026 — Orlando interior design"', priority:'med',
-        desc:'Tendência crescente em 2026 segundo buscas. Mostrar projetos com limewash, processo de aplicação, preços. Fácil de rankear por ser nicho específico.',
-        comp:'Avileve tem post sobre limewash e aparece no topo para essa busca em Orlando.' },
-      { id:'blog-process', title:'Post: "Our 7-step accent wall installation process"', priority:'med',
-        desc:'Detalhar seu processo único de instalação com fotos. Builds confiança e ranqueia para buscas de processo/como funciona. Reaproveitar conteúdo já no site.',
-        comp:'Concorrentes com posts de processo têm taxa de conversão 40% maior — clientes sabem o que esperar.' },
-      { id:'blog-before-after', title:'Post mensal: before & after de projeto concluído', priority:'med',
-        desc:'1 post por mês com projeto real. Fotos de antes e depois, cidade, tipo de serviço, tempo de execução. Conteúdo que as pessoas compartilham e que rankeia no Google Imagens.',
-        comp:'Accent Walls Design posta before/afters mensalmente — cada post traz tráfego passivo por anos.' },
+    { group:'🗓️ Agendado', tasks:[
+      { id:'blog-post2', title:'📅 07 Jul — "Wood Slat Wall Panels in Orlando: Cost, Materials & Installation (2026)" — AGENDADO', priority:'high',
+        desc:'Slug: wood-slat-wall-panels-orlando · Keywords: slat wall orlando, PVC slat wall, wood slat wall cost · Texto pronto — aguardando publicação no admin. Destaque: PVC é o material mais vendido, cores madeira e cinza, instalação em 1 dia, pode ser aplicado no teto.',
+        comp:'Gap: nenhum concorrente tem esse post com foco em PVC e mercado de Orlando. Oportunidade de ser referência no tema.' },
     ]},
-    { group:'🟢 Baixa Prioridade', tasks:[
-      { id:'blog-calendar', title:'Criar calendário editorial — 4 posts/mês', priority:'low',
-        desc:'Planejar temas com antecedência: 1 post de custo, 1 de tendência, 1 before/after, 1 de cidade. Consistência é mais importante que qualidade inicial.',
-        comp:'Avileve publica 4-6x/mês consistentemente há mais de 1 ano — isso é o que constrói autoridade de domínio.' },
+    { group:'🔴 Próximos — Publicar toda segunda-feira', tasks:[
+      { id:'blog-post3', title:'📅 14 Jul — "What Are Accent Walls and Why Every Home in Winter Garden Needs One"', priority:'high',
+        desc:'Slug: accent-wall-winter-garden · Keywords: accent wall winter garden, what is an accent wall, accent wall ideas florida · Foco na cidade base da Fine Touch.',
+        comp:'Gap: nenhum concorrente tem post específico para Winter Garden. Ranqueia local com baixíssima concorrência.' },
+      { id:'blog-post4', title:'📅 21 Jul — "TV Panel Wall vs Media Wall: What\'s the Difference and Which Should You Choose?"', priority:'high',
+        desc:'Slug: tv-panel-wall-vs-media-wall · Keywords: tv panel wall vs media wall, custom tv wall orlando · Comparativo de alta intenção.',
+        comp:'Gap: nenhum concorrente tem esse comparativo específico. Avileve cobre media wall mas não esse comparativo direto.' },
+      { id:'blog-post5', title:'📅 28 Jul — "PVC Marble Panels: The Low-Maintenance Luxury Wall for Florida Homes"', priority:'high',
+        desc:'Slug: pvc-marble-panels-florida · Keywords: pvc marble panels florida, faux marble wall, marble wall panels cost · Serviço exclusivo da Fine Touch.',
+        comp:'Gap total: nenhum concorrente cobre PVC marble panels. Oportunidade de dominar essa keyword sem concorrência.' },
+      { id:'blog-post6', title:'📅 04 Ago — "Fireplace Accent Wall Ideas for Orlando Homes (2026 Guide)"', priority:'med',
+        desc:'Slug: fireplace-accent-wall-orlando · Keywords: fireplace accent wall orlando, electric fireplace wall ideas · Avileve cobre Florida mas não Orlando especificamente.',
+        comp:'Avileve cobre esse tema para Florida geral. Focar em Orlando para rankear localmente.' },
+      { id:'blog-post7', title:'📅 11 Ago — "Wall Paneling Ideas for Short-Term Rentals in Florida (Airbnb & VRBO)"', priority:'med',
+        desc:'Slug: wall-paneling-short-term-rentals-florida · Keywords: accent wall airbnb florida, wall paneling vacation rental · Nicho muito específico.',
+        comp:'Gap total: nenhum concorrente tem esse post. Florida tem centenas de milhares de Airbnbs — público qualificado.' },
+      { id:'blog-post8', title:'📅 18 Ago — "Best Accent Wall Contractors in Orlando, FL — What to Look For (2026)"', priority:'med',
+        desc:'Slug: accent-wall-contractors-orlando-fl · Keywords: accent wall contractor orlando, best wall contractor florida · Intenção de compra direta.',
+        comp:'Gap: nenhum concorrente tem esse guia de "como escolher contractor" para Orlando. Ranqueia e converte.' },
+    ]},
+    { group:'🟢 Após o calendário', tasks:[
       { id:'blog-social', title:'Distribuir cada post nas redes sociais e GMB', priority:'low',
         desc:'Cada post publicado → compartilhar no Instagram, Facebook e postar link no GMB. Amplifica o alcance e gera backlinks sociais.',
         comp:'Concorrentes com distribuição cross-channel dobram o tráfego de cada post sem escrever conteúdo extra.' },
+      { id:'blog-before-after', title:'Post mensal: before & after de projeto concluído', priority:'low',
+        desc:'1 post por mês com projeto real. Fotos de antes e depois, cidade, tipo de serviço, tempo de execução. Conteúdo que as pessoas compartilham e que rankeia no Google Imagens.',
+        comp:'Accent Walls Design posta before/afters mensalmente — cada post traz tráfego passivo por anos.' },
     ]},
   ],
   'reviews': [
