@@ -28,14 +28,12 @@ module.exports = async function handler(req, res) {
 
   // Buscar sitemap para saber quais URLs estão realmente publicadas
   let sitemapUrls = new Set();
-  let sitemapDebug = '';
   try {
     const sitemapRes = await fetch('https://ftdecordesign.com/sitemap.xml');
     const sitemapXml = await sitemapRes.text();
-    sitemapDebug = sitemapXml.slice(0, 300);
     const matches = sitemapXml.matchAll(/<loc>(.*?)<\/loc>/g);
     for (const m of matches) sitemapUrls.add(m[1].trim().replace(/\/$/, ''));
-  } catch(e) { sitemapDebug = 'ERROR: ' + e.message; }
+  } catch {}
 
   blogPosts.forEach((post) => {
     const base = post.id === 'blog-post1'
@@ -111,6 +109,5 @@ module.exports = async function handler(req, res) {
     ok: true,
     blog: blogResults,
     gmb: gmbResult,
-    _debug: { sitemapUrls: [...sitemapUrls], sitemapDebug },
   });
 };
