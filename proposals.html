@@ -666,7 +666,10 @@ async function saveProposal() {
 
 async function deleteProposal(id) {
   if (!confirm('Delete this proposal?')) return;
-  await db.from('proposals').delete().eq('id', id);
+  // Deletar invoices vinculadas primeiro
+  await db.from('invoices').delete().eq('proposal_id', id);
+  const { error } = await db.from('proposals').delete().eq('id', id);
+  if (error) { showToast('Erro ao deletar: ' + error.message, 'error'); return; }
   showToast('Proposal deleted.','');
   await loadProposals();
 }
