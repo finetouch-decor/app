@@ -31,8 +31,17 @@ module.exports = async function handler(req, res) {
       ? 'https://ftdecordesign.com/blog'
       : `https://ftdecordesign.com/blog/${post.slug}`;
     try {
-      const r = await fetch(base, { method: 'HEAD', redirect: 'follow' });
-      blogResults.push({ id: post.id, published: r.ok, url: base, label: post.label });
+      // GET com verificação de conteúdo — site retorna 200 mesmo para páginas inexistentes
+      const r = await fetch(base, { method: 'GET', redirect: 'follow' });
+      if (!r.ok) {
+        blogResults.push({ id: post.id, published: false, url: base, label: post.label });
+        return;
+      }
+      const html = await r.text();
+      // Verifica se o slug aparece no conteúdo (indica página real, não redirect genérico)
+      const slugKeyword = post.id === 'blog-post1' ? 'blog' : post.slug.split('-').slice(0, 3).join('-');
+      const published = html.includes(slugKeyword) && html.length > 5000;
+      blogResults.push({ id: post.id, published, url: base, label: post.label });
     } catch {
       blogResults.push({ id: post.id, published: false, url: base, label: post.label });
     }
