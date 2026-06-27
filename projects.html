@@ -399,7 +399,9 @@ function renderCards() {
     grid.innerHTML = '<div style="grid-column:1/-1"><div class="empty"><div class="ico">🏗️</div><p>Nenhuma obra encontrada.</p></div></div>';
     return;
   }
-  grid.innerHTML = rows.map(p => {
+  const active = rows.filter(p => p.status !== 'completed');
+  const done   = rows.filter(p => p.status === 'completed');
+  function cardHtml(p) {
     const isClosed = p.status === 'completed';
     const budget   = Number(p.budget)||0;
     const revenue  = p._revenue||0;
@@ -432,7 +434,17 @@ function renderCards() {
       rbox +
       '<div class="pc-footer">'+footer+'</div>' +
     '</div>';
-  }).join('');
+  }
+
+  const sectionStyle = 'font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:4px 0 12px;grid-column:1/-1;';
+  let html = '';
+  if (active.length) {
+    html += '<div style="'+sectionStyle+'">Em andamento</div>' + active.map(cardHtml).join('');
+  }
+  if (done.length) {
+    html += '<div style="'+sectionStyle+(active.length?'margin-top:24px;':'')+'">Concluídas</div>' + done.map(cardHtml).join('');
+  }
+  grid.innerHTML = html;
 }
 
 function statusLbl(s){ return {planning:'Planejamento',active:'Em andamento',completed:'Concluída',paused:'Pausada',cancelled:'Cancelada'}[s]||s||'—'; }
