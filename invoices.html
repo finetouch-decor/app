@@ -53,7 +53,7 @@
   .content { padding:24px 28px; flex:1; overflow-y:auto; }
 
   /* KPI */
-  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+  .kpi-row { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:24px; }
   .kpi-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:14px 16px; box-shadow:var(--shadow); }
   .kpi-label { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
   .kpi-value { font-size:20px; font-weight:800; color:var(--navy); }
@@ -81,16 +81,32 @@
   .filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
   .filters input, .filters select { background:var(--white); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:13px; outline:none; }
 
+  /* PROJECT GROUPS */
+  .section-label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1.5px; margin:8px 0 10px; }
+  .project-group { background:var(--white); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); margin-bottom:12px; overflow:hidden; }
+  .project-group.done { opacity:.75; }
+  .project-header { display:flex; align-items:center; gap:14px; padding:14px 18px; cursor:pointer; user-select:none; }
+  .project-header:hover { background:var(--cream2); }
+  .ph-client { font-size:14px; font-weight:700; color:var(--navy); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ph-name { font-size:12px; color:var(--muted); }
+  .ph-progress { display:flex; flex-direction:column; align-items:flex-end; gap:4px; min-width:140px; }
+  .ph-amounts { font-size:12px; color:var(--muted); }
+  .ph-amounts strong { color:var(--green); }
+  .progress-bar { width:120px; height:5px; background:#e2e8f0; border-radius:10px; overflow:hidden; }
+  .progress-fill { height:100%; background:var(--green); border-radius:10px; transition:width .4s; }
+  .progress-fill.full { background:var(--green); }
+  .ph-toggle { font-size:12px; color:var(--muted); margin-left:8px; transition:transform .2s; }
+  .ph-toggle.open { transform:rotate(180deg); }
+  .project-invoices { border-top:1px solid var(--border); }
   /* INVOICES LIST */
-  .invoices-list { display:flex; flex-direction:column; gap:10px; }
-  .invoice-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:16px 20px; display:flex; align-items:center; gap:16px; box-shadow:var(--shadow); cursor:pointer; transition:all .15s; }
-  .invoice-card:hover { border-color:var(--gold); }
-  .inv-number { font-family:'Inter',sans-serif; font-size:13px; font-weight:800; color:var(--navy); min-width:80px; }
+  .invoice-card { padding:13px 18px; display:flex; align-items:center; gap:14px; border-bottom:1px solid var(--border); transition:background .1s; }
+  .invoice-card:last-child { border-bottom:none; }
+  .invoice-card:hover { background:var(--cream2); }
+  .inv-number { font-size:12px; font-weight:800; color:var(--navy); min-width:80px; }
   .inv-info { flex:1; min-width:0; }
-  .inv-client { font-size:14px; font-weight:600; color:var(--navy); }
-  .inv-desc { font-size:12px; color:var(--muted); margin-top:2px; }
-  .inv-dates { font-size:11px; color:var(--muted); margin-top:3px; }
-  .inv-amount { font-size:18px; font-weight:800; color:var(--navy); text-align:right; }
+  .inv-desc { font-size:12px; color:var(--muted); }
+  .inv-dates { font-size:11px; color:var(--muted); margin-top:2px; }
+  .inv-amount { font-size:15px; font-weight:800; color:var(--navy); text-align:right; white-space:nowrap; }
   .inv-amount-label { font-size:10px; color:var(--muted); text-align:right; }
 
   .badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
@@ -201,7 +217,6 @@
         <div class="kpi-card"><div class="kpi-label">Total Emitido</div><div class="kpi-value" id="k-total">—</div></div>
         <div class="kpi-card"><div class="kpi-label">Recebido</div><div class="kpi-value green" id="k-paid">—</div></div>
         <div class="kpi-card"><div class="kpi-label">Aguardando</div><div class="kpi-value gold" id="k-pending">—</div></div>
-        <div class="kpi-card"><div class="kpi-label">Atrasadas</div><div class="kpi-value red" id="k-overdue">—</div></div>
       </div>
 
       <!-- APPROVED QUOTES SEM INVOICE -->
@@ -361,7 +376,6 @@ async function loadAll() {
 function render() {
   const s  = document.getElementById('search').value.toLowerCase();
   const fs = document.getElementById('filterStatus').value;
-  const t  = today();
 
   const filtered = invoices.filter(i =>
     (!s  || (i.clients?.name||'').toLowerCase().includes(s) || (i.invoice_number||'').toLowerCase().includes(s)) &&
@@ -369,75 +383,122 @@ function render() {
   );
 
   // KPIs
-  const total   = invoices.reduce((s,i)=>s+Number(i.total||i.subtotal||0),0);
-  const paid    = invoices.filter(i=>i.status==='paid').reduce((s,i)=>s+Number(i.total||i.subtotal||0),0);
-  const pending = invoices.filter(i=>['draft','sent'].includes(i.status)).reduce((s,i)=>s+Number(i.total||i.subtotal||0),0);
-  const overdue = invoices.filter(i=>i.status==='overdue'||(i.due_date&&i.due_date<t&&i.status==='sent')).length;
+  const total   = invoices.reduce((a,i)=>a+Number(i.total||i.subtotal||0),0);
+  const paid    = invoices.filter(i=>i.status==='paid').reduce((a,i)=>a+Number(i.total||i.subtotal||0),0);
+  const pending = invoices.filter(i=>['draft','sent'].includes(i.status)).reduce((a,i)=>a+Number(i.total||i.subtotal||0),0);
   document.getElementById('k-total').textContent   = fmt(total);
   document.getElementById('k-paid').textContent    = fmt(paid);
   document.getElementById('k-pending').textContent = fmt(pending);
-  document.getElementById('k-overdue').textContent = overdue;
 
-  // Banner: orçamentos aprovados sem invoice
+  // Banner
   const quotesWithInvoice = new Set(invoices.map(i=>i.quote_id).filter(Boolean));
   const pendingQuotes = quotes.filter(q => !quotesWithInvoice.has(q.id));
-
-  if (pendingQuotes.length) {
-    document.getElementById('banner-wrap').innerHTML = `
-      <div class="banner">
-        <div class="banner-icon">🔔</div>
-        <div class="banner-text">
-          <div class="banner-title">${pendingQuotes.length} orçamento(s) aprovado(s) aguardando invoice</div>
-          <div class="banner-sub">Clique para criar a invoice de entrada (50%)</div>
-          <div class="quote-chips">${pendingQuotes.map(q=>`
-            <div class="quote-chip" onclick="openQuoteModal('${q.id}')">
-              <div>
-                <div class="chip-name">${q.clients?.name||'?'}</div>
-                <div class="chip-sub">${q.quote_number||'ORC'}</div>
-              </div>
-              <div class="chip-value">${fmt(q.total)}</div>
-            </div>`).join('')}
-          </div>
+  document.getElementById('banner-wrap').innerHTML = pendingQuotes.length ? `
+    <div class="banner">
+      <div class="banner-icon">🔔</div>
+      <div class="banner-text">
+        <div class="banner-title">${pendingQuotes.length} orçamento(s) aprovado(s) aguardando invoice</div>
+        <div class="banner-sub">Clique para criar a invoice de entrada (50%)</div>
+        <div class="quote-chips">${pendingQuotes.map(q=>`
+          <div class="quote-chip" onclick="openQuoteModal('${q.id}')">
+            <div><div class="chip-name">${q.clients?.name||'?'}</div><div class="chip-sub">${q.quote_number||'ORC'}</div></div>
+            <div class="chip-value">${fmt(q.total)}</div>
+          </div>`).join('')}
         </div>
-      </div>`;
-  } else {
-    document.getElementById('banner-wrap').innerHTML = '';
-  }
+      </div>
+    </div>` : '';
 
-  // List
   if (!filtered.length) {
     document.getElementById('invoices-wrap').innerHTML = `
       <div class="empty"><div class="empty-icon">🧾</div>
-      <h3>Nenhuma invoice ainda</h3>
-      <p>Aprove um orçamento para criar sua primeira invoice.</p></div>`;
+      <h3>Nenhuma invoice</h3><p>Aprove um orçamento para criar sua primeira invoice.</p></div>`;
     return;
   }
 
-  document.getElementById('invoices-wrap').innerHTML = `<div class="invoices-list">${filtered.map(i => {
-    const amount = Number(i.total||i.subtotal||0);
-    return `<div class="invoice-card">
-      <div class="inv-number" onclick="openEditModal('${i.id}')">${i.invoice_number||'—'}</div>
-      <div class="inv-info" onclick="openEditModal('${i.id}')">
-        <div class="inv-client">${i.clients?.name||'—'}</div>
-        <div class="inv-desc">${i.notes||'—'}</div>
-        <div class="inv-dates">Emissão: ${fmtDate(i.issue_date)} · Vencimento: ${fmtDate(i.due_date)} ${i.paid_date?'· Pago: '+fmtDate(i.paid_date):''}</div>
+  // Agrupar por projeto (quote_id → project_name, ou client_name+notes como fallback)
+  const groups = {};
+  filtered.forEach(i => {
+    const key = i.quote_id || (i.clients?.name + '|' + (i.project_name||''));
+    if (!groups[key]) groups[key] = {
+      client: i.clients?.name || '—',
+      project: i.project_name || i.quotes?.quote_number || i.notes?.split('—')[1]?.trim() || '—',
+      invoices: [],
+    };
+    groups[key].invoices.push(i);
+  });
+
+  // Separar em andamento vs concluídas
+  const active = [], done = [];
+  Object.values(groups).forEach(g => {
+    const allPaid = g.invoices.every(i => i.status === 'paid');
+    (allPaid ? done : active).push(g);
+  });
+
+  function renderGroup(g, collapsed) {
+    const groupTotal = g.invoices.reduce((a,i)=>a+Number(i.total||i.subtotal||0),0);
+    const groupPaid  = g.invoices.filter(i=>i.status==='paid').reduce((a,i)=>a+Number(i.total||i.subtotal||0),0);
+    const pct = groupTotal > 0 ? Math.round(groupPaid/groupTotal*100) : 0;
+    const allPaid = pct === 100;
+    const uid = 'grp-' + Math.random().toString(36).slice(2);
+
+    return `
+    <div class="project-group ${allPaid?'done':''}">
+      <div class="project-header" onclick="toggleGroup('${uid}')">
+        <div style="flex:1;min-width:0">
+          <div class="ph-client">${g.client}</div>
+          <div class="ph-name">${g.project}</div>
+        </div>
+        <div class="ph-progress">
+          <div class="ph-amounts"><strong>${fmt(groupPaid)}</strong> de ${fmt(groupTotal)}</div>
+          <div class="progress-bar"><div class="progress-fill${allPaid?' full':''}" style="width:${pct}%"></div></div>
+        </div>
+        <div class="ph-toggle ${collapsed?'':'open'}" id="toggle-${uid}">▼</div>
       </div>
-      <div onclick="openEditModal('${i.id}')">
-        <span class="badge ${statusClass[i.status]||'b-draft'}">${statusLabel[i.status]||i.status}</span>
-      </div>
-      <div onclick="openEditModal('${i.id}')">
-        <div class="inv-amount">${fmt(amount)}</div>
-        <div class="inv-amount-label">${i.quotes?.quote_number?'de '+fmt(i.quotes.total):''}</div>
-      </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
-        ${i.status!=='paid' ? `<button class="btn btn-sm" onclick="markPaid('${i.id}')" style="background:#fff;border:1px solid var(--border);color:var(--muted);font-weight:600;">💰 Marcar Recebido</button>` : `<span style="font-size:11px;color:#16a34a;font-weight:700;">✅ Recebido em ${fmtDate(i.paid_date)}</span>`}
-        <button class="btn btn-sm" onclick="openEditModal('${i.id}')" style="background:#C69E63;color:#102A4B;font-weight:600;">✏️ Editar</button>
-        <button class="btn btn-sm" onclick="confirmDelete('${i.id}')" style="background:#fee2e2;color:#a03030;font-weight:600;">🗑 Excluir</button>
-        <button class="btn btn-outline btn-sm" onclick="printInvoice('${i.id}')" title="Gerar PDF" style="flex-shrink:0">🖨️ PDF</button>
-        ${i.clients?.phone ? `<button class="btn btn-sm" onclick="sendSMS('${i.id}','${i.clients.phone}','${i.invoice_number||''}','${fmt(i.amount)}')" style="background:#0ea5e9;color:#fff;font-weight:600;flex-shrink:0">📱 SMS</button>` : ''}
+      <div class="project-invoices" id="${uid}" style="${collapsed?'display:none':''}">
+        ${g.invoices.map(i => {
+          const amount = Number(i.total||i.subtotal||0);
+          return `<div class="invoice-card">
+            <div class="inv-number">${i.invoice_number||'—'}</div>
+            <div class="inv-info">
+              <div class="inv-desc">${i.notes||'—'}</div>
+              <div class="inv-dates">Emissão: ${fmtDate(i.issue_date)} · Venc: ${fmtDate(i.due_date)}${i.paid_date?' · Pago: '+fmtDate(i.paid_date):''}</div>
+            </div>
+            <span class="badge ${statusClass[i.status]||'b-draft'}">${statusLabel[i.status]||i.status}</span>
+            <div class="inv-amount">${fmt(amount)}</div>
+            <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
+              ${i.status!=='paid'
+                ? `<button class="btn btn-sm" onclick="markPaid('${i.id}')" style="background:#fff;border:1px solid var(--border);color:var(--muted);font-weight:600;">💰 Recebido</button>`
+                : `<span style="font-size:11px;color:#16a34a;font-weight:700;white-space:nowrap">✅ ${fmtDate(i.paid_date)}</span>`}
+              <button class="btn btn-sm" onclick="openEditModal('${i.id}')" style="background:#C69E63;color:#102A4B;font-weight:600;">✏️</button>
+              <button class="btn btn-sm" onclick="confirmDelete('${i.id}')" style="background:#fee2e2;color:#a03030;font-weight:600;">🗑</button>
+              <button class="btn btn-outline btn-sm" onclick="printInvoice('${i.id}')" style="flex-shrink:0">PDF</button>
+              ${i.clients?.phone ? `<button class="btn btn-sm" onclick="sendSMS('${i.id}','${i.clients.phone}','${i.invoice_number||''}','${fmt(amount)}')" style="background:#0ea5e9;color:#fff;font-weight:600;">📱</button>` : ''}
+            </div>
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
-  }).join('')}</div>`;
+  }
+
+  let html = '';
+  if (active.length) {
+    html += `<div class="section-label">Em andamento</div>`;
+    html += active.map(g => renderGroup(g, false)).join('');
+  }
+  if (done.length) {
+    html += `<div class="section-label" style="margin-top:${active.length?'20px':'0'}">Concluídas</div>`;
+    html += done.map(g => renderGroup(g, true)).join('');
+  }
+
+  document.getElementById('invoices-wrap').innerHTML = html;
+}
+
+function toggleGroup(uid) {
+  const el = document.getElementById(uid);
+  const tog = document.getElementById('toggle-' + uid);
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : '';
+  tog.classList.toggle('open', !open);
 }
 
 // ─── MODAL: ORÇAMENTO → INVOICE ──────────────────────────────
