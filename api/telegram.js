@@ -272,19 +272,20 @@ async function handlePhoto(chatId, fileId) {
 
 async function handleSessionReply(chatId, text) {
   const session = await getSession(chatId);
-  if (!session) return false;
+  if (!session) { await send(chatId, '⚠️ DEBUG: sessão não encontrada ou expirada'); return false; }
 
   const { items, projectsByLetter } = session;
 
-  // Ignora mensagens muito curtas
   if (text.trim().length < 3) return false;
 
-  // Passa projetos por letra ao GPT
   const projectsForGPT = Object.entries(projectsByLetter || {}).map(([letter, p]) => ({
     id: p.id, name: p.name, client_name: p.client_name, letter
   }));
 
+  await send(chatId, `⚠️ DEBUG: sessão ok, ${items?.length} itens, ${projectsForGPT.length} projetos, processando GPT...`);
+
   const assignments = await parseItemResponseWithGPT(text, items, projectsForGPT);
+  await send(chatId, `⚠️ DEBUG: assignments=${JSON.stringify(assignments)}`);
   if (!Object.keys(assignments).length) return false;
 
   // Mapa por letra E por nome
