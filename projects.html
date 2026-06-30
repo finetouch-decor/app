@@ -406,8 +406,8 @@ function renderCards() {
     const budget   = Number(p.budget)||0;
     const revenue  = p._revenue||0;
     const cost     = p._cost||0;
-    const profit   = p._profit||0;
-    const margin   = revenue > 0 ? Math.round(profit / revenue * 100) : 0;
+    const profit   = budget > 0 ? budget - cost : revenue - cost;
+    const margin   = budget > 0 ? Math.round(profit / budget * 100) : (revenue > 0 ? Math.round(profit / revenue * 100) : 0);
     let rbox;
     if (isClosed) {
       const cls = profit >= 0 ? 'lucro' : 'prejuizo';
@@ -632,8 +632,8 @@ async function openDetalhe(id) {
   const custoMaterial = purs.reduce((s,pu)=>s+Number(pu.total||0),0);
   const custoSalvo    = Number(p.actual_cost)||0;
   const custoTotal    = custoMaterial || custoSalvo;
-  const lucro         = receitaTotal - custoTotal;
-  const margin        = receitaTotal > 0 ? Math.round(lucro/receitaTotal*100) : 0;
+  const lucro         = budget > 0 ? budget - custoTotal : receitaTotal - custoTotal;
+  const margin        = budget > 0 ? Math.round(lucro/budget*100) : (receitaTotal > 0 ? Math.round(lucro/receitaTotal*100) : 0);
   const budget        = Number(p.budget)||0;
   const isClosed      = p.status === 'completed';
 
