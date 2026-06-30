@@ -295,32 +295,37 @@ async function handleSessionReply(chatId, text) {
   const date = new Date().toISOString().slice(0,10);
   const results = [];
 
+  // Agrupa itens por destino para criar uma compra por destino
+  const groups = {}; // dest → [{ item, amount }]
   for (const [idxStr, dest] of Object.entries(assignments)) {
     const idx  = parseInt(idxStr);
     const item = items[idx];
     if (!item) continue;
+    if (dest === 'ignorar') { results.push(`⏭️ ${item.desc} — ignorado`); continue; }
+    if (!groups[dest]) groups[dest] = [];
+    groups[dest].push({ item, amount: Number(item.value) });
+  }
 
-    if (dest === 'ignorar') {
-      results.push(`⏭️ ${item.desc} — ignorado`);
-      continue;
-    }
+  for (const [dest, itens] of Object.entries(groups)) {
+    const subtotal = itens.reduce((s, x) => s + x.amount, 0);
+    const num = 'CMP-' + Date.now().toString().slice(-5);
 
-    const amount = Number(item.value);
+    let purchRes;
     if (dest === 'geral') {
-      const num = 'CMP-' + Date.now().toString().slice(-5);
-      const purchRes = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', status: 'received', order_date: date, subtotal: amount, total: amount });
-      const purch = Array.isArray(purchRes) ? purchRes[0] : purchRes;
-      if (purch?.id) await sbInsert('purchase_items', [{ purchase_id: purch.id, description: item.desc, quantity: 1, unit_price: amount, total: amount }]);
-      results.push(`✅ ${item.desc} ($${amount.toFixed(2)}) → custo geral`);
+      purchRes = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', status: 'received', order_date: date, subtotal, total: subtotal });
     } else {
       const proj = projectMap[dest] || projectMap[dest.toUpperCase()] || Object.values(projectMap).find(p => p.name && (p.name.toLowerCase().includes(dest) || dest.includes(p.name.toLowerCase())));
-      if (!proj) { results.push(`❌ ${item.desc} — obra "${dest}" não encontrada`); continue; }
-      const num = 'CMP-' + Date.now().toString().slice(-5);
-      const purchRes = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', project_id: proj.id, status: 'received', order_date: date, subtotal: amount, total: amount });
-      const purch = Array.isArray(purchRes) ? purchRes[0] : purchRes;
-      if (purch?.id) await sbInsert('purchase_items', [{ purchase_id: purch.id, description: item.desc, quantity: 1, unit_price: amount, total: amount }]);
-      results.push(`✅ ${item.desc} ($${amount.toFixed(2)}) → ${proj.name}`);
+      if (!proj) { itens.forEach(x => results.push(`❌ ${x.item.desc} — obra "${dest}" não encontrada`)); continue; }
+      purchRes = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', project_id: proj.id, status: 'received', order_date: date, subtotal, total: subtotal });
+      groups[dest]._projName = proj.name;
     }
+
+    const purch = Array.isArray(purchRes) ? purchRes[0] : purchRes;
+    if (purch?.id) {
+      await sbInsert('purchase_items', itens.map(x => ({ purchase_id: purch.id, description: x.item.desc, quantity: 1, unit_price: x.amount, total: x.amount })));
+    }
+    const destLabel = dest === 'geral' ? 'custo geral' : (groups[dest]._projName || dest);
+    results.push(`✅ ${itens.length} item(s) ($${subtotal.toFixed(2)}) → ${destLabel}`);
   }
 
   await clearSession(chatId);
