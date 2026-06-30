@@ -267,14 +267,19 @@ async function handleSessionReply(chatId, text) {
       continue;
     }
 
+    const amount = Number(item.value);
     if (dest === 'geral') {
-      await sbInsert('transactions', { type: 'expense', description: item.desc, amount: item.value, date, category: 'material', source: 'telegram' });
-      results.push(`✅ ${item.desc} ($${Number(item.value).toFixed(2)}) → custo geral`);
+      const num = 'CMP-' + Date.now().toString().slice(-5);
+      const [purch] = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', status: 'received', order_date: date, subtotal: amount, total: amount, source: 'telegram' });
+      if (purch?.id) await sbInsert('purchase_items', [{ purchase_id: purch.id, description: item.desc, quantity: 1, unit_price: amount, total: amount }]);
+      results.push(`✅ ${item.desc} ($${amount.toFixed(2)}) → custo geral`);
     } else {
       const proj = projectMap[dest] || Object.values(projectMap).find(p => p.name.toLowerCase().includes(dest) || dest.includes(p.name.toLowerCase()));
       if (!proj) { results.push(`❌ ${item.desc} — obra "${dest}" não encontrada`); continue; }
-      await sbInsert('transactions', { type: 'expense', description: item.desc, amount: item.value, date, category: 'material', project_id: proj.id, source: 'telegram' });
-      results.push(`✅ ${item.desc} ($${Number(item.value).toFixed(2)}) → ${proj.name}`);
+      const num = 'CMP-' + Date.now().toString().slice(-5);
+      const [purch] = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', project_id: proj.id, status: 'received', order_date: date, subtotal: amount, total: amount, source: 'telegram' });
+      if (purch?.id) await sbInsert('purchase_items', [{ purchase_id: purch.id, description: item.desc, quantity: 1, unit_price: amount, total: amount }]);
+      results.push(`✅ ${item.desc} ($${amount.toFixed(2)}) → ${proj.name}`);
     }
   }
 
