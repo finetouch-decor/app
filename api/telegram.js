@@ -65,8 +65,9 @@ Se não conseguir identificar itens individuais, retorne o total como um único 
   });
   const data = await res.json();
   const content = data.choices?.[0]?.message?.content || '';
+  console.log('OpenAI raw response:', JSON.stringify(data).slice(0, 500));
   try { return JSON.parse(content.replace(/```json|```/g, '').trim()); }
-  catch { return null; }
+  catch { return { _raw: content, _error: 'parse failed' }; }
 }
 
 // ─── OPENAI WHISPER — transcreve áudio ───────────────────────
@@ -178,7 +179,8 @@ async function handlePhoto(chatId, fileId) {
   const data = await extractReceiptItems(url);
 
   if (!data || !data.items?.length) {
-    await send(chatId, '❌ Não consegui ler os itens da nota. Use:\n`custo: obra, descrição, valor`');
+    const debug = data?._raw ? `\n\nDebug: ${data._raw.slice(0, 300)}` : '';
+    await send(chatId, `❌ Não consegui ler os itens da nota.${debug}`);
     return;
   }
 
