@@ -240,6 +240,7 @@ async function handlePhoto(chatId, fileId) {
 
   // Buscar obras em andamento
   const allProjects = await sbGet('projects', `select=id,name,client_name,status&order=name`);
+  await send(chatId, `DEBUG projetos: ${JSON.stringify(allProjects).slice(0,300)}`);
   const filteredProjects = allProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled');
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
