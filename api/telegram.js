@@ -113,33 +113,45 @@ async function clearSession(chatId) {
   });
 }
 
-// ─── PROCESSA RESPOSTA DE ITENS ──────────────────────────────
-// Suporta: "1 angie, 2 geral", "item 1 e 3 pra angie, 2 geral",
-// "1 e 3 angie raymond, 2 geral", etc.
-function parseItemResponse(text, totalItems) {
-  const lower = text.toLowerCase();
-  const assignments = {};
+// ─── GPT INTERPRETA RESPOSTA DO USUÁRIO ──────────────────────
+async function parseItemResponseWithGPT(text, items, projectNames) {
+  const itemList = items.map((it, i) => `${i+1}. ${it.desc} ($${it.value})`).join('\n');
+  const projList = projectNames.join(', ');
 
-  // Encontra todos os padrões "número(s) + destino"
-  // Ex: "1 e 3 angie", "item 1 pra angie", "2 geral", "4 ignorar"
-  const pattern = /(?:item\s+)?([\d](?:\s*[e,]\s*[\d])*)\s+(?:pra\s+|para\s+|é\s+pra\s+)?([a-záéíóúâêîôûãõàèìòùç\s]+?)(?=,|\s+item|\s+\d|\s+e\s+\d|$)/gi;
-  let match;
-  while ((match = pattern.exec(lower)) !== null) {
-    const nums = match[1].split(/[\s,e]+/).map(n => parseInt(n.trim())).filter(n => !isNaN(n));
-    const dest = match[2].trim().replace(/\s+/g, ' ');
-    for (const n of nums) assignments[n - 1] = dest;
-  }
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_KEY}` },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [{
+        role: 'user',
+        content: `O usuário recebeu esta lista de itens de uma nota fiscal e respondeu em linguagem natural (pode ser transcrição de áudio em português).
 
-  // Fallback: formato simples "1 angie, 2 geral"
-  if (!Object.keys(assignments).length) {
-    const lines = lower.replace(/\n/g, ',').split(',').map(s => s.trim()).filter(Boolean);
-    for (const line of lines) {
-      const m = line.match(/^(\d+)\s+(.+)$/);
-      if (m) assignments[parseInt(m[1]) - 1] = m[2].trim();
+Itens:
+${itemList}
+
+Projetos disponíveis: ${projList}
+
+Resposta do usuário: "${text}"
+
+Mapeie cada item para o projeto correto, "geral" (sem projeto), ou "ignorar".
+Use o nome EXATO do projeto da lista acima.
+Retorne SOMENTE JSON válido (sem markdown):
+{"assignments":{"1":"nome exato do projeto ou geral ou ignorar","2":"...","3":"..."}}`
+      }],
+      max_tokens: 200
+    })
+  });
+  const data = await res.json();
+  const content = data.choices?.[0]?.message?.content || '';
+  try {
+    const parsed = JSON.parse(content.replace(/```json|```/g, '').trim());
+    const result = {};
+    for (const [k, v] of Object.entries(parsed.assignments || {})) {
+      result[parseInt(k) - 1] = v.toLowerCase();
     }
-  }
-
-  return assignments;
+    return result;
+  } catch { return {}; }
 }
 
 // ─── HANDLERS ────────────────────────────────────────────────
@@ -230,16 +242,17 @@ async function handleSessionReply(chatId, text) {
   if (!session) return false;
 
   const { items } = session;
-  const assignments = parseItemResponse(text);
+
+  // Buscar todos os projetos disponíveis para passar ao GPT
+  const allProjects = await sbGet('projects', 'select=id,name&status=neq.archived&limit=50');
+  const projectNames = allProjects.map(p => p.name);
+
+  const assignments = await parseItemResponseWithGPT(text, items, projectNames);
   if (!Object.keys(assignments).length) return false;
 
-  // Buscar projetos mencionados
-  const projectNames = [...new Set(Object.values(assignments).filter(v => v !== 'geral' && v !== 'ignorar'))];
+  // Montar mapa de projetos pelo nome exato
   const projectMap = {};
-  for (const name of projectNames) {
-    const rows = await sbGet('projects', `name=ilike.*${encodeURIComponent(name)}*&select=id,name&limit=1`);
-    if (rows.length) projectMap[name] = rows[0];
-  }
+  for (const proj of allProjects) projectMap[proj.name.toLowerCase()] = proj;
 
   const date = new Date().toISOString().slice(0,10);
   const results = [];
@@ -258,7 +271,7 @@ async function handleSessionReply(chatId, text) {
       await sbInsert('transactions', { type: 'expense', description: item.desc, amount: item.value, date, category: 'material', source: 'telegram' });
       results.push(`✅ ${item.desc} ($${Number(item.value).toFixed(2)}) → custo geral`);
     } else {
-      const proj = projectMap[dest] || Object.values(projectMap).find(p => p.name.toLowerCase().includes(dest));
+      const proj = projectMap[dest] || Object.values(projectMap).find(p => p.name.toLowerCase().includes(dest) || dest.includes(p.name.toLowerCase()));
       if (!proj) { results.push(`❌ ${item.desc} — obra "${dest}" não encontrada`); continue; }
       await sbInsert('transactions', { type: 'expense', description: item.desc, amount: item.value, date, category: 'material', project_id: proj.id, source: 'telegram' });
       results.push(`✅ ${item.desc} ($${Number(item.value).toFixed(2)}) → ${proj.name}`);
