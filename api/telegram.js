@@ -272,7 +272,7 @@ async function handlePhoto(chatId, fileId) {
 
 async function handleSessionReply(chatId, text) {
   const session = await getSession(chatId);
-  if (!session) { await send(chatId, '⚠️ DEBUG: sessão não encontrada ou expirada'); return false; }
+  if (!session) return false;
 
   const { items, projectsByLetter } = session;
 
@@ -282,10 +282,7 @@ async function handleSessionReply(chatId, text) {
     id: p.id, name: p.name, client_name: p.client_name, letter
   }));
 
-  await send(chatId, `⚠️ DEBUG: sessão ok, ${items?.length} itens, ${projectsForGPT.length} projetos, processando GPT...`);
-
   const assignments = await parseItemResponseWithGPT(text, items, projectsForGPT);
-  await send(chatId, `⚠️ DEBUG: assignments=${JSON.stringify(assignments)}`);
   if (!Object.keys(assignments).length) return false;
 
   // Mapa por letra E por nome
@@ -312,7 +309,6 @@ async function handleSessionReply(chatId, text) {
     if (dest === 'geral') {
       const num = 'CMP-' + Date.now().toString().slice(-5);
       const purchRes = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', status: 'received', order_date: date, subtotal: amount, total: amount });
-      await send(chatId, `⚠️ DEBUG insert geral: ${JSON.stringify(purchRes).slice(0,200)}`);
       const purch = Array.isArray(purchRes) ? purchRes[0] : purchRes;
       if (purch?.id) await sbInsert('purchase_items', [{ purchase_id: purch.id, description: item.desc, quantity: 1, unit_price: amount, total: amount }]);
       results.push(`✅ ${item.desc} ($${amount.toFixed(2)}) → custo geral`);
@@ -321,7 +317,6 @@ async function handleSessionReply(chatId, text) {
       if (!proj) { results.push(`❌ ${item.desc} — obra "${dest}" não encontrada`); continue; }
       const num = 'CMP-' + Date.now().toString().slice(-5);
       const purchRes = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', project_id: proj.id, status: 'received', order_date: date, subtotal: amount, total: amount });
-      await send(chatId, `⚠️ DEBUG insert obra: ${JSON.stringify(purchRes).slice(0,200)}`);
       const purch = Array.isArray(purchRes) ? purchRes[0] : purchRes;
       if (purch?.id) await sbInsert('purchase_items', [{ purchase_id: purch.id, description: item.desc, quantity: 1, unit_price: amount, total: amount }]);
       results.push(`✅ ${item.desc} ($${amount.toFixed(2)}) → ${proj.name}`);
