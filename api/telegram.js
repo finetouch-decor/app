@@ -66,7 +66,17 @@ Se não conseguir identificar itens individuais, retorne o total como um único 
   const data = await res.json();
   const content = data.choices?.[0]?.message?.content || '';
   if (data.error) return { _raw: `ERRO OpenAI: ${data.error.message}`, _error: 'api error' };
-  try { return JSON.parse(content.replace(/```json|```/g, '').trim()); }
+  try {
+    const parsed = JSON.parse(content.replace(/```json|```/g, '').trim());
+    // Remove itens duplicados (mesma desc + value)
+    const seen = new Set();
+    parsed.items = (parsed.items || []).filter(it => {
+      const key = `${it.desc}|${it.value}`;
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    });
+    return parsed;
+  }
   catch { return { _raw: `Parse falhou. Resposta: ${content.slice(0, 400)}`, _error: 'parse failed' }; }
 }
 
@@ -114,9 +124,9 @@ async function clearSession(chatId) {
 }
 
 // ─── GPT INTERPRETA RESPOSTA DO USUÁRIO ──────────────────────
-async function parseItemResponseWithGPT(text, items, projectNames) {
+async function parseItemResponseWithGPT(text, items, projects) {
   const itemList = items.map((it, i) => `${i+1}. ${it.desc} ($${it.value})`).join('\n');
-  const projList = projectNames.join(', ');
+  const projList = projects.map(p => `- "${p.name}" (cliente: ${p.client_name || ''})`).join('\n');
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -125,21 +135,27 @@ async function parseItemResponseWithGPT(text, items, projectNames) {
       model: 'gpt-4o-mini',
       messages: [{
         role: 'user',
-        content: `O usuário recebeu esta lista de itens de uma nota fiscal e respondeu em linguagem natural (pode ser transcrição de áudio em português).
+        content: `O usuário recebeu uma lista de itens de nota fiscal e respondeu em português (pode ser transcrição de áudio com erros de pronúncia).
 
-Itens:
+Itens da nota:
 ${itemList}
 
-Projetos disponíveis: ${projList}
+Projetos disponíveis (nome e cliente):
+${projList}
 
 Resposta do usuário: "${text}"
 
-Mapeie cada item para o projeto correto, "geral" (sem projeto), ou "ignorar".
-Use o nome EXATO do projeto da lista acima.
+Instruções:
+- Mapeie cada item para o projeto correto usando o nome EXATO da lista acima
+- O usuário pode mencionar o nome do cliente em vez do projeto (ex: "Angie" → projeto "Bench Room")
+- Whisper pode transcrever errado: "Bente" = "Bench", "Angie" = "Angie", etc.
+- Se não mencionou um item, use "ignorar"
+- Use "geral" para custos sem obra específica
+
 Retorne SOMENTE JSON válido (sem markdown):
-{"assignments":{"1":"nome exato do projeto ou geral ou ignorar","2":"...","3":"..."}}`
+{"assignments":{"1":"nome exato do projeto","2":"geral","3":"ignorar"}}`
       }],
-      max_tokens: 200
+      max_tokens: 300
     })
   });
   const data = await res.json();
@@ -148,7 +164,7 @@ Retorne SOMENTE JSON válido (sem markdown):
     const parsed = JSON.parse(content.replace(/```json|```/g, '').trim());
     const result = {};
     for (const [k, v] of Object.entries(parsed.assignments || {})) {
-      result[parseInt(k) - 1] = v.toLowerCase();
+      result[parseInt(k) - 1] = v.toLowerCase().trim();
     }
     return result;
   } catch { return {}; }
@@ -243,11 +259,13 @@ async function handleSessionReply(chatId, text) {
 
   const { items } = session;
 
-  // Buscar todos os projetos disponíveis para passar ao GPT
-  const allProjects = await sbGet('projects', 'select=id,name&status=neq.archived&limit=50');
-  const projectNames = allProjects.map(p => p.name);
+  // Ignora mensagens muito curtas ou sem conteúdo útil
+  if (text.trim().length < 3) return false;
 
-  const assignments = await parseItemResponseWithGPT(text, items, projectNames);
+  // Buscar todos os projetos com nome do cliente
+  const allProjects = await sbGet('projects', 'select=id,name,client_name&limit=50');
+
+  const assignments = await parseItemResponseWithGPT(text, items, allProjects);
   if (!Object.keys(assignments).length) return false;
 
   // Montar mapa de projetos pelo nome exato
