@@ -311,14 +311,18 @@ async function handleSessionReply(chatId, text) {
     const amount = Number(item.value);
     if (dest === 'geral') {
       const num = 'CMP-' + Date.now().toString().slice(-5);
-      const [purch] = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', status: 'received', order_date: date, subtotal: amount, total: amount, source: 'telegram' });
+      const purchRes = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', status: 'received', order_date: date, subtotal: amount, total: amount });
+      await send(chatId, `⚠️ DEBUG insert geral: ${JSON.stringify(purchRes).slice(0,200)}`);
+      const purch = Array.isArray(purchRes) ? purchRes[0] : purchRes;
       if (purch?.id) await sbInsert('purchase_items', [{ purchase_id: purch.id, description: item.desc, quantity: 1, unit_price: amount, total: amount }]);
       results.push(`✅ ${item.desc} ($${amount.toFixed(2)}) → custo geral`);
     } else {
       const proj = projectMap[dest] || projectMap[dest.toUpperCase()] || Object.values(projectMap).find(p => p.name && (p.name.toLowerCase().includes(dest) || dest.includes(p.name.toLowerCase())));
       if (!proj) { results.push(`❌ ${item.desc} — obra "${dest}" não encontrada`); continue; }
       const num = 'CMP-' + Date.now().toString().slice(-5);
-      const [purch] = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', project_id: proj.id, status: 'received', order_date: date, subtotal: amount, total: amount, source: 'telegram' });
+      const purchRes = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', project_id: proj.id, status: 'received', order_date: date, subtotal: amount, total: amount });
+      await send(chatId, `⚠️ DEBUG insert obra: ${JSON.stringify(purchRes).slice(0,200)}`);
+      const purch = Array.isArray(purchRes) ? purchRes[0] : purchRes;
       if (purch?.id) await sbInsert('purchase_items', [{ purchase_id: purch.id, description: item.desc, quantity: 1, unit_price: amount, total: amount }]);
       results.push(`✅ ${item.desc} ($${amount.toFixed(2)}) → ${proj.name}`);
     }
