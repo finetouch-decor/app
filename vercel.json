@@ -18,6 +18,9 @@
     { "source": "/login",     "destination": "/login.html" },
     { "source": "/pending",   "destination": "/pending.html" }
   ],
+  "functions": {
+    "api/telegram.js": { "maxDuration": 60 }
+  },
   "crons": [
     { "path": "/api/marketing-sync", "schedule": "0 12 * * *" },
     { "path": "/api/marketing-sync", "schedule": "0 0 * * *" }
