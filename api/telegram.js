@@ -113,14 +113,32 @@ async function clearSession(chatId) {
   });
 }
 
-// ─── PROCESSA RESPOSTA DE ITENS: "1 angie, 2 geral, 3 ignorar"
-function parseItemResponse(text) {
-  const lines = text.toLowerCase().replace(/\n/g, ',').split(',').map(s => s.trim()).filter(Boolean);
+// ─── PROCESSA RESPOSTA DE ITENS ──────────────────────────────
+// Suporta: "1 angie, 2 geral", "item 1 e 3 pra angie, 2 geral",
+// "1 e 3 angie raymond, 2 geral", etc.
+function parseItemResponse(text, totalItems) {
+  const lower = text.toLowerCase();
   const assignments = {};
-  for (const line of lines) {
-    const match = line.match(/^(\d+)\s+(.+)$/);
-    if (match) assignments[parseInt(match[1]) - 1] = match[2].trim();
+
+  // Encontra todos os padrões "número(s) + destino"
+  // Ex: "1 e 3 angie", "item 1 pra angie", "2 geral", "4 ignorar"
+  const pattern = /(?:item\s+)?([\d](?:\s*[e,]\s*[\d])*)\s+(?:pra\s+|para\s+|é\s+pra\s+)?([a-záéíóúâêîôûãõàèìòùç\s]+?)(?=,|\s+item|\s+\d|\s+e\s+\d|$)/gi;
+  let match;
+  while ((match = pattern.exec(lower)) !== null) {
+    const nums = match[1].split(/[\s,e]+/).map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+    const dest = match[2].trim().replace(/\s+/g, ' ');
+    for (const n of nums) assignments[n - 1] = dest;
   }
+
+  // Fallback: formato simples "1 angie, 2 geral"
+  if (!Object.keys(assignments).length) {
+    const lines = lower.replace(/\n/g, ',').split(',').map(s => s.trim()).filter(Boolean);
+    for (const line of lines) {
+      const m = line.match(/^(\d+)\s+(.+)$/);
+      if (m) assignments[parseInt(m[1]) - 1] = m[2].trim();
+    }
+  }
+
   return assignments;
 }
 
