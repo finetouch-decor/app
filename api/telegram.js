@@ -1,6 +1,6 @@
 const BOT_TOKEN    = process.env.TELEGRAM_BOT_TOKEN;
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 const OPENAI_KEY   = process.env.OPENAI_API_KEY;
 
 // ─── TELEGRAM ────────────────────────────────────────────────
