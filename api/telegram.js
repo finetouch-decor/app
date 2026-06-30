@@ -239,8 +239,8 @@ async function handlePhoto(chatId, fileId) {
   }
 
   // Buscar obras em andamento
-  const allProjects = await sbGet('projects', `select=id,name,client_name,status&order=name&limit=50`);
-  const filteredProjects = allProjects.filter(p => ['active','planning','paused'].includes(p.status));
+  const allProjects = await sbGet('projects', `select=id,name,client_name,status&order=name`);
+  const filteredProjects = allProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled');
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
   // Salvar sessão com itens E projetos mapeados por letra
