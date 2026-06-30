@@ -47,9 +47,11 @@ async function extractReceiptItems(imageUrl) {
         content: [
           { type: 'image_url', image_url: { url: imageUrl } },
           { type: 'text', text: `Analise esta nota fiscal/recibo e extraia cada item de linha com sua descrição e valor.
+Ignore QR codes, barcodes e cabeçalhos. Foque apenas no texto impresso com descrições de produtos e valores.
 Retorne SOMENTE um JSON válido neste formato (sem markdown):
 {"store":"nome da loja","total":99.99,"items":[{"desc":"descrição do produto","value":9.99},{"desc":"outro produto","value":5.00}]}
-Se não conseguir identificar itens individuais, retorne o total como um único item.` }
+Se a nota tiver itens com quantidade x preço unitário, calcule o valor total de cada linha.
+Se não conseguir identificar itens individuais, retorne o total como um único item com desc "Compra geral".` }
         ]
       }],
       max_tokens: 500
