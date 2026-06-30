@@ -21,7 +21,12 @@ async function getFileUrl(fileId) {
 // ─── SUPABASE ────────────────────────────────────────────────
 async function sbGet(table, query = '') {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
-    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }
   });
   const data = await res.json();
   return Array.isArray(data) ? data : [];
