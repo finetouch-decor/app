@@ -41,7 +41,7 @@ async function extractReceiptItems(imageUrl) {
   const imgRes    = await fetch(imageUrl);
   const imgBuffer = await imgRes.arrayBuffer();
   const base64    = Buffer.from(imgBuffer).toString('base64');
-  const mimeType  = imgRes.headers.get('content-type') || 'image/jpeg';
+  const mimeType  = 'image/jpeg';
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
