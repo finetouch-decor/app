@@ -175,12 +175,20 @@ async function handleCusto(chatId, text) {
 
 async function handlePhoto(chatId, fileId) {
   await send(chatId, '📸 Processando nota fiscal...');
-  const url  = await getFileUrl(fileId);
-  const data = await extractReceiptItems(url);
+  let url, data;
+  try {
+    url  = await getFileUrl(fileId);
+    await send(chatId, `🔗 URL obtida. Chamando OpenAI...`);
+    data = await extractReceiptItems(url);
+    await send(chatId, `📦 Resposta: ${JSON.stringify(data).slice(0, 300)}`);
+  } catch (e) {
+    await send(chatId, `💥 Erro: ${e.message}`);
+    return;
+  }
 
   if (!data || !data.items?.length) {
-    const debug = data?._raw ? `\n\nDebug: ${data._raw.slice(0, 300)}` : '';
-    await send(chatId, `❌ Não consegui ler os itens da nota.${debug}`);
+    const debug = data?._raw ? `\n\n${data._raw.slice(0, 300)}` : JSON.stringify(data).slice(0,200);
+    await send(chatId, `❌ Não consegui ler os itens da nota.\n\n${debug}`);
     return;
   }
 
