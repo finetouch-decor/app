@@ -37,6 +37,12 @@ async function sbInsert(table, data) {
 
 // ─── OPENAI VISION — extrai itens da nota fiscal ─────────────
 async function extractReceiptItems(imageUrl) {
+  // Baixa imagem e converte para base64 (URL do Telegram requer autenticação)
+  const imgRes    = await fetch(imageUrl);
+  const imgBuffer = await imgRes.arrayBuffer();
+  const base64    = Buffer.from(imgBuffer).toString('base64');
+  const mimeType  = imgRes.headers.get('content-type') || 'image/jpeg';
+
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_KEY}` },
@@ -45,7 +51,7 @@ async function extractReceiptItems(imageUrl) {
       messages: [{
         role: 'user',
         content: [
-          { type: 'image_url', image_url: { url: imageUrl } },
+          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
           { type: 'text', text: `Analise esta nota fiscal/recibo e extraia cada item de linha com sua descrição e valor.
 Ignore QR codes, barcodes e cabeçalhos. Foque apenas no texto impresso com descrições de produtos e valores.
 Retorne SOMENTE um JSON válido neste formato (sem markdown):
