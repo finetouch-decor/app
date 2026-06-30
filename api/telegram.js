@@ -239,7 +239,7 @@ async function handlePhoto(chatId, fileId) {
 
   // Buscar obras em andamento
   const activeProjects = await sbGet('projects', `select=id,name,client_name&order=name&limit=20`);
-  const filteredProjects = Array.isArray(activeProjects) ? activeProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled') : [];
+  const filteredProjects = Array.isArray(activeProjects) ? activeProjects.filter(p => p.status === 'active' || p.status === 'planning' || p.status === 'paused') : [];
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
   // Salvar sessão com itens E projetos mapeados por letra
