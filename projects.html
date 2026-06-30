@@ -632,9 +632,9 @@ async function openDetalhe(id) {
   const custoMaterial = purs.reduce((s,pu)=>s+Number(pu.total||0),0);
   const custoSalvo    = Number(p.actual_cost)||0;
   const custoTotal    = custoMaterial || custoSalvo;
+  const budget        = Number(p.budget)||0;
   const lucro         = budget > 0 ? budget - custoTotal : receitaTotal - custoTotal;
   const margin        = budget > 0 ? Math.round(lucro/budget*100) : (receitaTotal > 0 ? Math.round(lucro/receitaTotal*100) : 0);
-  const budget        = Number(p.budget)||0;
   const isClosed      = p.status === 'completed';
 
   // monta HTML
