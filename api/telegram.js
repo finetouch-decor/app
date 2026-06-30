@@ -126,7 +126,7 @@ async function clearSession(chatId) {
 // ─── GPT INTERPRETA RESPOSTA DO USUÁRIO ──────────────────────
 async function parseItemResponseWithGPT(text, items, projects) {
   const itemList = items.map((it, i) => `${i+1}. ${it.desc} ($${it.value})`).join('\n');
-  const projList = projects.map(p => `- "${p.name}" (cliente: ${p.client_name || ''})`).join('\n');
+  const projList = projects.map(p => `${p.letter}. "${p.name}"${p.client_name ? ' (cliente: '+p.client_name+')' : ''}`).join('\n');
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -135,25 +135,26 @@ async function parseItemResponseWithGPT(text, items, projects) {
       model: 'gpt-4o-mini',
       messages: [{
         role: 'user',
-        content: `O usuário recebeu uma lista de itens de nota fiscal e respondeu em português (pode ser transcrição de áudio com erros de pronúncia).
+        content: `O usuário recebeu uma lista numerada de itens de nota fiscal e uma lista de obras com letras (A, B, C...). Ele respondeu em português indicando quais itens vão para quais obras.
 
 Itens da nota:
 ${itemList}
 
-Projetos disponíveis (nome e cliente):
+Obras disponíveis:
 ${projList}
 
 Resposta do usuário: "${text}"
 
 Instruções:
-- Mapeie cada item para o projeto correto usando o nome EXATO da lista acima
-- O usuário pode mencionar o nome do cliente em vez do projeto (ex: "Angie" → projeto "Bench Room")
-- Whisper pode transcrever errado: "Bente" = "Bench", "Angie" = "Angie", etc.
+- O usuário usa números para itens e letras para obras (ex: "itens 1 e 3 obra A")
+- Pode mencionar nome do cliente ou da obra em vez da letra
+- Transcrição de áudio pode ter erros: "Bente"="Bench", etc.
 - Se não mencionou um item, use "ignorar"
-- Use "geral" para custos sem obra específica
+- "geral" = custo sem obra específica
 
 Retorne SOMENTE JSON válido (sem markdown):
-{"assignments":{"1":"nome exato do projeto","2":"geral","3":"ignorar"}}`
+{"assignments":{"1":"A","2":"geral","3":"ignorar"}}
+Use a LETRA da obra (A, B, C...) como valor, não o nome.`
       }],
       max_tokens: 300
     })
@@ -224,32 +225,37 @@ async function handlePhoto(chatId, fileId) {
   let url, data;
   try {
     url  = await getFileUrl(fileId);
-    await send(chatId, `🔗 URL obtida. Chamando OpenAI...`);
     data = await extractReceiptItems(url);
-    await send(chatId, `📦 Resposta: ${JSON.stringify(data).slice(0, 300)}`);
   } catch (e) {
     await send(chatId, `💥 Erro: ${e.message}`);
     return;
   }
 
   if (!data || !data.items?.length) {
-    const debug = data?._raw ? `\n\n${data._raw.slice(0, 300)}` : JSON.stringify(data).slice(0,200);
-    await send(chatId, `❌ Não consegui ler os itens da nota.\n\n${debug}`);
+    const debug = data?._raw ? `\n\n${data._raw.slice(0, 200)}` : '';
+    await send(chatId, `❌ Não consegui ler os itens da nota. Use:\n\`custo: obra, descrição, valor\`${debug}`);
     return;
   }
 
-  await saveSession(chatId, { items: data.items, store: data.store, total: data.total });
+  // Buscar obras em andamento
+  const activeProjects = await sbGet('projects', `status=neq.completed&status=neq.cancelled&select=id,name,client_name&order=name&limit=20`);
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-  const list = data.items.map((it, i) => `*${i+1}.* ${it.desc} — $${Number(it.value).toFixed(2)}`).join('\n');
+  // Salvar sessão com itens E projetos mapeados por letra
+  const projectsByLetter = {};
+  activeProjects.forEach((p, i) => { if (i < 26) projectsByLetter[letters[i]] = p; });
+  await saveSession(chatId, { items: data.items, store: data.store, total: data.total, projectsByLetter });
+
+  const itemList    = data.items.map((it, i) => `*${i+1}.* ${it.desc} — $${Number(it.value).toFixed(2)}`).join('\n');
+  const projectList = activeProjects.map((p, i) => i < 26 ? `*${letters[i]}.* ${p.name}${p.client_name ? ' — '+p.client_name : ''}` : '').filter(Boolean).join('\n');
+
   await send(chatId,
     `🧾 *${data.store || 'Nota Fiscal'}* — Total: $${Number(data.total||0).toFixed(2)}\n\n` +
-    `${list}\n\n` +
-    `Para cada número, responda:\n` +
-    `• *nome da obra* → lança na obra\n` +
-    `• *geral* → custo geral (sem obra)\n` +
-    `• *ignorar* → não lança\n\n` +
-    `Ex: \`1 angie, 2 nadia, 3 geral, 4 ignorar\`\n` +
-    `_(Pode responder por áudio também!)_`
+    `*Itens:*\n${itemList}\n\n` +
+    `*Obras em andamento:*\n${projectList}\n\n` +
+    `Responda com itens e obras:\n` +
+    `Ex: \`itens 1 e 3 obra A, item 2 obra B, resto ignorar\`\n` +
+    `_(Pode responder por áudio!)_`
   );
 }
 
@@ -257,20 +263,25 @@ async function handleSessionReply(chatId, text) {
   const session = await getSession(chatId);
   if (!session) return false;
 
-  const { items } = session;
+  const { items, projectsByLetter } = session;
 
-  // Ignora mensagens muito curtas ou sem conteúdo útil
+  // Ignora mensagens muito curtas
   if (text.trim().length < 3) return false;
 
-  // Buscar todos os projetos com nome do cliente
-  const allProjects = await sbGet('projects', 'select=id,name,client_name&limit=50');
+  // Passa projetos por letra ao GPT
+  const projectsForGPT = Object.entries(projectsByLetter || {}).map(([letter, p]) => ({
+    id: p.id, name: p.name, client_name: p.client_name, letter
+  }));
 
-  const assignments = await parseItemResponseWithGPT(text, items, allProjects);
+  const assignments = await parseItemResponseWithGPT(text, items, projectsForGPT);
   if (!Object.keys(assignments).length) return false;
 
-  // Montar mapa de projetos pelo nome exato
+  // Mapa por letra E por nome
   const projectMap = {};
-  for (const proj of allProjects) projectMap[proj.name.toLowerCase()] = proj;
+  for (const p of projectsForGPT) {
+    projectMap[p.name.toLowerCase()] = p;
+    projectMap[p.letter.toLowerCase()] = p;
+  }
 
   const date = new Date().toISOString().slice(0,10);
   const results = [];
@@ -292,7 +303,7 @@ async function handleSessionReply(chatId, text) {
       if (purch?.id) await sbInsert('purchase_items', [{ purchase_id: purch.id, description: item.desc, quantity: 1, unit_price: amount, total: amount }]);
       results.push(`✅ ${item.desc} ($${amount.toFixed(2)}) → custo geral`);
     } else {
-      const proj = projectMap[dest] || Object.values(projectMap).find(p => p.name.toLowerCase().includes(dest) || dest.includes(p.name.toLowerCase()));
+      const proj = projectMap[dest] || projectMap[dest.toUpperCase()] || Object.values(projectMap).find(p => p.name && (p.name.toLowerCase().includes(dest) || dest.includes(p.name.toLowerCase())));
       if (!proj) { results.push(`❌ ${item.desc} — obra "${dest}" não encontrada`); continue; }
       const num = 'CMP-' + Date.now().toString().slice(-5);
       const [purch] = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', project_id: proj.id, status: 'received', order_date: date, subtotal: amount, total: amount, source: 'telegram' });
