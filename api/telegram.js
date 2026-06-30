@@ -65,9 +65,9 @@ Se não conseguir identificar itens individuais, retorne o total como um único 
   });
   const data = await res.json();
   const content = data.choices?.[0]?.message?.content || '';
-  console.log('OpenAI raw response:', JSON.stringify(data).slice(0, 500));
+  if (data.error) return { _raw: `ERRO OpenAI: ${data.error.message}`, _error: 'api error' };
   try { return JSON.parse(content.replace(/```json|```/g, '').trim()); }
-  catch { return { _raw: content, _error: 'parse failed' }; }
+  catch { return { _raw: `Parse falhou. Resposta: ${content.slice(0, 400)}`, _error: 'parse failed' }; }
 }
 
 // ─── OPENAI WHISPER — transcreve áudio ───────────────────────
