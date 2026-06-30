@@ -1,6 +1,7 @@
 const BOT_TOKEN    = process.env.TELEGRAM_BOT_TOKEN;
-const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+const SUPABASE_ANON_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const OPENAI_KEY   = process.env.OPENAI_API_KEY;
 
 // ─── TELEGRAM ────────────────────────────────────────────────
@@ -19,11 +20,12 @@ async function getFileUrl(fileId) {
 }
 
 // ─── SUPABASE ────────────────────────────────────────────────
-async function sbGet(table, query = '') {
+async function sbGet(table, query = '', useAnon = false) {
+  const key = useAnon ? SUPABASE_ANON_KEY : SUPABASE_KEY;
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
     headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
+      apikey: key,
+      Authorization: `Bearer ${key}`,
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     }
@@ -244,8 +246,7 @@ async function handlePhoto(chatId, fileId) {
   }
 
   // Buscar obras em andamento
-  const allProjects = await sbGet('projects', `select=id,name,client_name,status&order=name`);
-  await send(chatId, `DEBUG projetos: ${JSON.stringify(allProjects).slice(0,300)}`);
+  const allProjects = await sbGet('projects', `select=id,name,client_name,status&order=name`, true);
   const filteredProjects = allProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled');
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
