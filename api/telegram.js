@@ -23,7 +23,8 @@ async function sbGet(table, query = '') {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
   });
-  return res.json();
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
 }
 
 async function sbInsert(table, data) {
@@ -238,9 +239,8 @@ async function handlePhoto(chatId, fileId) {
   }
 
   // Buscar obras em andamento
-  const activeProjects = await sbGet('projects', `select=id,name,client_name&order=name&limit=20`);
-  console.log('Projects raw:', JSON.stringify(activeProjects).slice(0, 500));
-  const filteredProjects = Array.isArray(activeProjects) ? activeProjects.filter(p => p.status === 'active' || p.status === 'planning' || p.status === 'paused' || !p.status) : activeProjects || [];
+  const activeProjects = await sbGet('projects', `select=id,name,client_name,status&status=in.(active,planning,paused)&order=name&limit=20`);
+  const filteredProjects = activeProjects;
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
   // Salvar sessão com itens E projetos mapeados por letra
