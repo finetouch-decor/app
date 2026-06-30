@@ -238,16 +238,17 @@ async function handlePhoto(chatId, fileId) {
   }
 
   // Buscar obras em andamento
-  const activeProjects = await sbGet('projects', `status=neq.completed&status=neq.cancelled&select=id,name,client_name&order=name&limit=20`);
+  const activeProjects = await sbGet('projects', `select=id,name,client_name&order=name&limit=20`);
+  const filteredProjects = Array.isArray(activeProjects) ? activeProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled') : [];
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
   // Salvar sessão com itens E projetos mapeados por letra
   const projectsByLetter = {};
-  activeProjects.forEach((p, i) => { if (i < 26) projectsByLetter[letters[i]] = p; });
+  filteredProjects.forEach((p, i) => { if (i < 26) projectsByLetter[letters[i]] = p; });
   await saveSession(chatId, { items: data.items, store: data.store, total: data.total, projectsByLetter });
 
   const itemList    = data.items.map((it, i) => `*${i+1}.* ${it.desc} — $${Number(it.value).toFixed(2)}`).join('\n');
-  const projectList = activeProjects.map((p, i) => i < 26 ? `*${letters[i]}.* ${p.name}${p.client_name ? ' — '+p.client_name : ''}` : '').filter(Boolean).join('\n');
+  const projectList = filteredProjects.map((p, i) => i < 26 ? `*${letters[i]}.* ${p.name}${p.client_name ? ' — '+p.client_name : ''}` : '').filter(Boolean).join('\n');
 
   await send(chatId,
     `🧾 *${data.store || 'Nota Fiscal'}* — Total: $${Number(data.total||0).toFixed(2)}\n\n` +
