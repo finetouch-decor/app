@@ -480,8 +480,36 @@ async function handlePhotoSessionReply(chatId, text, session) {
     body: JSON.stringify({ image_urls: merged, updated_at: new Date().toISOString() }),
   });
 
+  await send(chatId, `✅ ${session.photoUrls.length} foto(s) anexada(s) em *${picked.name}*!`);
+
+  // Pede um contexto do dono (por áudio ou texto) sobre a obra, pra dar mais material
+  // pra IA usar na hora de escrever o blog (em vez de só o template genérico).
+  await saveSession(chatId, {
+    kind: 'photos',
+    awaitingAudioNote: true,
+    portfolioRowId: picked.rowId,
+    portfolioName: picked.name,
+  });
+  await send(chatId, `🎙️ Quer contar um pouco sobre essa obra? Manda um *áudio* (ou pode escrever) falando do processo de criação, o que o cliente pediu, algum desafio que apareceu, etc. Isso ajuda a IA a escrever um texto de blog bem melhor.\n\nSe não quiser, responda *pular*.`);
+  return true;
+}
+
+async function handleAudioNoteReply(chatId, text, session) {
+  const t = text.trim().toLowerCase();
+  if (t === 'pular' || t === 'nao' || t === 'não' || t === 'skip' || t === 'não quero' || t === 'nao quero') {
+    await clearSession(chatId);
+    await send(chatId, `Tranquilo! 👍\n\n🔗 [Ver no Marketing](https://app-one-amber-58.vercel.app/marketing)`);
+    return true;
+  }
+
+  await fetch(`${SUPABASE_URL}/rest/v1/catalog_portfolio?id=eq.${session.portfolioRowId}`, {
+    method: 'PATCH',
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify({ owner_notes: text, owner_notes_updated_at: new Date().toISOString() }),
+  });
+
   await clearSession(chatId);
-  await send(chatId, `✅ ${session.photoUrls.length} foto(s) anexada(s) em *${picked.name}*!\n\n🔗 [Ver no Marketing](https://app-one-amber-58.vercel.app/marketing)`);
+  await send(chatId, `📝 Anotado! Isso vai ajudar bastante na hora de gerar o texto de *${session.portfolioName}*.\n\n🔗 [Ver no Marketing](https://app-one-amber-58.vercel.app/marketing)`);
   return true;
 }
 
@@ -490,6 +518,9 @@ async function handleSessionReply(chatId, text) {
   if (!session) return false;
 
   if (session.kind === 'photos') {
+    if (session.awaitingAudioNote) {
+      return await handleAudioNoteReply(chatId, text, session);
+    }
     return await handlePhotoSessionReply(chatId, text, session);
   }
 

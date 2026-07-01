@@ -640,6 +640,11 @@
     </div>
     <div class="modal-body">
       <input type="hidden" id="pf-project-id">
+      <div class="field" id="pf-owner-notes-wrap" style="display:none">
+        <label>🎙️ Contexto do dono (recebido via Telegram)</label>
+        <textarea id="pf-owner-notes" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border:1.5px solid var(--gold);border-radius:8px;resize:vertical;background:#fffbf2"></textarea>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Isso ainda não é inserido automaticamente no texto (o post é em inglês, o áudio costuma vir em português) — use como referência ao editar o texto abaixo. Quando a geração via IA estiver ativa, esse contexto vai ser usado diretamente.</div>
+      </div>
       <div class="field"><label>Título (obra / post)</label><input id="pf-title" placeholder="Ex: Accent Wall Project — Winter Garden, FL"></div>
       <div class="form-2col">
         <div class="field"><label>Slug do blog</label><input id="pf-slug" placeholder="accent-wall-winter-garden"></div>
@@ -1369,6 +1374,8 @@ function openPortfolioModal(rowId) {
     vals = { ...d, title: t.title, blog_slug: t.slug, blog_meta_description: t.meta, blog_body: t.body, ig_caption: t.ig, gmb_post_text: t.gmb, seo_keywords: t.keywords };
   }
   document.getElementById('pf-project-id').value = d.project_id || '';
+  document.getElementById('pf-owner-notes').value = d.owner_notes || '';
+  document.getElementById('pf-owner-notes-wrap').style.display = d.owner_notes ? '' : 'none';
   document.getElementById('pf-title').value = vals.title || '';
   document.getElementById('pf-slug').value = vals.blog_slug || '';
   document.getElementById('pf-meta').value = vals.blog_meta_description || '';
@@ -1398,6 +1405,7 @@ async function savePortfolioDraft() {
   const pubSite = document.getElementById('pf-pub-site').checked;
   const allPublished = pubBlog && pubIg && pubGmb && pubSite;
   const payload = {
+    owner_notes: document.getElementById('pf-owner-notes').value,
     title: document.getElementById('pf-title').value.trim(),
     blog_slug: document.getElementById('pf-slug').value.trim(),
     blog_meta_description: document.getElementById('pf-meta').value.trim(),
