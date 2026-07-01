@@ -325,6 +325,7 @@
       <button class="tab-btn" id="tab-btn-my-business" onclick="switchTab('my-business')">📍 My Business</button>
       <button class="tab-btn" id="tab-btn-portfolio" onclick="switchTab('portfolio')">🏗️ Portfólio</button>
       <button class="tab-btn" id="tab-btn-blog" onclick="switchTab('blog')">✍️ Blog</button>
+      <button class="tab-btn" id="tab-btn-instagram" onclick="switchTab('instagram')">📸 Instagram</button>
       <button class="tab-btn" id="tab-btn-reviews" onclick="switchTab('reviews')">⭐ Reviews</button>
       <button class="tab-btn" id="tab-btn-competitors" onclick="switchTab('competitors')">🏆 Concorrentes</button>
     </div>
@@ -537,6 +538,21 @@
         <div id="blog-sync-info" style="padding:8px 20px;font-size:11px;color:var(--muted);text-align:right;"></div>
       </div>
 
+      <!-- ══ TAB INSTAGRAM ══ -->
+      <div id="tab-instagram" style="display:none">
+        <div class="plan-progress-header">
+          <div class="plan-prog-row">
+            <div class="plan-prog-pct" id="prog-pct-instagram">0%</div>
+            <div class="plan-prog-info">
+              <div class="plan-prog-label">Instagram — Prova visual e alcance nas redes</div>
+              <div class="plan-prog-bar"><div class="plan-prog-fill" id="prog-bar-instagram" style="width:0%"></div></div>
+              <div class="plan-prog-sub" id="prog-sub-instagram">0 de 0 tarefas concluídas</div>
+            </div>
+          </div>
+        </div>
+        <div id="checklist-instagram"></div>
+      </div>
+
       <!-- ══ TAB REVIEWS ══ -->
       <div id="tab-reviews" style="display:none">
         <div class="plan-progress-header">
@@ -678,7 +694,7 @@ const statusLabel  = { active:'Ativa', paused:'Pausada', ended:'Encerrada' };
 const statusClass  = { active:'b-active', paused:'b-paused', ended:'b-ended' };
 const sourceLabel  = { google_ads:'Google Ads', fb_marketplace:'FB Marketplace', instagram:'Instagram', facebook:'Facebook', referral:'Indicação', organic:'Orgânico', other:'Outro', '':'Não informado' };
 
-const ALL_TABS = ['resumo','google-ads','site-seo','my-business','portfolio','blog','reviews','competitors'];
+const ALL_TABS = ['resumo','google-ads','site-seo','my-business','portfolio','blog','instagram','reviews','competitors'];
 
 function switchTab(tab) {
   ALL_TABS.forEach(t => {
@@ -687,7 +703,7 @@ function switchTab(tab) {
   });
   document.getElementById('btn-topbar-ads').style.display = tab === 'resumo' ? '' : 'none';
   if (tab === 'google-ads') loadAndRenderGoogleAds(currentPeriod);
-  if (['site-seo','my-business','blog','reviews'].includes(tab)) renderChecklist(tab);
+  if (['site-seo','my-business','blog','instagram','reviews'].includes(tab)) renderChecklist(tab);
   if (tab === 'competitors') renderCompetitorsTab();
   if (tab === 'portfolio') loadPortfolioTab();
 }
@@ -734,6 +750,14 @@ const MARKETING_PLAN = {
         desc:'Parcerias com decoradores, arquitetos e designers locais para mencionar Fine Touch nos seus sites. Um link de um site relevante vale mais que 100 links aleatórios.',
         comp:'Accent Walls Orlando tem menções em blogs de decoração Florida — isso eleva a autoridade de domínio.' },
     ]},
+    { group:'🕒 Longo Prazo (Estratégia 9-24 meses)', tasks:[
+      { id:'seo-geo-focus', title:'Hiperfoco nas cidades onde o líder é mais fraco (Winter Garden, Dr. Phillips, Lake Nona)', priority:'low',
+        desc:'Em vez de competir de frente com o líder de mercado (Avileve) na região inteira de uma vez, dominar o ranqueamento local nessas cidades primeiro.',
+        comp:'Avileve domina a região toda, mas tem menos força nessas cidades específicas.' },
+      { id:'seo-expansion', title:'Avaliar expansão de área de atendimento para o sul da Flórida', priority:'low',
+        desc:'Se a demanda sustentar o crescimento nas cidades-foco, replicar o mesmo playbook de conteúdo por cidade em novas regiões.',
+        comp:'Nenhum concorrente mapeado cobre a região com a mesma consistência de conteúdo proposta aqui.' },
+    ]},
   ],
   'my-business': [
     { group:'🔴 Alta Prioridade', tasks:[
@@ -772,9 +796,19 @@ const MARKETING_PLAN = {
         desc:'URL do perfil GMB deve apontar para a seção #contact do site, não para a home. Aumenta taxa de conversão de visita GMB → lead.',
         comp:'Accent Walls Orlando linka direto para o formulário — reduz fricção de quem encontra pelo Maps.' },
     ]},
+    { group:'🕒 Longo Prazo (Estratégia 9-24 meses)', tasks:[
+      { id:'gmb-b2b', title:'Desenvolver frente comercial/B2B (accent walls para escritórios, recepções, restaurantes)', priority:'low',
+        desc:'Accent walls como ferramenta de identidade de marca para negócios locais — nicho pouco explorado pelos concorrentes atuais.',
+        comp:'Nenhum concorrente mapeado tem uma frente B2B ativa — oportunidade de diferenciação de longo prazo.' },
+    ]},
   ],
   'blog': [
-    { group:'✅ Publicados — verificado automaticamente em 24/06/2026', tasks:[
+    { group:'🔴 Cadência (Estratégia Curto Prazo)', tasks:[
+      { id:'blog-cadence', title:'Manter cadência mínima de 1 post novo a cada 2 semanas', priority:'high',
+        desc:'Curto prazo (Estratégia 0-3 meses): cadência definida para continuar gerando URLs indexáveis novas de forma sustentável, sem sacrificar qualidade.',
+        comp:'Avileve publica 5+ posts/mês — poucos posts consistentes já colocam a FT à frente da maioria dos concorrentes diretos.' },
+    ]},
+    { group:'✅ Publicados (confirme manualmente cada um antes de marcar como concluído)', tasks:[
       { id:'blog-post1', title:'✅ Blog criado em ftdecordesign.com/blog', priority:'high',
         desc:'Blog ativo em ftdecordesign.com/blog. 8 posts publicados.',
         comp:'Passo 1 concluído — cada post é uma URL indexável pelo Google.' },
@@ -811,12 +845,20 @@ const MARKETING_PLAN = {
         desc:'1 post por mês com projeto real. Fotos de antes e depois, cidade, tipo de serviço, tempo de execução. Conteúdo que as pessoas compartilham e que rankeia no Google Imagens.',
         comp:'Accent Walls Design posta before/afters mensalmente — cada post traz tráfego passivo por anos.' },
     ]},
+    { group:'🕒 Longo Prazo (Estratégia 9-24 meses)', tasks:[
+      { id:'blog-authority-content', title:'Consolidar conteúdo educativo de referência (guias completos, comparativos, calculadora de orçamento)', priority:'low',
+        desc:'O tipo de ativo que atrai backlinks organicamente e consolida a marca como referência de conteúdo do setor na região.',
+        comp:'Nenhum concorrente mapeado tem esse nível de profundidade de conteúdo educativo.' },
+    ]},
   ],
   'reviews': [
     { group:'🔴 Alta Prioridade', tasks:[
       { id:'rev-google-20', title:'Meta: 20 reviews no Google com 5 estrelas', priority:'high',
         desc:'Pedir review para cada cliente no dia da conclusão do projeto via WhatsApp. Script: "Olá [nome], ficamos felizes com o resultado! Poderia nos deixar uma avaliação no Google? Leva menos de 1 minuto 🙏 [link direto]".',
         comp:'Avileve tem 40+ reviews · Accent Walls Orlando tem 25+ reviews · Você precisa de pelo menos 20 para competir no Maps ranking.' },
+      { id:'rev-auto-request', title:'Automatizar pedido de review ao marcar obra como concluída', priority:'high',
+        desc:'Curto prazo (Estratégia 0-3 meses): quando a obra é marcada como concluída na ERP, disparar automaticamente uma mensagem (WhatsApp/Telegram) com o link direto de review — sem depender de lembrar manualmente.',
+        comp:'Reduz a fricção do pedido a zero — é o maior motivo de concorrentes com muitas reviews conseguirem manter o volume.' },
       { id:'rev-link', title:'Criar link direto para review no Google', priority:'high',
         desc:'Gerar link curto do tipo: g.page/r/[seu-ID]/review. Colocar esse link no WhatsApp Business, rodapé do site, email de conclusão de projeto.',
         comp:'Concorrentes com link direto recebem 3x mais reviews que os que pedem sem link.' },
@@ -845,6 +887,31 @@ const MARKETING_PLAN = {
       { id:'rev-thumbtack', title:'Criar perfil no Thumbtack', priority:'low',
         desc:'Plataforma de serviços locais muito usada em Florida. Perfil gratuito + reviews. Complementa Google My Business no rankeamento geral.',
         comp:'Concorrentes com presença no Thumbtack fecham 2-3 projetos extras por mês vindos da plataforma.' },
+      { id:'rev-referral-program', title:'Criar programa de indicação estruturado', priority:'low',
+        desc:'Longo prazo (Estratégia 9-24 meses): oferecer desconto ou bônus para clientes satisfeitos que indicarem novos clientes. A nota 5,0 e o histórico de recompra por cliente (já visível na ERP) são a base natural para isso.',
+        comp:'Nenhum concorrente mapeado tem programa de indicação formal — oportunidade de diferenciação.' },
+    ]},
+  ],
+
+  'instagram': [
+    { group:'🔴 Alta Prioridade', tasks:[
+      { id:'ig-cadence', title:'Definir e manter cadência de 3 a 5 posts por semana', priority:'high',
+        desc:'Curto prazo (Estratégia 0-3 meses): cadência recomendada para pequenas empresas em 2026. Poucos posts consistentes superam postagem diária de baixa qualidade.',
+        comp:'Concorrentes com presença ativa no Instagram publicam com regularidade — cadência é mais importante que volume.' },
+      { id:'ig-crosspost', title:'Distribuir cada post de obra/blog no Instagram e GMB', priority:'high',
+        desc:'Curto prazo: toda vez que uma obra virar conteúdo no pipeline de Portfólio, compartilhar também no Instagram e postar no GMB — amplifica o alcance sem produzir conteúdo extra.',
+        comp:'Concorrentes com distribuição cross-channel dobram o alcance de cada post sem escrever conteúdo novo.' },
+    ]},
+    { group:'🟡 Média Prioridade', tasks:[
+      { id:'ig-reels-priority', title:'Priorizar vídeo curto (Reels) como formato principal', priority:'med',
+        desc:'Médio prazo (Estratégia 3-9 meses): Reels são hoje o principal motor de descoberta no Instagram, não o feed tradicional. Recap de obra, bastidor de instalação, antes/depois em 15-30 segundos.',
+        comp:'Nenhum concorrente mapeado investe em vídeo de forma consistente — oportunidade de descoberta orgânica.' },
+      { id:'ig-microinfluencers', title:'Testar parceria com 1-2 microinfluenciadores locais', priority:'med',
+        desc:'Médio prazo: microinfluenciadores locais (5 mil–50 mil seguidores) para ampliar alcance a custo controlado.',
+        comp:'Oportunidade pouco explorada pela concorrência direta em Orlando.' },
+      { id:'ig-before-after-monthly', title:'Post mensal de before & after de projeto concluído', priority:'med',
+        desc:'1 post por mês com projeto real: fotos de antes e depois, cidade, tipo de serviço, tempo de execução. Conteúdo que as pessoas compartilham.',
+        comp:'Accent Walls Design posta before/afters mensalmente — cada post traz tráfego passivo por anos.' },
     ]},
   ],
 };
