@@ -356,8 +356,16 @@ async function handleProjectPhoto(chatId, telegramUrl) {
 async function showProjectPickerForPhotos(chatId, session) {
   // obras que ainda podem receber fotos: qualquer uma que não esteja publicada nem ignorada
   const rows = await sbGet('catalog_portfolio',
-    `select=id,status,projects(id,name,status,city,clients(name))&status=not.in.(published,ignored)&order=created_at`, true);
-  const usable = rows.filter(r => r.projects);
+    `select=id,status,created_at,projects(id,name,status,city,clients(name))&status=not.in.(published,ignored)`, true);
+  // obras finalizadas (prontas pra virar conteúdo) aparecem antes das que ainda estão em andamento;
+  // dentro de cada grupo, as mais recentes primeiro. Nada aqui expira por data — só some quando
+  // publicada ou ignorada, mesmo que a obra tenha terminado há meses.
+  const usable = rows.filter(r => r.projects).sort((a, b) => {
+    const aOpen = a.status === 'awaiting_completion' ? 1 : 0;
+    const bOpen = b.status === 'awaiting_completion' ? 1 : 0;
+    if (aOpen !== bOpen) return aOpen - bOpen;
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
   const byLetter = {};
