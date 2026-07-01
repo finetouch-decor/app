@@ -1459,7 +1459,20 @@ async function loadBlogDrafts() {
     if (!d) return '';
     const published = !!doneMap[id];
     const copyBlockId = 'draft-copy-'+id;
-    const fullText = `${d.h1}\n\nTítulo (SEO): ${d.metaTitle}\nMeta description: ${d.metaDescription}\nURL sugerida: /blog/${d.slug}\n\n${d.body}`;
+    const imgUrlId = 'draft-imgurl-'+id;
+    const img = d.featuredImage || null;
+    const imgLine = img ? `Imagem destacada: ${img.url}\nTexto alternativo (alt): ${img.alt}\n\n` : '';
+    const fullText = `${d.h1}\n\nTítulo (SEO): ${d.metaTitle}\nMeta description: ${d.metaDescription}\nURL sugerida: /blog/${d.slug}\n\n${imgLine}${d.body}`;
+    const imgBlock = img ? `<div style="display:flex;gap:10px;align-items:flex-start;background:var(--cream2);border-radius:8px;padding:10px">
+        <img src="${img.url}" alt="${img.alt}" style="width:90px;height:90px;object-fit:cover;border-radius:6px;flex-shrink:0" onerror="this.style.display='none'">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;color:var(--muted)"><strong>Imagem destacada</strong> ${img.source==='real_project' ? '📸 foto real de obra da FT' : ''}</div>
+          <input id="${imgUrlId}" readonly value="${img.url}" style="width:100%;font-size:11px;margin:3px 0;background:transparent;border:1px solid var(--border);border-radius:4px;padding:4px" onclick="this.select()">
+          <div style="font-size:11px;color:var(--muted)"><strong>Alt text (SEO):</strong> ${img.alt}</div>
+          ${img.note ? `<div style="font-size:11px;color:#a15c00;margin-top:4px">⚠️ ${img.note}</div>` : ''}
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="copyField('${imgUrlId}')">📋 URL</button>
+      </div>` : `<div style="font-size:11px;color:#a15c00">⚠️ Ainda sem imagem destacada vinculada.</div>`;
     return `<div class="check-item" style="cursor:default;flex-direction:column;align-items:stretch;gap:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
         <div>
@@ -1468,6 +1481,7 @@ async function loadBlogDrafts() {
         </div>
         <button class="btn btn-primary btn-sm" onclick="copyField('${copyBlockId}')">📋 Copiar tudo</button>
       </div>
+      ${imgBlock}
       <div style="font-size:12px;color:var(--muted)"><strong>Meta description:</strong> ${d.metaDescription}</div>
       <textarea id="${copyBlockId}" readonly style="width:100%;min-height:70px;font-size:11px;color:var(--muted);background:var(--cream2);border-radius:6px;padding:8px" onclick="this.select()">${fullText}</textarea>
     </div>`;
