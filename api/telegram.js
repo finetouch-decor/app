@@ -123,7 +123,8 @@ async function classifyPhoto(imageUrl) {
 async function uploadPhotoToStorage(telegramUrl, chatId) {
   const imgRes    = await fetch(telegramUrl);
   const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-  const path = `${chatId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const filename  = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const path      = `${chatId}/${filename}`;
 
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${path}`, {
     method: 'POST',
@@ -138,7 +139,71 @@ async function uploadPhotoToStorage(telegramUrl, chatId) {
     const errText = await res.text();
     throw new Error(`Storage upload failed: ${errText.slice(0, 200)}`);
   }
+
+  // Espelha no Google Drive em segundo plano — só funciona depois que o Drive for autorizado
+  // (reaproveita o mesmo refresh token do GMB). Nunca quebra o fluxo principal se falhar.
+  mirrorToGDrive(imgBuffer, filename).catch(() => {});
+
   return `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${path}`;
+}
+
+// ─── GOOGLE DRIVE — espelha fotos de obra numa pasta dedicada ─
+async function getGDriveAccessToken() {
+  const rows = await sbGet('marketing_data', 'key=eq.gdrive_refresh_token&select=value');
+  const refreshToken = rows[0]?.value?.token;
+  if (!refreshToken) return null; // Drive ainda não foi autorizado
+
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  });
+  const data = await tokenRes.json();
+  return data.access_token || null;
+}
+
+async function getOrCreateGDriveFolder(accessToken) {
+  const rows = await sbGet('marketing_data', 'key=eq.gdrive_folder_id&select=value');
+  if (rows[0]?.value?.id) return rows[0].value.id;
+
+  const res = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Fotos de Obras — Fine Touch', mimeType: 'application/vnd.google-apps.folder' }),
+  });
+  const folder = await res.json();
+  if (!folder.id) throw new Error('Falha ao criar pasta no Drive: ' + JSON.stringify(folder));
+
+  await fetch(`${SUPABASE_URL}/rest/v1/marketing_data`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
+    body: JSON.stringify({ key: 'gdrive_folder_id', value: { id: folder.id }, updated_at: new Date().toISOString() }),
+  });
+  return folder.id;
+}
+
+async function mirrorToGDrive(imgBuffer, filename) {
+  const accessToken = await getGDriveAccessToken();
+  if (!accessToken) return; // sem autorização ainda — no-op silencioso
+
+  const folderId = await getOrCreateGDriveFolder(accessToken);
+
+  const boundary = 'ftboundary' + Date.now();
+  const metadata = JSON.stringify({ name: filename, parents: [folderId] });
+  const head = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: image/jpeg\r\n\r\n`;
+  const tail = `\r\n--${boundary}--`;
+  const multipartBody = Buffer.concat([Buffer.from(head, 'utf-8'), imgBuffer, Buffer.from(tail, 'utf-8')]);
+
+  await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body: multipartBody,
+  });
 }
 
 // ─── OPENAI WHISPER — transcreve áudio ───────────────────────
