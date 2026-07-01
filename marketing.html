@@ -534,6 +534,13 @@
             </div>
           </div>
         </div>
+        <div id="blog-drafts-wrap" style="padding:0 20px 10px">
+          <div class="leads-header" style="margin-bottom:6px">
+            <span class="leads-title">✍️ Textos prontos para copiar e colar</span>
+            <span style="font-size:11px;color:var(--muted)">Escritos e otimizados para SEO — cole no Lovable até termos a automação via n8n.</span>
+          </div>
+          <div id="blog-drafts-list"></div>
+        </div>
         <div id="checklist-blog"></div>
         <div id="blog-sync-info" style="padding:8px 20px;font-size:11px;color:var(--muted);text-align:right;"></div>
       </div>
@@ -719,6 +726,7 @@ function switchTab(tab) {
   document.getElementById('btn-topbar-ads').style.display = tab === 'resumo' ? '' : 'none';
   if (tab === 'google-ads') loadAndRenderGoogleAds(currentPeriod);
   if (['site-seo','my-business','blog','instagram','reviews'].includes(tab)) renderChecklist(tab);
+  if (tab === 'blog') loadBlogDrafts();
   if (tab === 'reviews') loadReviewsManualPanel();
   if (tab === 'competitors') renderCompetitorsTab();
   if (tab === 'portfolio') loadPortfolioTab();
@@ -1430,6 +1438,42 @@ function copyField(id) {
   const el = document.getElementById(id);
   if (!el) return;
   navigator.clipboard.writeText(el.value).then(() => showToast('Copiado! ✅', 'success'));
+}
+
+const BLOG_DRAFT_ORDER = ['blog-post2','blog-post3','blog-post4','blog-post5','blog-post6','blog-post7','blog-post8'];
+
+async function loadBlogDrafts() {
+  const wrap = document.getElementById('blog-drafts-list');
+  if (!wrap) return;
+  wrap.innerHTML = '<div style="padding:10px 0;color:var(--muted);font-size:12px">Carregando...</div>';
+  const [{ data: draftRow }, { data: taskRows }] = await Promise.all([
+    db.from('marketing_data').select('value').eq('key','blog_drafts').maybeSingle(),
+    db.from('marketing_tasks').select('id,done').like('id','blog-post%'),
+  ]);
+  const drafts = draftRow?.value || {};
+  const doneMap = {};
+  (taskRows||[]).forEach(t => doneMap[t.id] = t.done);
+
+  const cards = BLOG_DRAFT_ORDER.map(id => {
+    const d = drafts[id];
+    if (!d) return '';
+    const published = !!doneMap[id];
+    const copyBlockId = 'draft-copy-'+id;
+    const fullText = `${d.h1}\n\nTítulo (SEO): ${d.metaTitle}\nMeta description: ${d.metaDescription}\nURL sugerida: /blog/${d.slug}\n\n${d.body}`;
+    return `<div class="check-item" style="cursor:default;flex-direction:column;align-items:stretch;gap:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <div>
+          <div class="check-title">${d.h1}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">/blog/${d.slug} ${published ? '· <span style="color:#2e6b3e">✅ já marcado como publicado</span>' : '· ⏳ ainda não publicado'}</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="copyField('${copyBlockId}')">📋 Copiar tudo</button>
+      </div>
+      <div style="font-size:12px;color:var(--muted)"><strong>Meta description:</strong> ${d.metaDescription}</div>
+      <textarea id="${copyBlockId}" readonly style="width:100%;min-height:70px;font-size:11px;color:var(--muted);background:var(--cream2);border-radius:6px;padding:8px" onclick="this.select()">${fullText}</textarea>
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = cards || '<div style="padding:10px 0;color:var(--muted);font-size:12px">Nenhum texto pronto ainda.</div>';
 }
 
 async function init() {
