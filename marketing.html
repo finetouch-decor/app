@@ -501,11 +501,14 @@
       <!-- ══ TAB PORTFÓLIO ══ -->
       <div id="tab-portfolio" style="display:none">
         <div class="kpi-row">
-          <div class="kpi-card"><div class="kpi-label">Obras Finalizadas</div><div class="kpi-value" id="pf-kpi-total">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Aguardando Finalização</div><div class="kpi-value" id="pf-kpi-total">—</div></div>
           <div class="kpi-card highlight"><div class="kpi-label">Prontas p/ Conteúdo</div><div class="kpi-value" id="pf-kpi-ready">—</div></div>
           <div class="kpi-card"><div class="kpi-label">Rascunhos</div><div class="kpi-value" id="pf-kpi-draft">—</div></div>
           <div class="kpi-card"><div class="kpi-label">Publicadas</div><div class="kpi-value" id="pf-kpi-published">—</div></div>
         </div>
+
+        <div class="leads-header"><span class="leads-title">🕐 Obras em aberto (aguardando finalização)</span></div>
+        <div id="portfolio-awaiting-list" style="margin-bottom:24px"></div>
 
         <div class="leads-header"><span class="leads-title">🏗️ Obras finalizadas sem conteúdo criado</span></div>
         <div id="portfolio-ready-list"></div>
@@ -651,7 +654,7 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-danger" id="btn-pf-delete" onclick="deletePortfolioDraft()" style="display:none;margin-right:auto">Excluir</button>
+      <button class="btn btn-danger" id="btn-pf-delete" onclick="ignoreFromModal()" style="margin-right:auto">🚫 Ignorar obra</button>
       <button class="btn btn-outline" onclick="closePortfolioModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="savePortfolioDraft()">Salvar</button>
     </div>
@@ -1010,10 +1013,6 @@ function renderCompetitorsTab() {
 }
 
 // ── PORTFÓLIO / PIPELINE DE CONTEÚDO ──────────────────────────
-let portfolioProjects = [];
-let portfolioDrafts = [];
-let pfEditId = null;
-
 function escapeHtml(s) {
   if (s === null || s === undefined) return '';
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1101,65 +1100,73 @@ Want a wall design like this for your home or business in ${place}? Contact Fine
   return { title, slug, meta, body, ig, gmb, keywords };
 }
 
-async function loadPortfolioTab() {
-  const [{ data: allProjects }, { data: drafts }] = await Promise.all([
-    // busca TODOS os projetos (não só completed) para poder contar quantas obras já foram feitas por cliente
-    db.from('projects').select('id,status,project_type,city,state,end_date,description,client_id,quote_id').order('end_date', { ascending: false }),
-    db.from('catalog_portfolio').select('*').order('created_at', { ascending: false }),
-  ]);
-  const all = allProjects || [];
-  const completed = all.filter(p => p.status === 'completed');
+let portfolioRows = [];
+let pfEditId = null;
 
-  // busca a descrição do serviço (item do orçamento) de cada projeto completed, sem trazer nome de cliente
-  const quoteIds = completed.map(p => p.quote_id).filter(Boolean);
+async function loadPortfolioTab() {
+  const { data: rows } = await db.from('catalog_portfolio')
+    .select('*, projects(id,status,project_type,city,state,end_date,description,client_id,quote_id)')
+    .order('created_at', { ascending: true });
+  const list = rows || [];
+
+  const quoteIds = list.map(r => r.projects?.quote_id).filter(Boolean);
   let itemsByQuote = {};
   if (quoteIds.length > 0) {
     const { data: items } = await db.from('quote_items').select('quote_id,description').in('quote_id', quoteIds);
-    (items || []).forEach(it => {
-      if (!itemsByQuote[it.quote_id]) itemsByQuote[it.quote_id] = it.description;
-    });
+    (items || []).forEach(it => { if (!itemsByQuote[it.quote_id]) itemsByQuote[it.quote_id] = it.description; });
   }
 
-  // conta quantas obras (qualquer status) esse mesmo client_id já teve, pra dar contexto sem nunca expor o nome
+  const { data: allProjects } = await db.from('projects').select('id,client_id');
   const countByClient = {};
-  all.forEach(p => {
-    if (!p.client_id) return;
-    countByClient[p.client_id] = (countByClient[p.client_id] || 0) + 1;
-  });
+  (allProjects || []).forEach(p => { if (p.client_id) countByClient[p.client_id] = (countByClient[p.client_id] || 0) + 1; });
 
-  portfolioProjects = completed.map(p => ({
-    ...p,
-    serviceLabel: itemsByQuote[p.quote_id] || null,
-    siblingCompletedCount: p.client_id ? Math.max(0, (countByClient[p.client_id] || 1) - 1) : 0,
+  portfolioRows = list.filter(r => r.projects).map(r => ({
+    ...r,
+    project: r.projects,
+    serviceLabel: itemsByQuote[r.projects.quote_id] || null,
+    siblingCompletedCount: r.projects.client_id ? Math.max(0, (countByClient[r.projects.client_id] || 1) - 1) : 0,
   }));
-  portfolioDrafts = drafts || [];
   renderPortfolioTab();
 }
 
-function renderPortfolioTab() {
-  const postedIds = new Set(portfolioDrafts.map(d => d.project_id).filter(Boolean));
-  const ready = portfolioProjects.filter(p => !postedIds.has(p.id));
-  const drafts = portfolioDrafts.filter(d => d.status !== 'published' && d.status !== 'ignored');
-  const published = portfolioDrafts.filter(d => d.status === 'published');
-  const ignored = portfolioDrafts.filter(d => d.status === 'ignored');
+const projectStatusLabel = { planning: 'Em planejamento', active: 'Em andamento', paused: 'Pausada', completed: 'Concluída', cancelled: 'Cancelada' };
 
-  document.getElementById('pf-kpi-total').textContent = portfolioProjects.length;
+function renderPortfolioTab() {
+  const awaiting  = portfolioRows.filter(r => r.status === 'awaiting_completion');
+  const ready     = portfolioRows.filter(r => r.status === 'pending_content');
+  const drafts    = portfolioRows.filter(r => r.status === 'draft' || r.status === 'ready_to_publish');
+  const published = portfolioRows.filter(r => r.status === 'published');
+  const ignored   = portfolioRows.filter(r => r.status === 'ignored');
+
+  document.getElementById('pf-kpi-total').textContent = awaiting.length;
   document.getElementById('pf-kpi-ready').textContent = ready.length;
   document.getElementById('pf-kpi-draft').textContent = drafts.length;
   document.getElementById('pf-kpi-published').textContent = published.length;
+
+  const awaitEl = document.getElementById('portfolio-awaiting-list');
+  awaitEl.innerHTML = awaiting.length === 0
+    ? `<div class="comp-table-wrap"><div style="padding:20px;color:var(--muted);font-size:13px">Nenhuma obra em aberto no momento.</div></div>`
+    : `<div class="comp-table-wrap"><table><thead><tr><th>Serviço</th><th>Status da obra</th><th>Cidade</th><th></th></tr></thead><tbody>
+        ${awaiting.map(r => `<tr>
+          <td style="font-weight:700;color:var(--navy)">${escapeHtml(r.serviceLabel || 'Serviço não identificado')}</td>
+          <td><span class="badge b-paused">${escapeHtml(projectStatusLabel[r.project.status] || r.project.status)}</span></td>
+          <td>${escapeHtml([r.project.city, r.project.state].filter(Boolean).join(', ') || '—')}</td>
+          <td style="text-align:right;color:var(--muted);font-size:11px">Aparece em "Prontas" quando finalizada</td>
+        </tr>`).join('')}
+      </tbody></table></div>`;
 
   const readyEl = document.getElementById('portfolio-ready-list');
   readyEl.innerHTML = ready.length === 0
     ? `<div class="comp-table-wrap"><div style="padding:20px;color:var(--muted);font-size:13px">Nenhuma obra pendente — tudo já tem rascunho de conteúdo ou foi ignorado. 🎉</div></div>`
     : `<div class="comp-table-wrap"><table><thead><tr><th>Serviço</th><th>Tipo</th><th>Cidade</th><th>Concluída em</th><th></th></tr></thead><tbody>
-        ${ready.map(p => `<tr>
-          <td style="font-weight:700;color:var(--navy)">${escapeHtml(p.serviceLabel || 'Serviço não identificado')}${p.siblingCompletedCount > 0 ? ` <span class="badge b-paused" style="margin-left:4px" title="Outras obras já feitas para o mesmo endereço/cliente">🔁 +${p.siblingCompletedCount}</span>` : ''}</td>
-          <td>${escapeHtml(p.project_type || '—')}</td>
-          <td>${escapeHtml([p.city, p.state].filter(Boolean).join(', ') || '—')}</td>
-          <td>${fmtDate(p.end_date)}</td>
+        ${ready.map(r => `<tr>
+          <td style="font-weight:700;color:var(--navy)">${escapeHtml(r.serviceLabel || 'Serviço não identificado')}${r.siblingCompletedCount > 0 ? ` <span class="badge b-paused" style="margin-left:4px" title="Outras obras já feitas para o mesmo endereço/cliente">🔁 +${r.siblingCompletedCount}</span>` : ''}</td>
+          <td>${escapeHtml(r.project.project_type || '—')}</td>
+          <td>${escapeHtml([r.project.city, r.project.state].filter(Boolean).join(', ') || '—')}</td>
+          <td>${fmtDate(r.project.end_date)}</td>
           <td style="text-align:right;white-space:nowrap">
-            <button class="btn btn-primary btn-sm" onclick="openPortfolioModal(null,'${p.id}')">✨ Gerar rascunho</button>
-            <button class="btn btn-outline btn-sm" onclick="ignoreProject('${p.id}')" title="Não vou publicar nada sobre essa obra">🚫 Ignorar</button>
+            <button class="btn btn-primary btn-sm" onclick="openPortfolioModal('${r.id}')">✨ Gerar rascunho</button>
+            <button class="btn btn-outline btn-sm" onclick="ignoreProject('${r.id}')" title="Não vou publicar nada sobre essa obra">🚫 Ignorar</button>
           </td>
         </tr>`).join('')}
       </tbody></table></div>`;
@@ -1200,7 +1207,7 @@ function renderPortfolioTab() {
         <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:600">${ignored.length} obra(s) ignorada(s) — clique para ver</summary>
         <div class="comp-table-wrap" style="margin-top:8px"><table><thead><tr><th>Obra</th><th></th></tr></thead><tbody>
           ${ignored.map(d => `<tr>
-            <td style="color:var(--muted)">${escapeHtml(d.title || 'Obra ignorada')}</td>
+            <td style="color:var(--muted)">${escapeHtml(d.serviceLabel || d.title || 'Obra ignorada')}</td>
             <td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="restoreIgnored('${d.id}')">↩️ Restaurar</button></td>
           </tr>`).join('')}
         </tbody></table></div>
@@ -1208,50 +1215,52 @@ function renderPortfolioTab() {
   }
 }
 
-async function ignoreProject(projectId) {
-  const p = portfolioProjects.find(x => x.id === projectId);
-  await db.from('catalog_portfolio').insert({
-    project_id: projectId,
-    title: p ? (p.serviceLabel || 'Obra ignorada') : 'Obra ignorada',
-    status: 'ignored',
-  });
+async function ignoreProject(rowId) {
+  await db.from('catalog_portfolio').update({ status: 'ignored', updated_at: new Date().toISOString() }).eq('id', rowId);
   showToast('Obra ignorada — não vai gerar conteúdo', 'success');
   await loadPortfolioTab();
 }
 
-async function restoreIgnored(draftId) {
-  await db.from('catalog_portfolio').delete().eq('id', draftId);
+async function ignoreFromModal() {
+  if (!pfEditId) return;
+  if (!confirm('Ignorar esta obra? Ela sai das listas de conteúdo (dá pra restaurar depois).')) return;
+  await ignoreProject(pfEditId);
+  closePortfolioModal();
+}
+
+async function restoreIgnored(rowId) {
+  const row = portfolioRows.find(r => r.id === rowId);
+  const back = (row && row.project && row.project.status === 'completed') ? 'pending_content' : 'awaiting_completion';
+  await db.from('catalog_portfolio').update({ status: back, updated_at: new Date().toISOString() }).eq('id', rowId);
   showToast('Restaurado para a lista de pendentes', 'success');
   await loadPortfolioTab();
 }
 
-function openPortfolioModal(draftId, projectId) {
-  pfEditId = draftId || null;
-  let d;
-  if (draftId) {
-    d = portfolioDrafts.find(x => x.id === draftId) || {};
-  } else {
-    const p = portfolioProjects.find(x => x.id === projectId) || {};
-    const t = templateForProject(p);
-    d = { project_id: projectId, title: t.title, blog_slug: t.slug, blog_meta_description: t.meta, blog_body: t.body, ig_caption: t.ig, gmb_post_text: t.gmb, seo_keywords: t.keywords, tags: [], image_urls: [], status: 'draft', published_blog: false, published_ig: false, published_gmb: false, published_site: false };
+function openPortfolioModal(rowId) {
+  pfEditId = rowId;
+  const d = portfolioRows.find(x => x.id === rowId);
+  if (!d) return;
+  let vals = d;
+  if (!d.blog_body) {
+    const t = templateForProject({ ...d.project, serviceLabel: d.serviceLabel, siblingCompletedCount: d.siblingCompletedCount });
+    vals = { ...d, title: t.title, blog_slug: t.slug, blog_meta_description: t.meta, blog_body: t.body, ig_caption: t.ig, gmb_post_text: t.gmb, seo_keywords: t.keywords };
   }
   document.getElementById('pf-project-id').value = d.project_id || '';
-  document.getElementById('pf-title').value = d.title || '';
-  document.getElementById('pf-slug').value = d.blog_slug || '';
-  document.getElementById('pf-meta').value = d.blog_meta_description || '';
-  document.getElementById('pf-body').value = d.blog_body || '';
-  document.getElementById('pf-ig').value = d.ig_caption || '';
-  document.getElementById('pf-gmb').value = d.gmb_post_text || '';
-  document.getElementById('pf-keywords').value = (d.seo_keywords || []).join(', ');
+  document.getElementById('pf-title').value = vals.title || '';
+  document.getElementById('pf-slug').value = vals.blog_slug || '';
+  document.getElementById('pf-meta').value = vals.blog_meta_description || '';
+  document.getElementById('pf-body').value = vals.blog_body || '';
+  document.getElementById('pf-ig').value = vals.ig_caption || '';
+  document.getElementById('pf-gmb').value = vals.gmb_post_text || '';
+  document.getElementById('pf-keywords').value = (vals.seo_keywords || []).join(', ');
   document.getElementById('pf-images').value = (d.image_urls || []).join(', ');
   document.getElementById('pf-tags').value = (d.tags || []).join(', ');
-  document.getElementById('pf-status').value = d.status || 'draft';
+  document.getElementById('pf-status').value = ['draft', 'ready_to_publish', 'published'].includes(d.status) ? d.status : 'draft';
   document.getElementById('pf-pub-blog').checked = !!d.published_blog;
   document.getElementById('pf-pub-ig').checked = !!d.published_ig;
   document.getElementById('pf-pub-gmb').checked = !!d.published_gmb;
   document.getElementById('pf-pub-site').checked = !!d.published_site;
-  document.getElementById('btn-pf-delete').style.display = draftId ? '' : 'none';
-  document.getElementById('modal-portfolio-title').textContent = draftId ? 'Editar conteúdo' : 'Novo rascunho de conteúdo';
+  document.getElementById('modal-portfolio-title').textContent = d.blog_body ? 'Editar conteúdo' : 'Novo rascunho de conteúdo';
   document.getElementById('overlay-portfolio').classList.add('open');
 }
 
@@ -1259,7 +1268,6 @@ function closePortfolioModal() { document.getElementById('overlay-portfolio').cl
 function closeIfOutsidePortfolio(e) { if (e.target.id === 'overlay-portfolio') closePortfolioModal(); }
 
 async function savePortfolioDraft() {
-  const projectId = document.getElementById('pf-project-id').value || null;
   const statusSel = document.getElementById('pf-status').value;
   const pubBlog = document.getElementById('pf-pub-blog').checked;
   const pubIg = document.getElementById('pf-pub-ig').checked;
@@ -1267,7 +1275,6 @@ async function savePortfolioDraft() {
   const pubSite = document.getElementById('pf-pub-site').checked;
   const allPublished = pubBlog && pubIg && pubGmb && pubSite;
   const payload = {
-    project_id: projectId,
     title: document.getElementById('pf-title').value.trim(),
     blog_slug: document.getElementById('pf-slug').value.trim(),
     blog_meta_description: document.getElementById('pf-meta').value.trim(),
@@ -1282,22 +1289,9 @@ async function savePortfolioDraft() {
     published_at: allPublished ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
   };
-  if (pfEditId) {
-    await db.from('catalog_portfolio').update(payload).eq('id', pfEditId);
-  } else {
-    await db.from('catalog_portfolio').insert(payload);
-  }
+  await db.from('catalog_portfolio').update(payload).eq('id', pfEditId);
   closePortfolioModal();
   showToast('Conteúdo salvo!', 'success');
-  await loadPortfolioTab();
-}
-
-async function deletePortfolioDraft() {
-  if (!pfEditId) return;
-  if (!confirm('Excluir este rascunho de conteúdo?')) return;
-  await db.from('catalog_portfolio').delete().eq('id', pfEditId);
-  closePortfolioModal();
-  showToast('Rascunho excluído', 'success');
   await loadPortfolioTab();
 }
 
