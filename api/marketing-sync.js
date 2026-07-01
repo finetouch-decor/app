@@ -109,11 +109,15 @@ module.exports = async function handler(req, res) {
         let accountId = process.env.GMB_ACCOUNT_ID;
         let locationId = process.env.GMB_LOCATION_ID;
 
+        let acctRawError = null;
         if (!accountId) {
           const acctRes = await fetch('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', {
             headers: { Authorization: `Bearer ${access_token}` },
           });
           const acctData = await acctRes.json();
+          if (acctRes.status !== 200) {
+            acctRawError = { status: acctRes.status, body: acctData };
+          }
           accountId = acctData.accounts?.[0]?.name?.split('/')[1];
         }
 
@@ -127,7 +131,7 @@ module.exports = async function handler(req, res) {
         }
 
         if (!accountId || !locationId) {
-          gmbResult = { error: 'account_or_location_not_found', accountId, locationId, checkedAt: now };
+          gmbResult = { error: 'account_or_location_not_found', accountId, locationId, googleApiError: acctRawError, checkedAt: now };
         } else {
           // Nota: a Reviews API do Google Business Profile (mybusinessreviews.googleapis.com)
           // historicamente exige aprovação/allowlist da própria Google para acesso de terceiros.
