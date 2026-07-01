@@ -920,14 +920,34 @@ async function renderChecklist(tabKey) {
   }
 }
 
-function renderCompetitorsTab() {
+async function renderCompetitorsTab() {
+  // Linha "Fine Touch" é lida ao vivo do Supabase (marketing_data + marketing_tasks).
+  // As linhas dos concorrentes continuam sendo um snapshot manual — não existe hoje
+  // uma automação que monitore os sites deles; revisar esses números periodicamente.
+  const [{ data: mktRows }, { data: taskRows }] = await Promise.all([
+    db.from('marketing_data').select('key,value').in('key', ['schema_status','gmb_reviews','gmb_refresh_token']),
+    db.from('marketing_tasks').select('id,done').like('id', 'blog-post%'),
+  ]);
+  const mkt = {};
+  (mktRows||[]).forEach(r => mkt[r.key] = r.value);
+
+  const schemaOk = !!mkt.schema_status?.installed;
+  const gmbConnected = !!mkt.gmb_refresh_token;
+  const reviewCount = typeof mkt.gmb_reviews?.totalCount === 'number' ? mkt.gmb_reviews.totalCount : null;
+  const blogDoneCount = (taskRows||[]).filter(t => t.done).length;
+  const blogHasAny = blogDoneCount > 0;
+
   const comps = [
     { name:'Avileve', url:'accentwallsceiling.com', area:'Florida toda', ads:true,  seo:95, reviews:42, rating:4.9, cities:8,  blog:true,  schema:true,  gmb:true,  note:'Líder do mercado — presença em todo o estado' },
     { name:'Accent Walls Orlando', url:'accentwallsorlando.com', area:'Orlando / Central FL', ads:false, seo:72, reviews:26, rating:4.8, cities:3, blog:true, schema:true, gmb:true, note:'Maior concorrente direto em Orlando' },
     { name:'Florida Media Walls', url:'tvmediawall.com', area:'Florida toda', ads:true,  seo:68, reviews:18, rating:4.7, cities:5,  blog:false, schema:false, gmb:true,  note:'Focado em TV Media Walls — nicho específico' },
     { name:'Accent Walls Design', url:'accentwallsdesign.com', area:'Orlando / FL', ads:false, seo:55, reviews:12, rating:4.6, cities:2, blog:true,  schema:false, gmb:true,  note:'Blog ativo, fraco em paid media' },
     { name:'Accent Bros', url:'accentbros.com', area:'Central FL', ads:false, seo:32, reviews:4, rating:4.5, cities:1, blog:false, schema:false, gmb:false, note:'Novo no mercado (2026) — ainda fraco digitalmente' },
-    { name:'⭐ Fine Touch (você)', url:'ftdecordesign.com', area:'Orlando / South FL', ads:true, seo:28, reviews:0, rating:5.0, cities:0, blog:false, schema:false, gmb:true, isUs:true, note:'Google Ads ativo · Site bonito · SEO a construir' },
+    { name:'⭐ Fine Touch (você)', url:'ftdecordesign.com', area:'Orlando / South FL', ads:true, seo:28,
+      reviews: reviewCount, reviewsLabel: reviewCount === null ? 'Verificando…' : String(reviewCount),
+      rating:5.0, cities:0, blog:blogHasAny, blogLabel: blogHasAny ? `Sim (${blogDoneCount}/9)` : 'Não',
+      schema:schemaOk, gmb:gmbConnected, isUs:true,
+      note:'Google Ads ativo · Site bonito · Dados desta linha atualizados automaticamente pela ERP' },
   ];
 
   const yes = '<span style="color:var(--green);font-weight:700">✓ Sim</span>';
@@ -955,11 +975,11 @@ function renderCompetitorsTab() {
                 <div style="width:${c.seo}%;height:100%;background:${c.seo>70?'var(--green)':c.seo>40?'var(--blue)':'var(--red)'};border-radius:4px"></div>
               </div>
             </td>
-            <td style="font-weight:700;color:${c.reviews>20?'var(--green)':'var(--muted)'}">${c.reviews}</td>
+            <td style="font-weight:700;color:${(c.reviews||0)>20?'var(--green)':'var(--muted)'}">${c.reviewsLabel !== undefined ? c.reviewsLabel : c.reviews}</td>
             <td style="font-weight:700">★${c.rating}</td>
             <td style="font-weight:700;color:${c.cities>2?'var(--green)':c.cities>0?'var(--navy)':'var(--red)'}">${c.cities}</td>
             <td>${c.ads?yes:no}</td>
-            <td>${c.blog?yes:no}</td>
+            <td>${c.blogLabel !== undefined ? (c.blog ? '<span style="color:var(--green);font-weight:700">✓ '+c.blogLabel+'</span>' : '<span style="color:var(--red);font-weight:700">✗ '+c.blogLabel+'</span>') : (c.blog?yes:no)}</td>
             <td>${c.schema?yes:no}</td>
             <td>${c.gmb?yes:no}</td>
           </tr>`).join('')}
