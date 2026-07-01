@@ -377,7 +377,7 @@ async function handlePhoto(chatId, fileId) {
   }
 
   // Buscar obras em andamento
-  const allProjects = await sbGet('projects', `select=id,name,status,clients(name)&order=name`, true);
+  const allProjects = await sbGet('projects', `select=id,name,status,clients(name)&order=name`); // service role key — ver nota acima sobre RLS
   const filteredProjects = allProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled');
   // client name vem do join clients(name)
   filteredProjects.forEach(p => { p.client_name = p.clients?.name || ''; });
@@ -420,8 +420,11 @@ async function handleProjectPhoto(chatId, telegramUrl) {
 
 async function showProjectPickerForPhotos(chatId, session) {
   // obras que ainda podem receber fotos: qualquer uma que não esteja publicada nem ignorada
+  // usa a service role key (não a anon) — depois da correção de RLS de 01/07/2026,
+  // a chave anon não tem mais acesso a catalog_portfolio (correto, é dado interno).
+  // Este bot roda 100% no servidor, então a service role key é a certa aqui.
   const rows = await sbGet('catalog_portfolio',
-    `select=id,status,created_at,projects(id,name,status,city,clients(name))&status=not.in.(published,ignored)`, true);
+    `select=id,status,created_at,projects(id,name,status,city,clients(name))&status=not.in.(published,ignored)`);
   // obras finalizadas (prontas pra virar conteúdo) aparecem antes das que ainda estão em andamento;
   // dentro de cada grupo, as mais recentes primeiro. Nada aqui expira por data — só some quando
   // publicada ou ignorada, mesmo que a obra tenha terminado há meses.
