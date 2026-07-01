@@ -555,6 +555,16 @@
 
       <!-- ══ TAB REVIEWS ══ -->
       <div id="tab-reviews" style="display:none">
+        <div class="leads-header" style="margin-bottom:10px">
+          <span class="leads-title">⭐ Reviews no Google — atualização manual</span>
+          <span style="font-size:11px;color:var(--muted)">A leitura automática via API do Google ainda está pendente de aprovação — atualize aqui com o que você vê em business.google.com</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;background:var(--cream2);padding:14px 16px;border-radius:10px;margin-bottom:20px">
+          <div class="field" style="margin:0"><label style="font-size:11px">Nº de reviews</label><input type="number" id="rev-manual-count" min="0" step="1" style="width:100px" placeholder="Ex: 11"></div>
+          <div class="field" style="margin:0"><label style="font-size:11px">Nota média</label><input type="number" id="rev-manual-rating" min="0" max="5" step="0.1" style="width:100px" placeholder="Ex: 5.0"></div>
+          <button class="btn btn-primary btn-sm" onclick="saveReviewsManual()">💾 Salvar</button>
+          <span id="rev-manual-status" style="font-size:11px;color:var(--muted)"></span>
+        </div>
         <div class="plan-progress-header">
           <div class="plan-prog-row">
             <div class="plan-prog-pct" id="prog-pct-reviews">0%</div>
@@ -704,6 +714,7 @@ function switchTab(tab) {
   document.getElementById('btn-topbar-ads').style.display = tab === 'resumo' ? '' : 'none';
   if (tab === 'google-ads') loadAndRenderGoogleAds(currentPeriod);
   if (['site-seo','my-business','blog','instagram','reviews'].includes(tab)) renderChecklist(tab);
+  if (tab === 'reviews') loadReviewsManualPanel();
   if (tab === 'competitors') renderCompetitorsTab();
   if (tab === 'portfolio') loadPortfolioTab();
 }
@@ -919,6 +930,25 @@ const MARKETING_PLAN = {
 // progresso vem do Supabase — cache local para não recarregar a cada clique
 let _taskProgress = null;
 
+async function loadReviewsManualPanel() {
+  const { data } = await db.from('marketing_data').select('value').eq('key','gmb_reviews_manual').maybeSingle();
+  const v = data?.value;
+  if (v) {
+    document.getElementById('rev-manual-count').value = v.count ?? '';
+    document.getElementById('rev-manual-rating').value = v.rating ?? '';
+    document.getElementById('rev-manual-status').textContent = v.updatedAt ? `Última atualização: ${new Date(v.updatedAt).toLocaleDateString('pt-BR')}` : '';
+  }
+}
+
+async function saveReviewsManual() {
+  const count = parseInt(document.getElementById('rev-manual-count').value, 10);
+  const rating = parseFloat(document.getElementById('rev-manual-rating').value);
+  if (isNaN(count)) { alert('Preencha o número de reviews.'); return; }
+  const value = { count, rating: isNaN(rating) ? null : rating, updatedAt: new Date().toISOString(), source: 'manual' };
+  await db.from('marketing_data').upsert({ key: 'gmb_reviews_manual', value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  document.getElementById('rev-manual-status').textContent = `Salvo agora — ${new Date().toLocaleString('pt-BR')}`;
+}
+
 async function loadTaskProgress() {
   if (_taskProgress) return _taskProgress;
   const { data } = await db.from('marketing_tasks').select('id,done');
@@ -992,7 +1022,7 @@ async function renderCompetitorsTab() {
   // As linhas dos concorrentes continuam sendo um snapshot manual — não existe hoje
   // uma automação que monitore os sites deles; revisar esses números periodicamente.
   const [{ data: mktRows }, { data: taskRows }] = await Promise.all([
-    db.from('marketing_data').select('key,value').in('key', ['schema_status','gmb_reviews','gmb_refresh_token']),
+    db.from('marketing_data').select('key,value').in('key', ['schema_status','gmb_reviews','gmb_reviews_manual','gmb_refresh_token']),
     db.from('marketing_tasks').select('id,done').like('id', 'blog-post%'),
   ]);
   const mkt = {};
@@ -1000,7 +1030,12 @@ async function renderCompetitorsTab() {
 
   const schemaOk = !!mkt.schema_status?.installed;
   const gmbConnected = !!mkt.gmb_refresh_token;
-  const reviewCount = typeof mkt.gmb_reviews?.totalCount === 'number' ? mkt.gmb_reviews.totalCount : null;
+  // Prefere a contagem automática (API do Google); se ainda não estiver disponível
+  // (pendente de aprovação da Google), usa a última contagem manual salva na aba Reviews.
+  const autoReviewCount = typeof mkt.gmb_reviews?.totalCount === 'number' ? mkt.gmb_reviews.totalCount : null;
+  const manualReviewCount = typeof mkt.gmb_reviews_manual?.count === 'number' ? mkt.gmb_reviews_manual.count : null;
+  const reviewCount = autoReviewCount !== null ? autoReviewCount : manualReviewCount;
+  const reviewIsManual = autoReviewCount === null && manualReviewCount !== null;
   const blogDoneCount = (taskRows||[]).filter(t => t.done).length;
   const blogHasAny = blogDoneCount > 0;
 
@@ -1011,7 +1046,7 @@ async function renderCompetitorsTab() {
     { name:'Accent Walls Design', url:'accentwallsdesign.com', area:'Orlando / FL', ads:false, seo:55, reviews:12, rating:4.6, cities:2, blog:true,  schema:false, gmb:true,  note:'Blog ativo, fraco em paid media' },
     { name:'Accent Bros', url:'accentbros.com', area:'Central FL', ads:false, seo:32, reviews:4, rating:4.5, cities:1, blog:false, schema:false, gmb:false, note:'Novo no mercado (2026) — ainda fraco digitalmente' },
     { name:'⭐ Fine Touch (você)', url:'ftdecordesign.com', area:'Orlando / South FL', ads:true, seo:28,
-      reviews: reviewCount, reviewsLabel: reviewCount === null ? 'Verificando…' : String(reviewCount),
+      reviews: reviewCount, reviewsLabel: reviewCount === null ? 'Verificando…' : (reviewIsManual ? String(reviewCount)+'*' : String(reviewCount)),
       rating:5.0, cities:0, blog:blogHasAny, blogLabel: blogHasAny ? `Sim (${blogDoneCount}/9)` : 'Não',
       schema:schemaOk, gmb:gmbConnected, isUs:true,
       note:'Google Ads ativo · Site bonito · Dados desta linha atualizados automaticamente pela ERP' },
@@ -1053,7 +1088,8 @@ async function renderCompetitorsTab() {
         </tbody>
       </table>
       </div>
-    </div>`;
+      ${reviewIsManual ? '<div style="padding:8px 16px;font-size:11px;color:var(--muted)">* Reviews da Fine Touch: número informado manualmente na aba Reviews — leitura automática via API do Google ainda pendente de aprovação.</div>' : ''}
+      </div>`;
 
   const insights = `
     <div class="ai-section" style="margin-bottom:20px">
