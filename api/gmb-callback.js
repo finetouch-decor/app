@@ -26,8 +26,9 @@ module.exports = async function handler(req, res) {
     return res.status(400).send(`Token exchange failed: ${JSON.stringify(tokens)}`);
   }
 
-  // Save refresh token to Supabase marketing_data
-  await fetch(`${SUPABASE_URL}/rest/v1/marketing_data`, {
+  // Save refresh token to Supabase marketing_data (mesmo token cobre GMB + Google Drive, já que
+  // pedimos os dois escopos juntos na tela de autorização)
+  const saveKey = async (key) => fetch(`${SUPABASE_URL}/rest/v1/marketing_data`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -36,11 +37,12 @@ module.exports = async function handler(req, res) {
       'Prefer': 'resolution=merge-duplicates',
     },
     body: JSON.stringify({
-      key: 'gmb_refresh_token',
+      key,
       value: { token: tokens.refresh_token },
       updated_at: new Date().toISOString(),
     }),
   });
+  await Promise.all([saveKey('gmb_refresh_token'), saveKey('gdrive_refresh_token')]);
 
   return res.status(200).send(`
     <html><body style="font-family:sans-serif;padding:40px">
