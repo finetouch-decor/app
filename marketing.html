@@ -323,6 +323,7 @@
       <button class="tab-btn" id="tab-btn-google-ads" onclick="switchTab('google-ads')">🔍 Google Ads <span class="tab-badge">LIVE</span></button>
       <button class="tab-btn" id="tab-btn-site-seo" onclick="switchTab('site-seo')">🌐 Site &amp; SEO</button>
       <button class="tab-btn" id="tab-btn-my-business" onclick="switchTab('my-business')">📍 My Business</button>
+      <button class="tab-btn" id="tab-btn-portfolio" onclick="switchTab('portfolio')">🏗️ Portfólio</button>
       <button class="tab-btn" id="tab-btn-blog" onclick="switchTab('blog')">✍️ Blog</button>
       <button class="tab-btn" id="tab-btn-reviews" onclick="switchTab('reviews')">⭐ Reviews</button>
       <button class="tab-btn" id="tab-btn-competitors" onclick="switchTab('competitors')">🏆 Concorrentes</button>
@@ -497,6 +498,25 @@
         <div id="checklist-my-business"></div>
       </div>
 
+      <!-- ══ TAB PORTFÓLIO ══ -->
+      <div id="tab-portfolio" style="display:none">
+        <div class="kpi-row">
+          <div class="kpi-card"><div class="kpi-label">Obras Finalizadas</div><div class="kpi-value" id="pf-kpi-total">—</div></div>
+          <div class="kpi-card highlight"><div class="kpi-label">Prontas p/ Conteúdo</div><div class="kpi-value" id="pf-kpi-ready">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Rascunhos</div><div class="kpi-value" id="pf-kpi-draft">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Publicadas</div><div class="kpi-value" id="pf-kpi-published">—</div></div>
+        </div>
+
+        <div class="leads-header"><span class="leads-title">🏗️ Obras finalizadas sem conteúdo criado</span></div>
+        <div id="portfolio-ready-list" style="margin-bottom:24px"></div>
+
+        <div class="leads-header"><span class="leads-title">📝 Rascunhos &amp; publicação</span></div>
+        <div id="portfolio-draft-list" style="margin-bottom:24px"></div>
+
+        <div class="leads-header"><span class="leads-title">✅ Já publicadas</span></div>
+        <div id="portfolio-published-list"></div>
+      </div>
+
       <!-- ══ TAB BLOG ══ -->
       <div id="tab-blog" style="display:none">
         <div class="plan-progress-header">
@@ -581,6 +601,61 @@
     </div>
   </div>
 </div>
+<!-- MODAL PORTFÓLIO / CONTEÚDO -->
+<div class="overlay" id="overlay-portfolio" onclick="closeIfOutsidePortfolio(event)">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <h2 id="modal-portfolio-title">Novo rascunho de conteúdo</h2>
+      <button class="btn btn-outline btn-sm" onclick="closePortfolioModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pf-project-id">
+      <div class="field"><label>Título (obra / post)</label><input id="pf-title" placeholder="Ex: Accent Wall Project — Winter Garden, FL"></div>
+      <div class="form-2col">
+        <div class="field"><label>Slug do blog</label><input id="pf-slug" placeholder="accent-wall-winter-garden"></div>
+        <div class="field"><label>Status</label>
+          <select id="pf-status">
+            <option value="draft">Rascunho</option>
+            <option value="ready_to_publish">Pronto p/ publicar</option>
+            <option value="published">Publicado</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Meta description (SEO)</label><input id="pf-meta" placeholder="Descrição para o Google, até ~160 caracteres"></div>
+      <div class="field">
+        <label>Corpo do post de blog &nbsp;<a href="#" onclick="copyField('pf-body');return false" style="font-weight:600">📋 copiar</a></label>
+        <textarea id="pf-body" rows="6" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border:1.5px solid var(--border);border-radius:8px;resize:vertical"></textarea>
+      </div>
+      <div class="field">
+        <label>Legenda Instagram &nbsp;<a href="#" onclick="copyField('pf-ig');return false" style="font-weight:600">📋 copiar</a></label>
+        <textarea id="pf-ig" rows="4" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border:1.5px solid var(--border);border-radius:8px;resize:vertical"></textarea>
+      </div>
+      <div class="field">
+        <label>Post Google Meu Negócio &nbsp;<a href="#" onclick="copyField('pf-gmb');return false" style="font-weight:600">📋 copiar</a></label>
+        <textarea id="pf-gmb" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border:1.5px solid var(--border);border-radius:8px;resize:vertical"></textarea>
+      </div>
+      <div class="form-2col">
+        <div class="field"><label>Palavras-chave SEO (separadas por vírgula)</label><input id="pf-keywords" placeholder="accent wall Orlando, wall design Florida"></div>
+        <div class="field"><label>Tags do portfólio</label><input id="pf-tags" placeholder="accent wall, residential"></div>
+      </div>
+      <div class="field"><label>URLs das fotos (separadas por vírgula)</label><input id="pf-images" placeholder="https://.../foto1.jpg, https://.../foto2.jpg"></div>
+      <div class="field">
+        <label>Publicado em:</label>
+        <div style="display:flex;gap:16px;margin-top:6px;font-size:13px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="pf-pub-blog"> Blog</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="pf-pub-ig"> Instagram</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="pf-pub-gmb"> GMB</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="pf-pub-site"> Site</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-pf-delete" onclick="deletePortfolioDraft()" style="display:none;margin-right:auto">Excluir</button>
+      <button class="btn btn-outline" onclick="closePortfolioModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePortfolioDraft()">Salvar</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -599,7 +674,7 @@ const statusLabel  = { active:'Ativa', paused:'Pausada', ended:'Encerrada' };
 const statusClass  = { active:'b-active', paused:'b-paused', ended:'b-ended' };
 const sourceLabel  = { google_ads:'Google Ads', fb_marketplace:'FB Marketplace', instagram:'Instagram', facebook:'Facebook', referral:'Indicação', organic:'Orgânico', other:'Outro', '':'Não informado' };
 
-const ALL_TABS = ['resumo','google-ads','site-seo','my-business','blog','reviews','competitors'];
+const ALL_TABS = ['resumo','google-ads','site-seo','my-business','portfolio','blog','reviews','competitors'];
 
 function switchTab(tab) {
   ALL_TABS.forEach(t => {
@@ -610,6 +685,7 @@ function switchTab(tab) {
   if (tab === 'google-ads') loadAndRenderGoogleAds(currentPeriod);
   if (['site-seo','my-business','blog','reviews'].includes(tab)) renderChecklist(tab);
   if (tab === 'competitors') renderCompetitorsTab();
+  if (tab === 'portfolio') loadPortfolioTab();
 }
 
 // ── PLANO DE MARKETING ─────────────────────────────────────────
@@ -930,6 +1006,181 @@ function renderCompetitorsTab() {
     </div>`;
 
   document.getElementById('competitors-content').innerHTML = table + insights + kw;
+}
+
+// ── PORTFÓLIO / PIPELINE DE CONTEÚDO ──────────────────────────
+let portfolioProjects = [];
+let portfolioDrafts = [];
+let pfEditId = null;
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function slugify(s) {
+  return (s || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function templateForProject(p) {
+  const typeLabel = p.project_type === 'residential' ? 'Residential' : (p.project_type === 'commercial' ? 'Commercial' : 'Custom');
+  const place = [p.city, p.state].filter(Boolean).join(', ') || 'Orlando, FL';
+  const title = `${p.name || 'Wall Design Project'} — ${typeLabel} Wall Design in ${place}`;
+  const slug = slugify(`${p.name || 'project'}-${place}`);
+  const meta = `See how Fine Touch Decor Design transformed a space in ${place} with a custom ${typeLabel.toLowerCase()} wall design. Photos, project details and a free quote.`;
+  const body = `# ${title}\n\nFine Touch Decor Design recently completed a ${typeLabel.toLowerCase()} project in ${place}${p.budget ? ` (project investment: $${Number(p.budget).toLocaleString('en-US')})` : ''}.\n\n## The Project\n${p.description || 'Describe the scope, materials and finish used in this project.'}\n\n## Why It Works\nExplain the design choices, materials (accent wall, TV panel, slat wall, PVC marble, boiserie, etc.) and how it elevated the space.\n\n## Get Your Free Quote\nWant a wall design like this for your home or business in ${place}? Contact Fine Touch Decor Design for a free quote.`;
+  const ig = `✨ Before & after in ${place}! Another custom wall transformation by Fine Touch Decor Design.\n\n📍 ${place}\n💬 DM us or tap the link in bio for a free quote.\n\n#FineTouchDecor #AccentWall #${(p.city||'Orlando').replace(/\s+/g,'')}FL #InteriorDesign #WallDesign #BeforeAndAfter`;
+  const gmb = `New project completed in ${place}! Fine Touch Decor Design installed a custom ${typeLabel.toLowerCase()} wall design. Contact us today for a free quote on your next project.`;
+  const keywords = [`${typeLabel.toLowerCase()} wall`, `accent wall ${p.city || 'Orlando'}`, 'wall design Florida'].filter(Boolean);
+  return { title, slug, meta, body, ig, gmb, keywords };
+}
+
+async function loadPortfolioTab() {
+  const [{ data: projects }, { data: drafts }] = await Promise.all([
+    db.from('projects').select('id,name,status,project_type,city,state,end_date,budget,description').eq('status', 'completed').order('end_date', { ascending: false }),
+    db.from('catalog_portfolio').select('*').order('created_at', { ascending: false }),
+  ]);
+  portfolioProjects = projects || [];
+  portfolioDrafts = drafts || [];
+  renderPortfolioTab();
+}
+
+function renderPortfolioTab() {
+  const postedIds = new Set(portfolioDrafts.map(d => d.project_id).filter(Boolean));
+  const ready = portfolioProjects.filter(p => !postedIds.has(p.id));
+  const drafts = portfolioDrafts.filter(d => d.status !== 'published');
+  const published = portfolioDrafts.filter(d => d.status === 'published');
+
+  document.getElementById('pf-kpi-total').textContent = portfolioProjects.length;
+  document.getElementById('pf-kpi-ready').textContent = ready.length;
+  document.getElementById('pf-kpi-draft').textContent = drafts.length;
+  document.getElementById('pf-kpi-published').textContent = published.length;
+
+  const readyEl = document.getElementById('portfolio-ready-list');
+  readyEl.innerHTML = ready.length === 0
+    ? `<div class="comp-table-wrap"><div style="padding:20px;color:var(--muted);font-size:13px">Nenhuma obra pendente — tudo já tem rascunho de conteúdo. 🎉</div></div>`
+    : `<div class="comp-table-wrap"><table><thead><tr><th>Obra</th><th>Tipo</th><th>Cidade</th><th>Concluída em</th><th></th></tr></thead><tbody>
+        ${ready.map(p => `<tr>
+          <td style="font-weight:700;color:var(--navy)">${escapeHtml(p.name || '—')}</td>
+          <td>${escapeHtml(p.project_type || '—')}</td>
+          <td>${escapeHtml([p.city, p.state].filter(Boolean).join(', ') || '—')}</td>
+          <td>${fmtDate(p.end_date)}</td>
+          <td style="text-align:right"><button class="btn btn-primary btn-sm" onclick="openPortfolioModal(null,'${p.id}')">✨ Gerar rascunho</button></td>
+        </tr>`).join('')}
+      </tbody></table></div>`;
+
+  const chanBadge = (on) => on ? '<span style="color:var(--green);font-weight:700">✓</span>' : '<span style="color:var(--muted)">—</span>';
+  const statusBadge = (s) => s === 'ready_to_publish' ? '<span class="badge b-active">Pronto p/ publicar</span>' : '<span class="badge b-paused">Rascunho</span>';
+
+  const draftEl = document.getElementById('portfolio-draft-list');
+  draftEl.innerHTML = drafts.length === 0
+    ? `<div class="comp-table-wrap"><div style="padding:20px;color:var(--muted);font-size:13px">Nenhum rascunho ainda.</div></div>`
+    : `<div class="comp-table-wrap"><table><thead><tr><th>Título</th><th>Status</th><th>Blog</th><th>Instagram</th><th>GMB</th><th>Site</th><th></th></tr></thead><tbody>
+        ${drafts.map(d => `<tr>
+          <td style="font-weight:700;color:var(--navy)">${escapeHtml(d.title || '—')}</td>
+          <td>${statusBadge(d.status)}</td>
+          <td>${chanBadge(d.published_blog)}</td>
+          <td>${chanBadge(d.published_ig)}</td>
+          <td>${chanBadge(d.published_gmb)}</td>
+          <td>${chanBadge(d.published_site)}</td>
+          <td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="openPortfolioModal('${d.id}')">Abrir</button></td>
+        </tr>`).join('')}
+      </tbody></table></div>`;
+
+  const pubEl = document.getElementById('portfolio-published-list');
+  pubEl.innerHTML = published.length === 0
+    ? `<div class="comp-table-wrap"><div style="padding:20px;color:var(--muted);font-size:13px">Nenhuma obra publicada ainda.</div></div>`
+    : `<div class="comp-table-wrap"><table><thead><tr><th>Título</th><th>Publicado em</th><th></th></tr></thead><tbody>
+        ${published.map(d => `<tr>
+          <td style="font-weight:700;color:var(--navy)">${escapeHtml(d.title || '—')}</td>
+          <td>${d.published_at ? new Date(d.published_at).toLocaleDateString('pt-BR') : '—'}</td>
+          <td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="openPortfolioModal('${d.id}')">Ver</button></td>
+        </tr>`).join('')}
+      </tbody></table></div>`;
+}
+
+function openPortfolioModal(draftId, projectId) {
+  pfEditId = draftId || null;
+  let d;
+  if (draftId) {
+    d = portfolioDrafts.find(x => x.id === draftId) || {};
+  } else {
+    const p = portfolioProjects.find(x => x.id === projectId) || {};
+    const t = templateForProject(p);
+    d = { project_id: projectId, title: t.title, blog_slug: t.slug, blog_meta_description: t.meta, blog_body: t.body, ig_caption: t.ig, gmb_post_text: t.gmb, seo_keywords: t.keywords, tags: [], image_urls: [], status: 'draft', published_blog: false, published_ig: false, published_gmb: false, published_site: false };
+  }
+  document.getElementById('pf-project-id').value = d.project_id || '';
+  document.getElementById('pf-title').value = d.title || '';
+  document.getElementById('pf-slug').value = d.blog_slug || '';
+  document.getElementById('pf-meta').value = d.blog_meta_description || '';
+  document.getElementById('pf-body').value = d.blog_body || '';
+  document.getElementById('pf-ig').value = d.ig_caption || '';
+  document.getElementById('pf-gmb').value = d.gmb_post_text || '';
+  document.getElementById('pf-keywords').value = (d.seo_keywords || []).join(', ');
+  document.getElementById('pf-images').value = (d.image_urls || []).join(', ');
+  document.getElementById('pf-tags').value = (d.tags || []).join(', ');
+  document.getElementById('pf-status').value = d.status || 'draft';
+  document.getElementById('pf-pub-blog').checked = !!d.published_blog;
+  document.getElementById('pf-pub-ig').checked = !!d.published_ig;
+  document.getElementById('pf-pub-gmb').checked = !!d.published_gmb;
+  document.getElementById('pf-pub-site').checked = !!d.published_site;
+  document.getElementById('btn-pf-delete').style.display = draftId ? '' : 'none';
+  document.getElementById('modal-portfolio-title').textContent = draftId ? 'Editar conteúdo' : 'Novo rascunho de conteúdo';
+  document.getElementById('overlay-portfolio').classList.add('open');
+}
+
+function closePortfolioModal() { document.getElementById('overlay-portfolio').classList.remove('open'); pfEditId = null; }
+function closeIfOutsidePortfolio(e) { if (e.target.id === 'overlay-portfolio') closePortfolioModal(); }
+
+async function savePortfolioDraft() {
+  const projectId = document.getElementById('pf-project-id').value || null;
+  const statusSel = document.getElementById('pf-status').value;
+  const pubBlog = document.getElementById('pf-pub-blog').checked;
+  const pubIg = document.getElementById('pf-pub-ig').checked;
+  const pubGmb = document.getElementById('pf-pub-gmb').checked;
+  const pubSite = document.getElementById('pf-pub-site').checked;
+  const allPublished = pubBlog && pubIg && pubGmb && pubSite;
+  const payload = {
+    project_id: projectId,
+    title: document.getElementById('pf-title').value.trim(),
+    blog_slug: document.getElementById('pf-slug').value.trim(),
+    blog_meta_description: document.getElementById('pf-meta').value.trim(),
+    blog_body: document.getElementById('pf-body').value,
+    ig_caption: document.getElementById('pf-ig').value,
+    gmb_post_text: document.getElementById('pf-gmb').value,
+    seo_keywords: document.getElementById('pf-keywords').value.split(',').map(s => s.trim()).filter(Boolean),
+    image_urls: document.getElementById('pf-images').value.split(',').map(s => s.trim()).filter(Boolean),
+    tags: document.getElementById('pf-tags').value.split(',').map(s => s.trim()).filter(Boolean),
+    status: allPublished ? 'published' : statusSel,
+    published_blog: pubBlog, published_ig: pubIg, published_gmb: pubGmb, published_site: pubSite,
+    published_at: allPublished ? new Date().toISOString() : null,
+    updated_at: new Date().toISOString(),
+  };
+  if (pfEditId) {
+    await db.from('catalog_portfolio').update(payload).eq('id', pfEditId);
+  } else {
+    await db.from('catalog_portfolio').insert(payload);
+  }
+  closePortfolioModal();
+  showToast('Conteúdo salvo!', 'success');
+  await loadPortfolioTab();
+}
+
+async function deletePortfolioDraft() {
+  if (!pfEditId) return;
+  if (!confirm('Excluir este rascunho de conteúdo?')) return;
+  await db.from('catalog_portfolio').delete().eq('id', pfEditId);
+  closePortfolioModal();
+  showToast('Rascunho excluído', 'success');
+  await loadPortfolioTab();
+}
+
+function copyField(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.value).then(() => showToast('Copiado! ✅', 'success'));
 }
 
 async function init() {
