@@ -3,6 +3,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || 'https://jpbpzlpvhdwgbmljqfyd.s
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 const SUPABASE_ANON_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const OPENAI_KEY   = process.env.OPENAI_API_KEY;
+const STORAGE_BUCKET = 'obra-photos';
 
 // ─── TELEGRAM ────────────────────────────────────────────────
 async function send(chatId, text, opts = {}) {
@@ -86,6 +87,58 @@ Se não conseguir identificar itens individuais, retorne o total como um único 
     return parsed;
   }
   catch { return { _raw: `Parse falhou. Resposta: ${content.slice(0, 400)}`, _error: 'parse failed' }; }
+}
+
+// ─── OPENAI VISION — classifica: nota fiscal ou foto de obra ─
+async function classifyPhoto(imageUrl) {
+  try {
+    const imgRes    = await fetch(imageUrl);
+    const imgBuffer = await imgRes.arrayBuffer();
+    const base64    = Buffer.from(imgBuffer).toString('base64');
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_KEY}` },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64}` } },
+            { type: 'text', text: 'Essa imagem é (a) uma nota fiscal/recibo/comprovante (documento com texto e valores impressos), ou (b) uma foto de um ambiente/parede/obra de decoração (finalizada ou em andamento)? Responda APENAS com a palavra invoice ou project.' }
+          ]
+        }],
+        max_tokens: 5
+      })
+    });
+    const data = await res.json();
+    const answer = (data.choices?.[0]?.message?.content || '').toLowerCase();
+    return answer.includes('project') ? 'project' : 'invoice';
+  } catch {
+    // se a classificação falhar por qualquer motivo, mantém o comportamento atual (nota fiscal)
+    return 'invoice';
+  }
+}
+
+// ─── SUPABASE STORAGE — sobe foto de obra e devolve URL pública ─
+async function uploadPhotoToStorage(telegramUrl, chatId) {
+  const imgRes    = await fetch(telegramUrl);
+  const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+  const path = `${chatId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${path}`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'image/jpeg',
+    },
+    body: imgBuffer,
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Storage upload failed: ${errText.slice(0, 200)}`);
+  }
+  return `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${path}`;
 }
 
 // ─── OPENAI WHISPER — transcreve áudio ───────────────────────
@@ -229,10 +282,23 @@ async function handleCusto(chatId, text) {
 }
 
 async function handlePhoto(chatId, fileId) {
-  await send(chatId, '📸 Processando nota fiscal...');
-  let url, data;
+  let url;
   try {
-    url  = await getFileUrl(fileId);
+    url = await getFileUrl(fileId);
+  } catch (e) {
+    await send(chatId, `💥 Erro: ${e.message}`);
+    return;
+  }
+
+  const kind = await classifyPhoto(url);
+  if (kind === 'project') {
+    await handleProjectPhoto(chatId, url);
+    return;
+  }
+
+  await send(chatId, '📸 Processando nota fiscal...');
+  let data;
+  try {
     data = await extractReceiptItems(url);
   } catch (e) {
     await send(chatId, `💥 Erro: ${e.message}`);
@@ -255,7 +321,7 @@ async function handlePhoto(chatId, fileId) {
   // Salvar sessão com itens E projetos mapeados por letra
   const projectsByLetter = {};
   filteredProjects.forEach((p, i) => { if (i < 26) projectsByLetter[letters[i]] = p; });
-  await saveSession(chatId, { items: data.items, store: data.store, total: data.total, projectsByLetter });
+  await saveSession(chatId, { kind: 'invoice', items: data.items, store: data.store, total: data.total, projectsByLetter });
 
   const itemList    = data.items.map((it, i) => `*${i+1}.* ${it.desc} — $${Number(it.value).toFixed(2)}`).join('\n');
   const projectList = filteredProjects.map((p, i) => i < 26 ? `*${letters[i]}.* ${p.name}${p.client_name ? ' — '+p.client_name : ''}` : '').filter(Boolean).join('\n');
@@ -270,9 +336,86 @@ async function handlePhoto(chatId, fileId) {
   );
 }
 
+async function handleProjectPhoto(chatId, telegramUrl) {
+  await send(chatId, '📸 Foto de obra detectada — salvando...');
+  let publicUrl;
+  try {
+    publicUrl = await uploadPhotoToStorage(telegramUrl, chatId);
+  } catch (e) {
+    await send(chatId, `💥 Erro ao salvar a foto: ${e.message}`);
+    return;
+  }
+
+  const existing = (await getSession(chatId)) || {};
+  const photoUrls = existing.kind === 'photos' ? [...(existing.photoUrls || []), publicUrl] : [publicUrl];
+  await saveSession(chatId, { kind: 'photos', photoUrls });
+
+  await send(chatId, `📸 Foto recebida (${photoUrls.length} até agora).\nManda mais fotos dessa obra ou responda *pronto* quando terminar.`);
+}
+
+async function showProjectPickerForPhotos(chatId, session) {
+  // obras que ainda podem receber fotos: qualquer uma que não esteja publicada nem ignorada
+  const rows = await sbGet('catalog_portfolio',
+    `select=id,status,projects(id,name,status,city,clients(name))&status=not.in.(published,ignored)&order=created_at`, true);
+  const usable = rows.filter(r => r.projects);
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+  const byLetter = {};
+  usable.forEach((r, i) => {
+    if (i >= 26) return;
+    byLetter[letters[i]] = { rowId: r.id, name: r.projects.name, client_name: r.projects.clients?.name || '' };
+  });
+
+  await saveSession(chatId, { ...session, awaitingProjectPick: true, byLetter });
+
+  if (!Object.keys(byLetter).length) {
+    await send(chatId, '❌ Não encontrei nenhuma obra em aberto pra vincular essas fotos. Abra o sistema e crie a obra primeiro.');
+    return;
+  }
+
+  const list = Object.entries(byLetter).map(([letter, p]) => `*${letter}.* ${p.name}${p.client_name ? ' — ' + p.client_name : ''}`).join('\n');
+  await send(chatId, `📸 ${session.photoUrls.length} foto(s) prontas.\n\n*De qual obra são essas fotos?*\n${list}\n\nResponda só com a letra (ex: \`A\`).`);
+}
+
+async function handlePhotoSessionReply(chatId, text, session) {
+  const t = text.trim().toLowerCase();
+
+  if (!session.awaitingProjectPick) {
+    if (t === 'pronto' || t === 'ok' || t === 'fim' || t === 'feito') {
+      await showProjectPickerForPhotos(chatId, session);
+      return true;
+    }
+    return false; // ainda esperando mais fotos, não interpreta como comando
+  }
+
+  const letter = text.trim().toUpperCase();
+  const picked = session.byLetter?.[letter];
+  if (!picked) {
+    await send(chatId, `❌ Não achei a obra "${text}". Responda só com a letra mostrada (ex: A).`);
+    return true;
+  }
+
+  const currentRows = await sbGet('catalog_portfolio', `id=eq.${picked.rowId}&select=image_urls`);
+  const merged = [...((currentRows[0] && currentRows[0].image_urls) || []), ...session.photoUrls];
+
+  await fetch(`${SUPABASE_URL}/rest/v1/catalog_portfolio?id=eq.${picked.rowId}`, {
+    method: 'PATCH',
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify({ image_urls: merged, updated_at: new Date().toISOString() }),
+  });
+
+  await clearSession(chatId);
+  await send(chatId, `✅ ${session.photoUrls.length} foto(s) anexada(s) em *${picked.name}*!\n\n🔗 [Ver no Marketing](https://app-one-amber-58.vercel.app/marketing)`);
+  return true;
+}
+
 async function handleSessionReply(chatId, text) {
   const session = await getSession(chatId);
   if (!session) return false;
+
+  if (session.kind === 'photos') {
+    return await handlePhotoSessionReply(chatId, text, session);
+  }
 
   const { items, projectsByLetter } = session;
 
@@ -340,7 +483,7 @@ async function handleHelp(chatId) {
     `✅ *tarefa: descrição*\n→ Ex: \`tarefa: ligar para cliente Johnson\`\n\n` +
     `🎯 *lead: nome, telefone, cidade*\n→ Ex: \`lead: Sarah Smith, +1 305 111-2222, Miami FL\`\n\n` +
     `💸 *custo: obra, descrição, valor*\n→ Ex: \`custo: Reforma Johnson, Tinta Sherwin, 320\`\n\n` +
-    `📸 *Foto de nota fiscal* → extrai itens automaticamente\n🎙️ Pode responder por áudio!\n\n` +
+    `📸 *Foto de nota fiscal* → extrai itens automaticamente\n🏗️ *Foto de obra* → identifica sozinho e pergunta de qual obra é (manda várias e responda 'pronto')\n🎙️ Pode responder por áudio!\n\n` +
     `🔗 [Abrir sistema](https://app-one-amber-58.vercel.app/dashboard)`
   );
 }
