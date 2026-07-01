@@ -508,7 +508,8 @@
         </div>
 
         <div class="leads-header"><span class="leads-title">🏗️ Obras finalizadas sem conteúdo criado</span></div>
-        <div id="portfolio-ready-list" style="margin-bottom:24px"></div>
+        <div id="portfolio-ready-list"></div>
+        <div id="portfolio-ignored-list" style="margin-bottom:24px"></div>
 
         <div class="leads-header"><span class="leads-title">📝 Rascunhos &amp; publicação</span></div>
         <div id="portfolio-draft-list" style="margin-bottom:24px"></div>
@@ -1024,25 +1025,113 @@ function slugify(s) {
     .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
+// IMPORTANTE: nunca usar nome de cliente (p.name costuma trazer "Obra — Fulano/Ciclano").
+// Só usamos: tipo de serviço (service_label, vindo do item do orçamento), tipo de projeto e cidade/estado.
+function cleanServiceLabel(raw) {
+  if (!raw) return 'Custom Wall Design';
+  // remove palavras de controle interno tipo "Replace", underscores etc. mantém legível
+  return raw.replace(/_/g, ' ').trim();
+}
+
+function materialHintsFromLabel(label) {
+  const l = (label || '').toLowerCase();
+  const hints = [];
+  if (l.includes('accent')) hints.push('accent wall paneling');
+  if (l.includes('slat')) hints.push('wood slat wall panels');
+  if (l.includes('tv') || l.includes('media') || l.includes('bench')) hints.push('a custom TV/media wall built-in');
+  if (l.includes('fireplace')) hints.push('a fireplace feature wall');
+  if (l.includes('marble') || l.includes('pvc')) hints.push('PVC marble wall panels');
+  if (l.includes('boiserie') || l.includes('molding')) hints.push('decorative boiserie molding');
+  if (hints.length === 0) hints.push('custom wall paneling');
+  return hints;
+}
+
 function templateForProject(p) {
   const typeLabel = p.project_type === 'residential' ? 'Residential' : (p.project_type === 'commercial' ? 'Commercial' : 'Custom');
   const place = [p.city, p.state].filter(Boolean).join(', ') || 'Orlando, FL';
-  const title = `${p.name || 'Wall Design Project'} — ${typeLabel} Wall Design in ${place}`;
-  const slug = slugify(`${p.name || 'project'}-${place}`);
-  const meta = `See how Fine Touch Decor Design transformed a space in ${place} with a custom ${typeLabel.toLowerCase()} wall design. Photos, project details and a free quote.`;
-  const body = `# ${title}\n\nFine Touch Decor Design recently completed a ${typeLabel.toLowerCase()} project in ${place}${p.budget ? ` (project investment: $${Number(p.budget).toLocaleString('en-US')})` : ''}.\n\n## The Project\n${p.description || 'Describe the scope, materials and finish used in this project.'}\n\n## Why It Works\nExplain the design choices, materials (accent wall, TV panel, slat wall, PVC marble, boiserie, etc.) and how it elevated the space.\n\n## Get Your Free Quote\nWant a wall design like this for your home or business in ${place}? Contact Fine Touch Decor Design for a free quote.`;
-  const ig = `✨ Before & after in ${place}! Another custom wall transformation by Fine Touch Decor Design.\n\n📍 ${place}\n💬 DM us or tap the link in bio for a free quote.\n\n#FineTouchDecor #AccentWall #${(p.city||'Orlando').replace(/\s+/g,'')}FL #InteriorDesign #WallDesign #BeforeAndAfter`;
-  const gmb = `New project completed in ${place}! Fine Touch Decor Design installed a custom ${typeLabel.toLowerCase()} wall design. Contact us today for a free quote on your next project.`;
-  const keywords = [`${typeLabel.toLowerCase()} wall`, `accent wall ${p.city || 'Orlando'}`, 'wall design Florida'].filter(Boolean);
+  const serviceLabel = cleanServiceLabel(p.serviceLabel);
+  const materials = materialHintsFromLabel(serviceLabel);
+  const materialPhrase = materials.join(' and ');
+  const title = `${serviceLabel} — ${typeLabel} Wall Design Project in ${place}`;
+  const slug = slugify(`${serviceLabel}-${place}`);
+  const meta = `See how Fine Touch Decor Design installed ${materialPhrase} in a ${typeLabel.toLowerCase()} space in ${place}. Photos, materials used, and how to get a free quote.`;
+
+  const seriesNote = p.siblingCompletedCount > 0
+    ? `This is one of several wall design upgrades Fine Touch Decor Design has completed for this property — proof that once clients see the first transformation, they usually come back for more.\n\n`
+    : '';
+
+  const body = `# ${title}
+
+Fine Touch Decor Design recently completed a ${typeLabel.toLowerCase()} ${serviceLabel.toLowerCase()} project in ${place}, installing ${materialPhrase} to transform the space.
+
+## The Challenge
+Many homeowners and businesses in ${place} have plain, builder-grade walls that don't reflect the style of the rest of the home. This project started the same way: a space with real potential that just needed the right design treatment to become a standout feature.
+
+## The Solution
+Our team designed and installed ${materialPhrase}, chosen specifically to fit the proportions of the room and the client's style. Every Fine Touch project is custom-measured and built for the exact space — no pre-fab, one-size-fits-all panels.
+
+## The Installation Process
+1. **Design consultation** — we review the space, discuss style direction, and recommend materials suited to ${typeLabel.toLowerCase()} use.
+2. **Custom measurement & fabrication** — panels and trim are cut and prepped specifically for this wall.
+3. **Professional installation** — clean, precise install with minimal disruption to the home or business.
+4. **Final walkthrough** — we review the finished wall with the client before wrapping up.
+
+## The Result
+The finished ${serviceLabel.toLowerCase()} completely changed the feel of the room — turning a plain wall into a designed focal point. ${seriesNote}This is exactly the kind of transformation Fine Touch Decor Design delivers across ${place} and the greater Central Florida area.
+
+## Serving ${place} and Beyond
+Fine Touch Decor Design specializes in accent walls, TV & fireplace panels, marbled PVC, slat walls and decorative moldings for homes and businesses throughout ${place} and Central Florida.
+
+## FAQ
+**How long does a project like this take?**
+Most single-room wall design projects are completed in 1-3 days, depending on the size and materials.
+
+**Is this style suitable for both homes and businesses?**
+Yes — we design and install for residential and commercial spaces alike, adapting materials and finish to the use case.
+
+**How do I get a quote for my space?**
+Contact Fine Touch Decor Design for a free, no-obligation quote — we'll review your space and recommend the best design approach.
+
+## Get Your Free Quote
+Want a wall design like this for your home or business in ${place}? Contact Fine Touch Decor Design today for a free quote.`;
+
+  const ig = `✨ Before & after in ${place}! This time: ${materialPhrase}.\n\n📍 ${place}\n💬 DM us or tap the link in bio for a free quote.\n\n#FineTouchDecor #AccentWall #${(p.city||'Orlando').replace(/\s+/g,'')}FL #InteriorDesign #WallDesign #BeforeAndAfter`;
+  const gmb = `New project completed in ${place}! We installed ${materialPhrase} for a ${typeLabel.toLowerCase()} space. Contact us today for a free quote on your next project.`;
+  const keywords = [serviceLabel.toLowerCase(), `${typeLabel.toLowerCase()} wall design`, `wall design ${p.city || 'Orlando'}`, 'wall design Florida'].filter(Boolean);
   return { title, slug, meta, body, ig, gmb, keywords };
 }
 
 async function loadPortfolioTab() {
-  const [{ data: projects }, { data: drafts }] = await Promise.all([
-    db.from('projects').select('id,name,status,project_type,city,state,end_date,budget,description').eq('status', 'completed').order('end_date', { ascending: false }),
+  const [{ data: allProjects }, { data: drafts }] = await Promise.all([
+    // busca TODOS os projetos (não só completed) para poder contar quantas obras já foram feitas por cliente
+    db.from('projects').select('id,status,project_type,city,state,end_date,description,client_id,quote_id').order('end_date', { ascending: false }),
     db.from('catalog_portfolio').select('*').order('created_at', { ascending: false }),
   ]);
-  portfolioProjects = projects || [];
+  const all = allProjects || [];
+  const completed = all.filter(p => p.status === 'completed');
+
+  // busca a descrição do serviço (item do orçamento) de cada projeto completed, sem trazer nome de cliente
+  const quoteIds = completed.map(p => p.quote_id).filter(Boolean);
+  let itemsByQuote = {};
+  if (quoteIds.length > 0) {
+    const { data: items } = await db.from('quote_items').select('quote_id,description').in('quote_id', quoteIds);
+    (items || []).forEach(it => {
+      if (!itemsByQuote[it.quote_id]) itemsByQuote[it.quote_id] = it.description;
+    });
+  }
+
+  // conta quantas obras (qualquer status) esse mesmo client_id já teve, pra dar contexto sem nunca expor o nome
+  const countByClient = {};
+  all.forEach(p => {
+    if (!p.client_id) return;
+    countByClient[p.client_id] = (countByClient[p.client_id] || 0) + 1;
+  });
+
+  portfolioProjects = completed.map(p => ({
+    ...p,
+    serviceLabel: itemsByQuote[p.quote_id] || null,
+    siblingCompletedCount: p.client_id ? Math.max(0, (countByClient[p.client_id] || 1) - 1) : 0,
+  }));
   portfolioDrafts = drafts || [];
   renderPortfolioTab();
 }
@@ -1050,8 +1139,9 @@ async function loadPortfolioTab() {
 function renderPortfolioTab() {
   const postedIds = new Set(portfolioDrafts.map(d => d.project_id).filter(Boolean));
   const ready = portfolioProjects.filter(p => !postedIds.has(p.id));
-  const drafts = portfolioDrafts.filter(d => d.status !== 'published');
+  const drafts = portfolioDrafts.filter(d => d.status !== 'published' && d.status !== 'ignored');
   const published = portfolioDrafts.filter(d => d.status === 'published');
+  const ignored = portfolioDrafts.filter(d => d.status === 'ignored');
 
   document.getElementById('pf-kpi-total').textContent = portfolioProjects.length;
   document.getElementById('pf-kpi-ready').textContent = ready.length;
@@ -1060,14 +1150,17 @@ function renderPortfolioTab() {
 
   const readyEl = document.getElementById('portfolio-ready-list');
   readyEl.innerHTML = ready.length === 0
-    ? `<div class="comp-table-wrap"><div style="padding:20px;color:var(--muted);font-size:13px">Nenhuma obra pendente — tudo já tem rascunho de conteúdo. 🎉</div></div>`
-    : `<div class="comp-table-wrap"><table><thead><tr><th>Obra</th><th>Tipo</th><th>Cidade</th><th>Concluída em</th><th></th></tr></thead><tbody>
+    ? `<div class="comp-table-wrap"><div style="padding:20px;color:var(--muted);font-size:13px">Nenhuma obra pendente — tudo já tem rascunho de conteúdo ou foi ignorado. 🎉</div></div>`
+    : `<div class="comp-table-wrap"><table><thead><tr><th>Serviço</th><th>Tipo</th><th>Cidade</th><th>Concluída em</th><th></th></tr></thead><tbody>
         ${ready.map(p => `<tr>
-          <td style="font-weight:700;color:var(--navy)">${escapeHtml(p.name || '—')}</td>
+          <td style="font-weight:700;color:var(--navy)">${escapeHtml(p.serviceLabel || 'Serviço não identificado')}${p.siblingCompletedCount > 0 ? ` <span class="badge b-paused" style="margin-left:4px" title="Outras obras já feitas para o mesmo endereço/cliente">🔁 +${p.siblingCompletedCount}</span>` : ''}</td>
           <td>${escapeHtml(p.project_type || '—')}</td>
           <td>${escapeHtml([p.city, p.state].filter(Boolean).join(', ') || '—')}</td>
           <td>${fmtDate(p.end_date)}</td>
-          <td style="text-align:right"><button class="btn btn-primary btn-sm" onclick="openPortfolioModal(null,'${p.id}')">✨ Gerar rascunho</button></td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="btn btn-primary btn-sm" onclick="openPortfolioModal(null,'${p.id}')">✨ Gerar rascunho</button>
+            <button class="btn btn-outline btn-sm" onclick="ignoreProject('${p.id}')" title="Não vou publicar nada sobre essa obra">🚫 Ignorar</button>
+          </td>
         </tr>`).join('')}
       </tbody></table></div>`;
 
@@ -1099,6 +1192,37 @@ function renderPortfolioTab() {
           <td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="openPortfolioModal('${d.id}')">Ver</button></td>
         </tr>`).join('')}
       </tbody></table></div>`;
+
+  const ignEl = document.getElementById('portfolio-ignored-list');
+  if (ignEl) {
+    ignEl.innerHTML = ignored.length === 0 ? '' : `
+      <details style="margin-top:8px">
+        <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:600">${ignored.length} obra(s) ignorada(s) — clique para ver</summary>
+        <div class="comp-table-wrap" style="margin-top:8px"><table><thead><tr><th>Obra</th><th></th></tr></thead><tbody>
+          ${ignored.map(d => `<tr>
+            <td style="color:var(--muted)">${escapeHtml(d.title || 'Obra ignorada')}</td>
+            <td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="restoreIgnored('${d.id}')">↩️ Restaurar</button></td>
+          </tr>`).join('')}
+        </tbody></table></div>
+      </details>`;
+  }
+}
+
+async function ignoreProject(projectId) {
+  const p = portfolioProjects.find(x => x.id === projectId);
+  await db.from('catalog_portfolio').insert({
+    project_id: projectId,
+    title: p ? (p.serviceLabel || 'Obra ignorada') : 'Obra ignorada',
+    status: 'ignored',
+  });
+  showToast('Obra ignorada — não vai gerar conteúdo', 'success');
+  await loadPortfolioTab();
+}
+
+async function restoreIgnored(draftId) {
+  await db.from('catalog_portfolio').delete().eq('id', draftId);
+  showToast('Restaurado para a lista de pendentes', 'success');
+  await loadPortfolioTab();
 }
 
 function openPortfolioModal(draftId, projectId) {
