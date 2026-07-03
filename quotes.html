@@ -72,6 +72,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .kpi.a{border-top:3px solid var(--amber);}
 .kpi.b{border-top:3px solid var(--blue);}
 .kpi.n{border-top:3px solid var(--navy);}
+.kpi.approved{border-top:3px solid var(--green);}
 
 /* TABLE */
 .table-wrap{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
@@ -210,17 +211,21 @@ textarea{resize:vertical;min-height:64px;}
       <div class="kpi a"><div class="kpi-label">Custo Total</div><div class="spinner"></div></div>
       <div class="kpi b"><div class="kpi-label">Preço de Venda</div><div class="spinner"></div></div>
       <div class="kpi g"><div class="kpi-label">Markup Médio</div><div class="spinner"></div></div>
+      <div class="kpi approved"><div class="kpi-label">Total Aprovado</div><div class="spinner"></div></div>
     </div>
 
     <div class="toolbar">
       <div class="toolbar-left">
-        <input class="search-input" type="text" placeholder="🔍  Buscar cliente ou projeto..." id="search-input" oninput="renderTable()">
-        <select class="filter-select" id="filter-status" onchange="renderTable()">
+        <input class="search-input" type="text" placeholder="🔍  Buscar cliente ou projeto..." id="search-input" oninput="onFiltersChanged()">
+        <select class="filter-select" id="filter-status" onchange="onFiltersChanged()">
           <option value="">Todos os status</option>
           <option value="draft">Rascunho</option>
           <option value="sent">Enviado</option>
           <option value="approved">Aprovado</option>
           <option value="rejected">Rejeitado</option>
+        </select>
+        <select class="filter-select" id="filter-month" onchange="onFiltersChanged()">
+          <option value="">Todos os meses</option>
         </select>
       </div>
     </div>
@@ -527,33 +532,61 @@ async function loadQuotes() {
   const {data,error}=await db.from('quotes').select('*,clients(name),quote_items(*)').order('created_at',{ascending:false});
   if(error){showToast('Erro ao carregar','error');return;}
   allQuotes=data||[];
-  renderKPIs(); renderTable();
+  populateMonthFilter();
+  onFiltersChanged();
+}
+
+const MONTH_NAMES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function populateMonthFilter() {
+  const sel = document.getElementById('filter-month');
+  const prev = sel.value;
+  const months = new Set();
+  allQuotes.forEach(q => { if (q.created_at) months.add(q.created_at.slice(0,7)); });
+  const sorted = Array.from(months).sort().reverse();
+  sel.innerHTML = '<option value="">Todos os meses</option>' + sorted.map(ym => {
+    const parts = ym.split('-'); const y = parts[0]; const m = parts[1];
+    return `<option value="${ym}">${MONTH_NAMES_PT[Number(m)-1]} ${y}</option>`;
+  }).join('');
+  if (sorted.includes(prev)) sel.value = prev;
+}
+
+function onFiltersChanged() { renderKPIs(); renderTable(); }
+
+function getFilteredQuotes() {
+  const q=document.getElementById('search-input').value.toLowerCase();
+  const st=document.getElementById('filter-status').value;
+  const mo=document.getElementById('filter-month').value;
+  return allQuotes.filter(x=>{
+    const nm=(x.clients?.name||x.project_name||'').toLowerCase();
+    if(q&&!nm.includes(q)&&!(x.quote_number||'').toLowerCase().includes(q)&&!(x.project_name||'').toLowerCase().includes(q))return false;
+    if(st&&x.status!==st)return false;
+    if(mo&&(x.created_at||'').slice(0,7)!==mo)return false;
+    return true;
+  });
 }
 
 // ── KPIs ───────────────────────────────────────────────────
 function renderKPIs() {
-  const total=allQuotes.length;
-  const totalCost=allQuotes.reduce((s,q)=>s+(Number(q.total_cost)||0),0);
-  const totalSale=allQuotes.reduce((s,q)=>s+(Number(q.sale_price)||Number(q.total)||0),0);
-  const mkps=allQuotes.filter(q=>q.markup_pct).map(q=>Number(q.markup_pct));
+  const filtered = getFilteredQuotes();
+  const total=filtered.length;
+  const totalCost=filtered.reduce((s,q)=>s+(Number(q.total_cost)||0),0);
+  const totalSale=filtered.reduce((s,q)=>s+(Number(q.sale_price)||Number(q.total)||0),0);
+  const mkps=filtered.filter(q=>q.markup_pct).map(q=>Number(q.markup_pct));
   const avgMkp=mkps.length?Math.round(mkps.reduce((a,b)=>a+b,0)/mkps.length):0;
+  const approvedTotal=filtered.filter(q=>q.status==='approved').reduce((s,q)=>s+(Number(q.sale_price)||Number(q.total)||0),0);
+  const approvedCount=filtered.filter(q=>q.status==='approved').length;
   document.getElementById('kpi-strip').innerHTML=`
     <div class="kpi n"><div class="kpi-label">Total</div><div class="kpi-value">${total}</div><div class="kpi-sub">orçamentos</div></div>
     <div class="kpi a"><div class="kpi-label">Custo Total</div><div class="kpi-value">${fmt(totalCost)}</div><div class="kpi-sub">custo interno</div></div>
     <div class="kpi b"><div class="kpi-label">Preço de Venda</div><div class="kpi-value">${fmt(totalSale)}</div><div class="kpi-sub">total a cobrar</div></div>
-    <div class="kpi g"><div class="kpi-label">Markup Médio</div><div class="kpi-value">${avgMkp}%</div><div class="kpi-sub">média dos projetos</div></div>`;
+    <div class="kpi g"><div class="kpi-label">Markup Médio</div><div class="kpi-value">${avgMkp}%</div><div class="kpi-sub">média dos projetos</div></div>
+    <div class="kpi approved"><div class="kpi-label">Total Aprovado</div><div class="kpi-value">${fmt(approvedTotal)}</div><div class="kpi-sub">${approvedCount} orçamento${approvedCount===1?'':'s'} aprovado${approvedCount===1?'':'s'}</div></div>`;
 }
 
 // ── TABLE ──────────────────────────────────────────────────
 function renderTable() {
-  const q=document.getElementById('search-input').value.toLowerCase();
-  const st=document.getElementById('filter-status').value;
-  const rows=allQuotes.filter(x=>{
-    const nm=(x.clients?.name||x.project_name||'').toLowerCase();
-    if(q&&!nm.includes(q)&&!(x.quote_number||'').toLowerCase().includes(q)&&!(x.project_name||'').toLowerCase().includes(q))return false;
-    if(st&&x.status!==st)return false;
-    return true;
-  });
+  const rows=getFilteredQuotes();
   const tb=document.getElementById('table-body');
   if(!rows.length){tb.innerHTML=`<tr><td colspan="9"><div class="empty"><div class="ico">📋</div><p>Nenhum orçamento encontrado.</p></div></td></tr>`;return;}
   tb.innerHTML=rows.map(q=>{
