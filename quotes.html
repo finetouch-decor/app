@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fine Touch — Orçamentos</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 :root {
@@ -63,7 +64,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .btn-ghost:hover{background:var(--bg);}
 
 /* KPI STRIP */
-.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px;}
+.month-panel{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 20px;margin-bottom:24px;}
+.month-panel-title{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:14px;}
+.month-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
+.month-stat{background:var(--bg);border-radius:10px;padding:12px 14px;}
+.month-stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;}
+.month-stat-value{font-size:20px;font-weight:700;color:var(--navy);margin-top:4px;}
+.month-legend{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:8px;font-size:12px;color:var(--muted);}
+.month-legend span{display:flex;align-items:center;gap:5px;}
+.month-legend i{width:10px;height:10px;border-radius:2px;display:inline-block;}
 .kpi{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);}
 .kpi-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
 .kpi-value{font-size:22px;font-weight:800;color:var(--navy);}
@@ -212,6 +222,18 @@ textarea{resize:vertical;min-height:64px;}
       <div class="kpi b"><div class="kpi-label">Preço de Venda</div><div class="spinner"></div></div>
       <div class="kpi g"><div class="kpi-label">Markup Médio</div><div class="spinner"></div></div>
       <div class="kpi approved"><div class="kpi-label">Total Aprovado</div><div class="spinner"></div></div>
+    </div>
+
+    <div class="month-panel">
+      <div class="month-panel-title">📅 Orçamentos por mês</div>
+      <div class="month-stats" id="month-stats"></div>
+      <div class="month-legend">
+        <span><i style="background:#2a78d6"></i>Nº de orçamentos</span>
+        <span><i style="background:#eda100"></i>Valor total (venda)</span>
+      </div>
+      <div style="position:relative;width:100%;height:260px">
+        <canvas id="chart-quotes-month" role="img" aria-label="Gráfico de barras com número de orçamentos e valor total por mês"></canvas>
+      </div>
     </div>
 
     <div class="toolbar">
@@ -534,6 +556,64 @@ async function loadQuotes() {
   allQuotes=data||[];
   populateMonthFilter();
   onFiltersChanged();
+  renderMonthlyBreakdown();
+}
+
+let chartQuotesMonth = null;
+function renderMonthlyBreakdown() {
+  const byMonth = {};
+  allQuotes.forEach(q => {
+    if (!q.created_at) return;
+    const ym = q.created_at.slice(0,7);
+    if (!byMonth[ym]) byMonth[ym] = { count: 0, value: 0 };
+    byMonth[ym].count += 1;
+    byMonth[ym].value += Number(q.sale_price) || Number(q.total) || 0;
+  });
+  const months = Object.keys(byMonth).sort();
+  const labels = months.map(ym => {
+    const parts = ym.split('-'); const y = parts[0]; const m = parts[1];
+    return MONTH_NAMES_PT[Number(m)-1].slice(0,3) + '/' + y.slice(2);
+  });
+  const counts = months.map(ym => byMonth[ym].count);
+  const values = months.map(ym => Math.round(byMonth[ym].value));
+
+  const now = new Date();
+  const curYm = now.toISOString().slice(0,7);
+  const prevDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const prevYm = prevDate.toISOString().slice(0,7);
+  const curCount = byMonth[curYm]?.count || 0;
+  const prevCount = byMonth[prevYm]?.count || 0;
+  let topMonth = '—', topCount = -1;
+  months.forEach(ym => { if (byMonth[ym].count > topCount) { topCount = byMonth[ym].count; topMonth = ym; } });
+  const topLabel = topMonth === '—' ? '—' : (MONTH_NAMES_PT[Number(topMonth.split('-')[1])-1] + ' ' + topMonth.split('-')[0]);
+
+  document.getElementById('month-stats').innerHTML = `
+    <div class="month-stat"><div class="month-stat-label">Total de orçamentos</div><div class="month-stat-value">${allQuotes.length}</div></div>
+    <div class="month-stat"><div class="month-stat-label">Este mês</div><div class="month-stat-value">${curCount}</div></div>
+    <div class="month-stat"><div class="month-stat-label">Mês anterior</div><div class="month-stat-value">${prevCount}</div></div>
+    <div class="month-stat"><div class="month-stat-label">Mês com mais orçamentos</div><div class="month-stat-value" style="font-size:16px">${topLabel} (${topCount<0?0:topCount})</div></div>`;
+
+  if (chartQuotesMonth) chartQuotesMonth.destroy();
+  chartQuotesMonth = new Chart(document.getElementById('chart-quotes-month'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Nº de orçamentos', data: counts, backgroundColor: '#2a78d6', borderRadius: 4, borderSkipped: false, yAxisID: 'y' },
+        { label: 'Valor total', data: values, backgroundColor: '#eda100', borderRadius: 4, borderSkipped: false, yAxisID: 'y1' }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { autoSkip: false } },
+        y: { position: 'left', beginAtZero: true, title: { display: true, text: 'Nº de orçamentos' }, grid: { color: 'rgba(0,0,0,0.06)' } },
+        y1: { position: 'right', beginAtZero: true, title: { display: true, text: 'Valor total ($)' }, grid: { drawOnChartArea: false }, ticks: { callback: v => '$'+Number(v).toLocaleString('en-US',{notation:'compact'}) } }
+      }
+    }
+  });
 }
 
 const MONTH_NAMES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
