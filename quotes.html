@@ -572,7 +572,14 @@ function renderKPIs() {
   const total=filtered.length;
   const totalCost=filtered.reduce((s,q)=>s+(Number(q.total_cost)||0),0);
   const totalSale=filtered.reduce((s,q)=>s+(Number(q.sale_price)||Number(q.total)||0),0);
-  const mkps=filtered.filter(q=>q.markup_pct).map(q=>Number(q.markup_pct));
+  // Margem real = diferenca entre preco de venda lancado e custo interno lancado,
+  // ja que o markup% do formulario nao e usado no fluxo real de trabalho.
+  const mkps=filtered.map(q=>{
+    const cost=Number(q.total_cost)||0;
+    const sale=Number(q.sale_price)||Number(q.total)||0;
+    if(cost<=0) return null;
+    return ((sale-cost)/cost)*100;
+  }).filter(v=>v!==null);
   const avgMkp=mkps.length?Math.round(mkps.reduce((a,b)=>a+b,0)/mkps.length):0;
   const approvedTotal=filtered.filter(q=>q.status==='approved').reduce((s,q)=>s+(Number(q.sale_price)||Number(q.total)||0),0);
   const approvedCount=filtered.filter(q=>q.status==='approved').length;
@@ -580,7 +587,7 @@ function renderKPIs() {
     <div class="kpi n"><div class="kpi-label">Total</div><div class="kpi-value">${total}</div><div class="kpi-sub">orçamentos</div></div>
     <div class="kpi a"><div class="kpi-label">Custo Total</div><div class="kpi-value">${fmt(totalCost)}</div><div class="kpi-sub">custo interno</div></div>
     <div class="kpi b"><div class="kpi-label">Preço de Venda</div><div class="kpi-value">${fmt(totalSale)}</div><div class="kpi-sub">total a cobrar</div></div>
-    <div class="kpi g"><div class="kpi-label">Markup Médio</div><div class="kpi-value">${avgMkp}%</div><div class="kpi-sub">média dos projetos</div></div>
+    <div class="kpi g"><div class="kpi-label">Markup Médio</div><div class="kpi-value">${avgMkp}%</div><div class="kpi-sub">média real (venda vs. custo)</div></div>
     <div class="kpi approved"><div class="kpi-label">Total Aprovado</div><div class="kpi-value">${fmt(approvedTotal)}</div><div class="kpi-sub">${approvedCount} orçamento${approvedCount===1?'':'s'} aprovado${approvedCount===1?'':'s'}</div></div>`;
 }
 
@@ -592,7 +599,9 @@ function renderTable() {
   tb.innerHTML=rows.map(q=>{
     const cost=Number(q.total_cost)||0;
     const sale=Number(q.sale_price)||Number(q.total)||0;
-    const mkp=Number(q.markup_pct)||0;
+    const costForMkp=Number(q.total_cost)||0;
+    const saleForMkp=Number(q.sale_price)||Number(q.total)||0;
+    const mkp=costForMkp>0?Math.round(((saleForMkp-costForMkp)/costForMkp)*100):0;
     return `<tr>
       <td class="td-num">${q.quote_number||'—'}</td>
       <td>${q.clients?.name||'—'}</td>
