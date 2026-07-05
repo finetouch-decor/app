@@ -3,6 +3,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || 'https://jpbpzlpvhdwgbmljqfyd.s
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 const SUPABASE_ANON_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const OPENAI_KEY   = process.env.OPENAI_API_KEY;
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const STORAGE_BUCKET = 'obra-photos';
 
 // ─── TELEGRAM ────────────────────────────────────────────────
@@ -591,8 +592,168 @@ async function handleHelp(chatId) {
     `🎯 *lead: nome, telefone, cidade*\n→ Ex: \`lead: Sarah Smith, +1 305 111-2222, Miami FL\`\n\n` +
     `💸 *custo: obra, descrição, valor*\n→ Ex: \`custo: Reforma Johnson, Tinta Sherwin, 320\`\n\n` +
     `📸 *Foto de nota fiscal* → extrai itens automaticamente\n🏗️ *Foto de obra* → identifica sozinho e pergunta de qual obra é (manda várias e responda 'pronto')\n🎙️ Pode responder por áudio!\n\n` +
+    `💬 *Pergunte naturalmente:* \`quantas obras temos?\`, \`quanto tá em invoice aberto?\`, \`quais orçamentos aprovados esse mês?\`\n\n` +
     `🔗 [Abrir sistema](https://app-one-amber-58.vercel.app/dashboard)`
   );
+}
+
+// ─── PERGUNTAS EM LINGUAGEM NATURAL (Claude + tool-use) ──────
+const BOT_TOOLS = [
+  {
+    name: 'list_projects',
+    description: 'Lista as obras (projetos) cadastradas no ERP, uma por uma. Use para perguntas sobre quantas obras existem, quais estão ativas/completas, etc.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['active', 'completed', 'all'], description: 'Filtra por status. Use "all" se o usuário não especificar.' }
+      }
+    }
+  },
+  {
+    name: 'sum_invoices',
+    description: 'Soma e conta invoices (faturas) por status. Use para perguntas sobre quanto está em aberto, quanto já foi pago, invoices vencidos, etc.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['open', 'paid', 'overdue', 'all'], description: 'open = ainda não pago. overdue = vencido e não pago.' }
+      },
+      required: ['status']
+    }
+  },
+  {
+    name: 'sum_quotes',
+    description: 'Soma e conta orçamentos por status ou por mês. Use para perguntas sobre orçamentos aprovados, pendentes, ou de um mês específico.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['approved', 'pending', 'rejected', 'all'] },
+        month: { type: 'string', description: 'Mês no formato YYYY-MM, se o usuário mencionar um mês específico.' }
+      }
+    }
+  },
+  {
+    name: 'list_leads',
+    description: 'Lista leads (clientes em potencial) cadastrados, um por um. Use para perguntas sobre quantos leads existem.',
+    input_schema: {
+      type: 'object',
+      properties: { status: { type: 'string', description: 'Filtro opcional de status do lead.' } }
+    }
+  },
+  {
+    name: 'list_tasks',
+    description: 'Lista tarefas internas, uma por uma. Use para perguntas sobre tarefas pendentes ou concluídas.',
+    input_schema: {
+      type: 'object',
+      properties: { status: { type: 'string', enum: ['pending', 'done', 'all'] } }
+    }
+  },
+  {
+    name: 'count_clients',
+    description: 'Conta o total de clientes cadastrados no ERP.',
+    input_schema: { type: 'object', properties: {} }
+  }
+];
+
+function fmtMoney(n) {
+  return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+async function toolListProjects(status) {
+  const rows = await sbGet('projects', 'select=id,name,status,budget&order=created_at.desc');
+  const filtered = (!status || status === 'all') ? rows : rows.filter(p => p.status === status);
+  if (!filtered.length) return `Não encontrei nenhuma obra${status && status !== 'all' ? ` com status "${status}"` : ''}.`;
+  const lines = filtered.map((p, i) => `${i + 1}. ${p.name} — ${p.status}${p.budget ? ` ($${fmtMoney(p.budget)})` : ''}`);
+  return `🏗️ *${filtered.length} obra(s)${status && status !== 'all' ? ` (${status})` : ''}:*\n\n${lines.join('\n')}`;
+}
+
+async function toolSumInvoices(status) {
+  const rows = await sbGet('invoices', 'select=id,status,total,due_date');
+  const today = new Date().toISOString().slice(0, 10);
+  let filtered;
+  if (status === 'paid') filtered = rows.filter(r => r.status === 'paid');
+  else if (status === 'overdue') filtered = rows.filter(r => r.status !== 'paid' && r.due_date && r.due_date < today);
+  else if (status === 'open') filtered = rows.filter(r => r.status !== 'paid');
+  else filtered = rows;
+  const total = filtered.reduce((s, r) => s + Number(r.total || 0), 0);
+  const label = status === 'paid' ? 'pagos' : status === 'overdue' ? 'vencidos (em atraso)' : status === 'open' ? 'em aberto' : 'no total';
+  return `💰 *Invoices ${label}:* ${filtered.length} invoice(s), somando *$${fmtMoney(total)}*.`;
+}
+
+async function toolSumQuotes(status, month) {
+  const rows = await sbGet('quotes', 'select=id,status,sale_price,total,created_at');
+  let filtered = rows;
+  if (status && status !== 'all') filtered = filtered.filter(r => r.status === status);
+  if (month) filtered = filtered.filter(r => (r.created_at || '').slice(0, 7) === month);
+  const total = filtered.reduce((s, r) => s + Number(r.sale_price ?? r.total ?? 0), 0);
+  const label = [status && status !== 'all' ? status : null, month].filter(Boolean).join(' — ');
+  return `📄 *Orçamentos${label ? ` (${label})` : ''}:* ${filtered.length}, somando *$${fmtMoney(total)}*.`;
+}
+
+async function toolListLeads(status) {
+  const rows = await sbGet('leads', 'select=id,status,project_type,client_id&order=created_at.desc');
+  const filtered = status ? rows.filter(r => (r.status || '').toLowerCase() === status.toLowerCase()) : rows;
+  if (!filtered.length) return `Não encontrei leads${status ? ` com status "${status}"` : ''}.`;
+  const clients = await sbGet('clients', 'select=id,name');
+  const cmap = Object.fromEntries(clients.map(c => [c.id, c.name]));
+  const lines = filtered.map((l, i) => `${i + 1}. ${cmap[l.client_id] || 'Cliente'} — ${l.project_type || '—'} (${l.status})`);
+  return `🎯 *${filtered.length} lead(s):*\n\n${lines.join('\n')}`;
+}
+
+async function toolListTasks(status) {
+  const rows = await sbGet('tasks', 'select=id,title,status,due_date&order=due_date.asc');
+  const filtered = (!status || status === 'all') ? rows : rows.filter(r => r.status === status);
+  if (!filtered.length) return `Não encontrei tarefas${status && status !== 'all' ? ` (${status})` : ''}.`;
+  const lines = filtered.map((t, i) => `${i + 1}. ${t.title}${t.due_date ? ` — vence ${t.due_date}` : ''}`);
+  return `✅ *${filtered.length} tarefa(s)${status && status !== 'all' ? ` (${status})` : ''}:*\n\n${lines.join('\n')}`;
+}
+
+async function toolCountClients() {
+  const rows = await sbGet('clients', 'select=id');
+  return `👥 Você tem *${rows.length} cliente(s)* cadastrados no ERP.`;
+}
+
+async function handleIntelligentQuery(chatId, text) {
+  if (!ANTHROPIC_KEY) {
+    await send(chatId, `Não entendi 🤔\n\nDigite *ajuda* para ver os comandos.`);
+    return true;
+  }
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 400,
+        system: 'Você é o assistente do ERP da Fine Touch Decor Design (empresa de paredes/painéis decorativos em Orlando, FL). Responda perguntas do dono sobre o negócio usando as ferramentas disponíveis. Se a pergunta não tiver relação com obras, invoices, orçamentos, leads, tarefas ou clientes do ERP, responda educadamente em português que só pode ajudar com dados do sistema.',
+        tools: BOT_TOOLS,
+        messages: [{ role: 'user', content: text }]
+      })
+    });
+    const data = await res.json();
+    if (data.error) { console.error('Anthropic error', data.error); await send(chatId, `Não entendi 🤔\n\nDigite *ajuda* para ver os comandos.`); return true; }
+
+    const toolUse = (data.content || []).find(b => b.type === 'tool_use');
+    if (toolUse) {
+      const input = toolUse.input || {};
+      let reply = null;
+      switch (toolUse.name) {
+        case 'list_projects': reply = await toolListProjects(input.status); break;
+        case 'sum_invoices': reply = await toolSumInvoices(input.status); break;
+        case 'sum_quotes': reply = await toolSumQuotes(input.status, input.month); break;
+        case 'list_leads': reply = await toolListLeads(input.status); break;
+        case 'list_tasks': reply = await toolListTasks(input.status); break;
+        case 'count_clients': reply = await toolCountClients(); break;
+      }
+      if (reply) { await send(chatId, reply); return true; }
+    }
+
+    const textBlock = (data.content || []).find(b => b.type === 'text');
+    if (textBlock?.text) { await send(chatId, textBlock.text); return true; }
+  } catch (err) {
+    console.error('Anthropic error', err);
+  }
+  await send(chatId, `Não entendi 🤔\n\nDigite *ajuda* para ver os comandos.`);
+  return true;
 }
 
 // ─── MAIN HANDLER ────────────────────────────────────────────
@@ -626,7 +787,7 @@ export default async function handler(req, res) {
         if (/^(tarefa|task)[:\s]/i.test(transcribed)) await handleTask(chatId, transcribed);
         else if (/^lead[:\s]/i.test(transcribed)) await handleLead(chatId, transcribed);
         else if (/^(custo|compra)[:\s]/i.test(transcribed)) await handleCusto(chatId, transcribed);
-        else await send(chatId, `Não entendi 🤔\n\nDigite *ajuda* para ver os comandos.`);
+        else await handleIntelligentQuery(chatId, transcribed);
       }
       res.status(200).json({ ok: true }); return;
     }
@@ -646,7 +807,7 @@ export default async function handler(req, res) {
         await handleCusto(chatId, text);
       } else {
         const handled = await handleSessionReply(chatId, text);
-        if (!handled) await send(chatId, `Não entendi 🤔\n\nDigite *ajuda* para ver os comandos.`);
+        if (!handled) await handleIntelligentQuery(chatId, text);
       }
     }
 
