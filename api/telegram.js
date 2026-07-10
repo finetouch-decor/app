@@ -251,6 +251,40 @@ async function clearSession(chatId) {
 }
 
 // ─── GPT INTERPRETA RESPOSTA DO USUÁRIO ──────────────────────
+// Rede de seguranca: nunca confia 100% no modelo pra decidir sozinho qual obra
+// leva um item que o usuario nao citou. So permite que um item "nao citado por numero"
+// va pra uma obra se o usuario usou uma palavra de "resto" (resto/restante/demais) --
+// senao, forca "ignorar" mesmo que o modelo tenha (erradamente) sugerido uma obra.
+function extractMentionedItemNumbers(text, maxIdx) {
+  const mentioned = new Set();
+  const rangeRe = /(\d+)\s*(?:a|até|ate|-)\s*(\d+)/gi;
+  let m;
+  while ((m = rangeRe.exec(text))) {
+    let a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+    if (a > b) { const tmp = a; a = b; b = tmp; }
+    for (let n = a; n <= b && n <= maxIdx; n++) mentioned.add(n);
+  }
+  const singleRe = /\b(\d+)\b/g;
+  while ((m = singleRe.exec(text))) {
+    const n = parseInt(m[1], 10);
+    if (n >= 1 && n <= maxIdx) mentioned.add(n);
+  }
+  return mentioned;
+}
+
+function enforceExplicitMentionSafety(assignments, text, itemCount) {
+  const hasRestoClause = /\b(resto|restante|demais)\b/i.test(text);
+  if (hasRestoClause) return assignments; // usuario usou "resto" de proposito, confia no modelo
+  const mentioned = extractMentionedItemNumbers(text, itemCount);
+  for (const idxStr of Object.keys(assignments)) {
+    const itemNumber = parseInt(idxStr, 10) + 1;
+    if (!mentioned.has(itemNumber) && assignments[idxStr] !== 'ignorar') {
+      assignments[idxStr] = 'ignorar';
+    }
+  }
+  return assignments;
+}
+
 async function parseItemResponseWithGPT(text, items, projects) {
   const itemList = items.map((it, i) => `${i+1}. ${it.desc} ($${it.value})`).join('\n');
   const projList = projects.map(p => `${p.letter}. "${p.name}"${p.client_name ? ' (cliente: '+p.client_name+')' : ''}`).join('\n');
@@ -276,13 +310,15 @@ Instruções:
 - O usuário usa números para itens e letras para obras (ex: "itens 1 e 3 obra A")
 - Pode mencionar nome do cliente ou da obra em vez da letra
 - Transcrição de áudio pode ter erros: "Bente"="Bench", etc.
-- Se não mencionou um item, use "ignorar"
+- REGRA MAIS IMPORTANTE: se um item NÃO foi mencionado explicitamente pelo número (nem em uma lista, nem em um intervalo), o valor DEVE ser "ignorar". Nunca invente, deduza ou "complete" uma obra para um item que o usuário não citou — mesmo que sobre só um item. Exemplo: se só existem 5 itens e o usuário disse "itens 2, 3, 4 e 5 na obra B", o item 1 é "ignorar" (ele não foi citado), NUNCA deve ir pra outra obra.
+- Só use "resto"/"restante"/"demais" como referência a itens não citados se o próprio usuário usar uma dessas palavras explicitamente.
 - "geral" = custo sem obra específica
 
 Retorne SOMENTE JSON válido (sem markdown):
 {"assignments":{"1":"A","2":"geral","3":"ignorar"}}
 Use a LETRA da obra (A, B, C...) como valor, não o nome.`
       }],
+      temperature: 0,
       max_tokens: 300
     })
   });
@@ -533,8 +569,9 @@ async function handleSessionReply(chatId, text) {
     id: p.id, name: p.name, client_name: p.client_name, letter
   }));
 
-  const assignments = await parseItemResponseWithGPT(text, items, projectsForGPT);
+  let assignments = await parseItemResponseWithGPT(text, items, projectsForGPT);
   if (!Object.keys(assignments).length) return false;
+  assignments = enforceExplicitMentionSafety(assignments, text, items.length);
 
   // Mapa por letra E por nome
   const projectMap = {};
