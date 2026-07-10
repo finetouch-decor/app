@@ -317,7 +317,7 @@ textarea{resize:vertical;min-height:60px;}
 const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-let allProjects = [], clients = [], editingId = null, fechId = null;
+let allProjects = [], clients = [], editingId = null, fechId = null, editingOrigStatus = null;
 
 async function init() {
   const { data: { session } } = await db.auth.getSession();
@@ -488,6 +488,7 @@ async function openModalObra(id) {
     document.getElementById('o-start').value   = p.start_date||'';
     document.getElementById('o-end').value     = p.end_date||'';
     document.getElementById('o-status').value  = p.status||'planning';
+    editingOrigStatus = p.status||'planning';
     document.getElementById('o-budget').value  = p.budget||'';
     document.getElementById('o-type').value    = p.project_type||'residential';
     document.getElementById('o-city').value    = p.city||'';
@@ -499,6 +500,7 @@ async function openModalObra(id) {
     ['o-name','o-budget','o-city','o-state','o-address','o-desc'].forEach(i => document.getElementById(i).value='');
     document.getElementById('o-client').value = '';
     document.getElementById('o-status').value = 'active';
+    editingOrigStatus = null;
     document.getElementById('o-type').value   = 'residential';
     document.getElementById('o-start').value  = new Date().toISOString().slice(0,10);
     document.getElementById('o-end').value    = '';
@@ -527,6 +529,13 @@ async function saveObra() {
     quote_id:    document.getElementById('o-quote').value || null,
   };
   if (!payload.name) { showToast('Nome da obra obrigatório','error'); btn.disabled=false; btn.innerHTML='💾 Salvar Obra'; return; }
+
+  // Nunca deixa marcar "Concluída" direto por aqui -- isso pulava a data de fechamento
+  // (closed_at), que a gente precisa pra medir quanto tempo cada obra leva. Quem fecha
+  // obra de verdade é o botão "Fechar Obra" (openFechamento), que já pede a data.
+  const markingCompleted = payload.status === 'completed' && editingOrigStatus !== 'completed';
+  if (markingCompleted) payload.status = editingOrigStatus || 'active';
+
   let error;
   if (editingId) {
     ({error} = await db.from('projects').update(payload).eq('id',editingId));
@@ -534,9 +543,17 @@ async function saveObra() {
     const num = 'OBR-'+Date.now().toString().slice(-5);
     ({error} = await db.from('projects').insert({...payload,project_number:num}));
   }
-  if (error) { showToast('Erro: '+error.message,'error'); }
-  else { showToast('✅ Obra salva!','success'); closeModal('obra'); }
+  if (error) { showToast('Erro: '+error.message,'error'); btn.disabled=false; btn.innerHTML='💾 Salvar Obra'; return; }
+
+  closeModal('obra');
   await loadProjects();
+
+  if (markingCompleted && editingId) {
+    showToast('Quase lá! Informe a data de conclusão 👇','success');
+    openFechamento(editingId);
+  } else {
+    showToast('✅ Obra salva!','success');
+  }
   btn.disabled=false; btn.innerHTML='💾 Salvar Obra';
 }
 
