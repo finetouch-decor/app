@@ -393,8 +393,18 @@ function render() {
   document.getElementById('k-pending').textContent = fmt(pending);
 
   // Banner
-  const quotesWithInvoice = new Set(invoices.map(i=>i.quote_id).filter(Boolean));
-  const pendingQuotes = quotes.filter(q => !quotesWithInvoice.has(q.id));
+  // Um orcamento so deve aparecer como "aguardando invoice" se o cliente dele
+  // ainda nao tem NENHUMA invoice (seja vinculada por quote_id ou por proposal_id,
+  // ja que invoices geradas a partir de Propostas nao preenchem quote_id) e nem
+  // ja possui uma obra/projeto criado (sinal de que o job ja foi fechado).
+  const quotesWithInvoice  = new Set(invoices.map(i=>i.quote_id).filter(Boolean));
+  const clientsWithInvoice = new Set(invoices.map(i=>i.client_id).filter(Boolean));
+  const clientsWithProject = new Set(projects.map(p=>p.client_id).filter(Boolean));
+  const pendingQuotes = quotes.filter(q =>
+    !quotesWithInvoice.has(q.id) &&
+    !clientsWithInvoice.has(q.client_id) &&
+    !clientsWithProject.has(q.client_id)
+  );
   document.getElementById('banner-wrap').innerHTML = pendingQuotes.length ? `
     <div class="banner">
       <div class="banner-icon">🔔</div>
