@@ -458,6 +458,25 @@ function fmt(v)      { if(!v && v!==0) return '—'; return '$'+Number(v).toLoca
 function fmtN(v)     { return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fmtDate(d)  { if(!d) return '—'; const p=(d+'').split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
 
+// Agrega os itens de compra (purchase_items) de todas as notas de uma obra por
+// descrição, somando quantidade e valor -- vira o "resumo de materiais" da obra,
+// pra saber de uma vez quanto/quantas unidades de cada produto foram usadas,
+// em vez de ter que somar nota por nota.
+function aggregateMaterials(purchasesWithItems) {
+  const map = {};
+  (purchasesWithItems || []).forEach(pu => {
+    (pu.purchase_items || []).forEach(it => {
+      const key = (it.description || 'Item sem descrição').trim();
+      const qty = Number(it.quantity || 1);
+      const total = Number(it.unit_price || 0) * qty;
+      if (!map[key]) map[key] = { description: key, quantity: 0, total: 0, unit: it.unit || 'un' };
+      map[key].quantity += qty;
+      map[key].total += total;
+    });
+  });
+  return Object.values(map).sort((a,b) => b.total - a.total);
+}
+
 let allQuotesList = [];
 async function loadQuotesSelect(selectedId=null, filterClientId=null) {
   if (!allQuotesList.length) {
@@ -651,10 +670,20 @@ async function saveFechamento() {
   const cost = mat+lab+trv+oth;
   const profit = rev-cost;
   const closedAt = document.getElementById('f-closed-at').value||new Date().toISOString().slice(0,10);
+
+  // congela o resumo de materiais nesse momento -- vira o registro histórico da obra,
+  // pra consultar meses depois (relatório, ou o bot do Telegram) sem depender de
+  // recalcular em cima das compras cruas.
+  const { data: closingPurchases } = await db.from('purchases')
+    .select('purchase_items(description,quantity,unit,unit_price)').eq('project_id', fechId);
+  const materialsSummary = aggregateMaterials(closingPurchases || []);
+
   const {error} = await db.from('projects').update({
     status:'completed', actual_revenue:rev, actual_cost:cost, profit_real:profit,
     closed_at:closedAt, end_date:closedAt,
     closing_notes:document.getElementById('f-notes').value.trim(),
+    materials_summary: materialsSummary,
+    materials_summary_computed_at: new Date().toISOString(),
   }).eq('id',fechId);
   if (error) { showToast('Erro: '+error.message,'error'); btn.disabled=false; btn.innerHTML='✅ Fechar Obra'; return; }
   showToast('🎉 Obra fechada com sucesso!','success');
@@ -785,6 +814,22 @@ async function openDetalhe(id) {
     });
   }
   html += '</div>';
+
+  // ── RESUMO DE MATERIAIS (agregado por produto, não por nota) ──
+  const materialsSummary = aggregateMaterials(purs);
+  if (materialsSummary.length) {
+    html += `<div style="margin-bottom:20px;">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">📦 Resumo de Materiais <span style="font-size:10px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:1px 8px;">${materialsSummary.length} produto(s)</span></div>
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+        ${materialsSummary.map((m,idx) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;${idx>0?'border-top:1px solid var(--border);':''}">
+          <div style="font-size:12px;color:var(--navy);flex:1;min-width:0;">${m.description}</div>
+          <div style="font-size:11px;color:var(--muted);white-space:nowrap;margin:0 10px;">${m.quantity} ${m.unit}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--navy);white-space:nowrap;">${fmt(m.total)}</div>
+        </div>`).join('')}
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:6px;">Esse resumo fica congelado quando a obra é fechada — útil pra consultar meses depois quanto/quanto de cada material foi usado aqui.</p>
+    </div>`;
+  }
 
   // ── TAREFAS DA OBRA ──
   const doneTasks = tasks.filter(t => t.status === 'done').length;

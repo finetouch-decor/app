@@ -688,6 +688,17 @@ const BOT_TOOLS = [
     name: 'count_clients',
     description: 'Conta o total de clientes cadastrados no ERP.',
     input_schema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'get_project_materials',
+    description: 'Mostra o resumo de materiais (produtos, quantidades e valores) comprados/usados em uma obra específica. Use para perguntas tipo "quanto gastei de tinta na obra X", "quantas latas usei na casa da Fulana", "quais materiais entraram nessa obra".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        project_name: { type: 'string', description: 'Nome (ou parte do nome) da obra ou do cliente, ex: "Cheryl Katzman", "Paige", "Bench Room".' }
+      },
+      required: ['project_name']
+    }
   }
 ];
 
@@ -749,6 +760,47 @@ async function toolCountClients() {
   return `👥 Você tem *${rows.length} cliente(s)* cadastrados no ERP.`;
 }
 
+async function toolGetProjectMaterials(projectNameQuery) {
+  if (!projectNameQuery) return `❌ Preciso do nome da obra ou do cliente pra buscar os materiais.`;
+  const q = encodeURIComponent(projectNameQuery);
+  let rows = await sbGet('projects', `select=id,name,status,materials_summary,materials_summary_computed_at,clients(name)&name=ilike.*${q}*&limit=5`);
+  if (!rows.length) {
+    // não achou pelo nome da obra -- tenta pelo nome do cliente vinculado
+    rows = await sbGet('projects', `select=id,name,status,materials_summary,materials_summary_computed_at,clients(name)&clients.name=ilike.*${q}*&limit=5`);
+  }
+  const proj = rows[0];
+  if (!proj) return `❌ Não encontrei nenhuma obra parecida com "${projectNameQuery}".`;
+
+  let summary = proj.materials_summary;
+  let frozen = !!summary;
+
+  if (!summary || !summary.length) {
+    // obra ainda não fechada (ou sem snapshot congelado) -- calcula na hora com o que já foi comprado
+    const purchases = await sbGet('purchases', `select=purchase_items(description,quantity,unit,unit_price)&project_id=eq.${proj.id}`);
+    const map = {};
+    purchases.forEach(pu => (pu.purchase_items || []).forEach(it => {
+      const key = (it.description || 'Item sem descrição').trim();
+      const qty = Number(it.quantity || 1);
+      const total = Number(it.unit_price || 0) * qty;
+      if (!map[key]) map[key] = { description: key, quantity: 0, total: 0, unit: it.unit || 'un' };
+      map[key].quantity += qty;
+      map[key].total += total;
+    }));
+    summary = Object.values(map).sort((a,b) => b.total - a.total);
+    frozen = false;
+  }
+
+  if (!summary.length) return `📦 *${proj.name}* ainda não tem nenhuma compra de material registrada.`;
+
+  const lines = summary.map((m,i) => `${i+1}. ${m.description} — ${m.quantity} ${m.unit} — $${fmtMoney(m.total)}`);
+  const totalGeral = summary.reduce((s,m)=>s+Number(m.total||0),0);
+  const nota = frozen
+    ? `_(resumo congelado no fechamento da obra${proj.materials_summary_computed_at ? ' em ' + proj.materials_summary_computed_at.slice(0,10) : ''})_`
+    : `_(obra ainda em andamento — soma do que já foi comprado até agora)_`;
+
+  return `📦 *Materiais — ${proj.name}*\n\n${lines.join('\n')}\n\n💰 Total: *$${fmtMoney(totalGeral)}*\n${nota}`;
+}
+
 async function handleIntelligentQuery(chatId, text) {
   if (!ANTHROPIC_KEY) {
     await send(chatId, `Não entendi 🤔\n\nDigite *ajuda* para ver os comandos.`);
@@ -780,6 +832,7 @@ async function handleIntelligentQuery(chatId, text) {
         case 'list_leads': reply = await toolListLeads(input.status); break;
         case 'list_tasks': reply = await toolListTasks(input.status); break;
         case 'count_clients': reply = await toolCountClients(); break;
+        case 'get_project_materials': reply = await toolGetProjectMaterials(input.project_name); break;
       }
       if (reply) { await send(chatId, reply); return true; }
     }
