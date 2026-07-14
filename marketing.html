@@ -328,6 +328,7 @@
       <button class="tab-btn" id="tab-btn-instagram" onclick="switchTab('instagram')">📸 Instagram</button>
       <button class="tab-btn" id="tab-btn-reviews" onclick="switchTab('reviews')">⭐ Reviews</button>
       <button class="tab-btn" id="tab-btn-competitors" onclick="switchTab('competitors')">🏆 Concorrentes</button>
+      <button class="tab-btn" id="tab-btn-aprovacoes" onclick="switchTab('aprovacoes')">✅ Aprovações <span class="tab-badge" id="aprov-pending-badge" style="display:none">0</span></button>
     </div>
 
     <div class="content">
@@ -590,6 +591,20 @@
         <div id="competitors-content"></div>
       </div>
 
+      <!-- ══ TAB APROVAÇÕES ══ -->
+      <div id="tab-aprovacoes" style="display:none">
+        <div class="leads-header" style="margin-bottom:10px">
+          <span class="leads-title">✅ Fila de Aprovação &amp; Calendário de Postagens</span>
+          <span style="font-size:11px;color:var(--muted)">Nada vai ao ar sem sua aprovação. Revise, aprove ou peça ajuste — a publicação só acontece na data agendada, e só depois de aprovado.</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:16px">
+          <button class="plan-tab-btn active" id="aprov-view-btn-fila" onclick="switchAprovView('fila')">📋 Fila de Aprovação</button>
+          <button class="plan-tab-btn" id="aprov-view-btn-calendario" onclick="switchAprovView('calendario')">🗓️ Calendário</button>
+        </div>
+        <div id="aprov-view-fila"></div>
+        <div id="aprov-view-calendario" style="display:none"></div>
+      </div>
+
     </div><!-- /content -->
   </main>
 </div>
@@ -716,7 +731,7 @@ const statusLabel  = { active:'Ativa', paused:'Pausada', ended:'Encerrada' };
 const statusClass  = { active:'b-active', paused:'b-paused', ended:'b-ended' };
 const sourceLabel  = { google_ads:'Google Ads', fb_marketplace:'FB Marketplace', instagram:'Instagram', facebook:'Facebook', referral:'Indicação', organic:'Orgânico', other:'Outro', '':'Não informado' };
 
-const ALL_TABS = ['resumo','google-ads','site-seo','my-business','portfolio','blog','instagram','reviews','competitors'];
+const ALL_TABS = ['resumo','google-ads','site-seo','my-business','portfolio','blog','instagram','reviews','competitors','aprovacoes'];
 
 function switchTab(tab) {
   ALL_TABS.forEach(t => {
@@ -730,6 +745,7 @@ function switchTab(tab) {
   if (tab === 'reviews') loadReviewsManualPanel();
   if (tab === 'competitors') renderCompetitorsTab();
   if (tab === 'portfolio') loadPortfolioTab();
+  if (tab === 'aprovacoes') loadAprovacoes();
 }
 
 // ── PLANO DE MARKETING ─────────────────────────────────────────
@@ -1490,6 +1506,127 @@ async function loadBlogDrafts() {
   wrap.innerHTML = cards || '<div style="padding:10px 0;color:var(--muted);font-size:12px">Nenhum texto pronto ainda.</div>';
 }
 
+// ── APROVAÇÕES & CALENDÁRIO ────────────────────────────────────
+const CHANNEL_LABELS = { blog:'✍️ Blog', gmb:'📍 Google Business', instagram:'📸 Instagram', facebook:'👍 Facebook' };
+const STATUS_LABELS  = { pending_approval:'⏳ Aguardando aprovação', changes_requested:'✏️ Ajuste pedido', approved:'✅ Aprovado — aguarda data', published:'🚀 Publicado' };
+
+async function loadAprovacoes() {
+  const { data, error } = await db.from('content_queue').select('*').order('scheduled_date', { ascending: true, nullsFirst: false });
+  if (error) { console.error(error); return; }
+  window._contentQueue = data || [];
+  renderAprovFila();
+  renderAprovCalendario();
+  updateAprovBadge();
+}
+
+function updateAprovBadge() {
+  const n = (window._contentQueue || []).filter(i => i.status === 'pending_approval' || i.status === 'changes_requested').length;
+  const b = document.getElementById('aprov-pending-badge');
+  if (!b) return;
+  if (n > 0) { b.style.display = 'inline-block'; b.textContent = n; } else { b.style.display = 'none'; }
+}
+
+function switchAprovView(v) {
+  document.getElementById('aprov-view-btn-fila').classList.toggle('active', v === 'fila');
+  document.getElementById('aprov-view-btn-calendario').classList.toggle('active', v === 'calendario');
+  document.getElementById('aprov-view-fila').style.display = v === 'fila' ? '' : 'none';
+  document.getElementById('aprov-view-calendario').style.display = v === 'calendario' ? '' : 'none';
+}
+
+function renderAprovFila() {
+  const wrap = document.getElementById('aprov-view-fila');
+  const items = (window._contentQueue || []).filter(i => i.status === 'pending_approval' || i.status === 'changes_requested');
+  if (!items.length) { wrap.innerHTML = '<div class="empty">🎉 Nada esperando aprovação no momento.</div>'; return; }
+  wrap.innerHTML = items.map(renderAprovCard).join('');
+}
+
+function renderAprovCard(item) {
+  const img = item.image_url ? `<img src="${item.image_url}" alt="${(item.image_alt||'').replace(/"/g,'&quot;')}" style="width:110px;height:110px;object-fit:cover;border-radius:8px;flex-shrink:0" onerror="this.style.display='none'">` : '';
+  const meta = item.meta || {};
+  const metaLines = [
+    meta.metaTitle ? `<strong>Título SEO:</strong> ${meta.metaTitle}` : '',
+    meta.metaDescription ? `<strong>Meta description:</strong> ${meta.metaDescription}` : '',
+    meta.slug ? `<strong>URL:</strong> /blog/${meta.slug}` : '',
+  ].filter(Boolean).join('<br>');
+  const changesBox = item.status === 'changes_requested'
+    ? `<div style="background:#fff4e0;border:1px solid #f0c987;border-radius:8px;padding:8px 10px;font-size:12px;color:#8a5a00;margin:8px 0"><strong>💬 Seu pedido de ajuste (sendo revisado):</strong> ${(item.requested_changes||'').replace(/</g,'&lt;')}</div>`
+    : '';
+  return `<div class="check-item" style="cursor:default;flex-direction:column;align-items:stretch;gap:10px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div style="display:flex;gap:12px">
+        ${img}
+        <div>
+          <div style="font-size:11px;color:var(--muted)">${CHANNEL_LABELS[item.channel]||item.channel} · agendado p/ ${fmtDate(item.scheduled_date)} · ${STATUS_LABELS[item.status]||item.status}</div>
+          <div class="check-title" style="margin-top:2px">${item.title}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-primary btn-sm" onclick="approveContent('${item.id}')">✅ Aprovar</button>
+        <button class="btn btn-outline btn-sm" onclick="toggleAskChange('${item.id}')">✏️ Pedir ajuste</button>
+      </div>
+    </div>
+    ${changesBox}
+    <div id="ask-change-box-${item.id}" style="display:none">
+      <textarea id="ask-change-text-${item.id}" placeholder="O que você quer que eu mude? (ex: trocar o título, encurtar o texto, trocar a imagem...)" style="width:100%;min-height:60px;font-size:12px;border:1px solid var(--border);border-radius:6px;padding:8px;margin-top:6px"></textarea>
+      <button class="btn btn-primary btn-sm" style="margin-top:6px" onclick="submitAskChange('${item.id}')">Enviar pedido de ajuste</button>
+    </div>
+    <div style="font-size:12px;color:var(--muted)">${metaLines}</div>
+    <details><summary style="cursor:pointer;font-size:12px;color:var(--navy);font-weight:600">Ver texto completo</summary>
+      <div style="white-space:pre-wrap;font-size:12px;color:var(--muted);background:var(--cream2);border-radius:6px;padding:10px;margin-top:6px;max-height:300px;overflow:auto">${(item.body||'').replace(/</g,'&lt;')}</div>
+    </details>
+  </div>`;
+}
+
+function toggleAskChange(id) {
+  const box = document.getElementById('ask-change-box-' + id);
+  if (box) box.style.display = box.style.display === 'none' ? '' : 'none';
+}
+
+async function approveContent(id) {
+  if (!confirm('Aprovar esse conteúdo? Ele será publicado na data agendada (ou no próximo ciclo, se a data já passou).')) return;
+  const { error } = await db.from('content_queue').update({ status: 'approved', approved_at: new Date().toISOString() }).eq('id', id);
+  if (error) { showToast('Erro ao aprovar: ' + error.message, 'error'); return; }
+  showToast('Aprovado! Vai publicar na data agendada.', 'success');
+  await loadAprovacoes();
+}
+
+async function submitAskChange(id) {
+  const el = document.getElementById('ask-change-text-' + id);
+  const txt = (el?.value || '').trim();
+  if (!txt) { showToast('Escreve o que você quer mudar primeiro.', 'error'); return; }
+  const { error } = await db.from('content_queue').update({ status: 'changes_requested', requested_changes: txt }).eq('id', id);
+  if (error) { showToast('Erro: ' + error.message, 'error'); return; }
+  showToast('Pedido enviado! O texto vai ser ajustado e volta pra sua aprovação.', 'success');
+  await loadAprovacoes();
+}
+
+function renderAprovCalendario() {
+  const wrap = document.getElementById('aprov-view-calendario');
+  const items = (window._contentQueue || []).filter(i => i.scheduled_date);
+  if (!items.length) { wrap.innerHTML = '<div class="empty">Nada agendado ainda.</div>'; return; }
+  const byMonth = {};
+  items.forEach(i => { const ym = i.scheduled_date.slice(0,7); (byMonth[ym] = byMonth[ym] || []).push(i); });
+  const months = Object.keys(byMonth).sort();
+  wrap.innerHTML = months.map(ym => {
+    const [y,m] = ym.split('-');
+    const monthName = new Date(Number(y), Number(m)-1, 1).toLocaleDateString('pt-BR', { month:'long', year:'numeric' });
+    const rows = byMonth[ym].sort((a,b) => a.scheduled_date.localeCompare(b.scheduled_date)).map(i => {
+      const statusColor = i.status === 'published' ? '#2e6b3e' : i.status === 'approved' ? '#1a6fb5' : i.status === 'changes_requested' ? '#a15c00' : '#777';
+      const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColor};margin-right:6px"></span>`;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:700;color:var(--navy);width:46px;flex-shrink:0">${fmtDate(i.scheduled_date).slice(0,5)}</div>
+        <div style="font-size:11px;color:var(--muted);width:100px;flex-shrink:0">${CHANNEL_LABELS[i.channel]||i.channel}</div>
+        <div style="font-size:12px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${i.title}</div>
+        <div style="font-size:11px;color:${statusColor};flex-shrink:0">${dot}${STATUS_LABELS[i.status]||i.status}</div>
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:18px">
+      <div style="font-size:13px;font-weight:700;color:var(--navy);text-transform:capitalize;margin-bottom:6px">${monthName}</div>
+      <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">${rows}</div>
+    </div>`;
+  }).join('');
+}
+
 async function init() {
   const { data: { session } } = await db.auth.getSession();
   if (!session) { window.location.href = '/login.html'; return; }
@@ -1501,6 +1638,7 @@ async function init() {
   document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
   document.getElementById('btn-topbar-ads').style.display = '';
   await loadData();
+  loadAprovacoes(); // carrega em paralelo so pra popular o badge de pendentes
 }
 db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
 async function logout() { await db.auth.signOut(); }
