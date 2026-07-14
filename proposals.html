@@ -707,8 +707,12 @@ async function generateInvoice(id) {
   parcelasClientId = cls?.[0]?.id || null;
   parcelasProjectId = null;
   if (parcelasClientId) {
-    const { data: projs } = await db.from('projects').select('id').eq('client_id', parcelasClientId).eq('status','active').order('created_at',{ascending:false}).limit(1);
-    parcelasProjectId = projs?.[0]?.id || null;
+    // Só liga automático quando o cliente tem EXATAMENTE uma obra (qualquer status).
+    // Pegar "a mais recente ativa" era um chute -- cliente recorrente com mais de uma
+    // obra já causou invoice virando obra errada. Se for ambíguo, fica sem vínculo e
+    // o dono resolve com o seletor "🔗 Vincular obra" na aba Invoices.
+    const { data: projs } = await db.from('projects').select('id').eq('client_id', parcelasClientId);
+    if (projs && projs.length === 1) parcelasProjectId = projs[0].id;
   }
 
   document.getElementById('parc-subtitle').textContent = parcelasClientName + ' — defina as parcelas';
