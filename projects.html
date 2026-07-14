@@ -285,6 +285,11 @@ textarea{resize:vertical;min-height:60px;}
           <div><label>Deslocamento / diárias ($)</label><input type="number" id="f-travel" min="0" step="0.01" placeholder="0.00" oninput="recalcFech()"></div>
           <div><label>Outros custos ($)</label><input type="number" id="f-other" min="0" step="0.01" placeholder="0.00" oninput="recalcFech()"></div>
         </div>
+        <p style="font-size:12px;color:var(--muted);margin-top:6px">Os valores acima já vêm somados a partir do que foi lançado nessa obra (compras + custos extras). Ajuste se precisar.</p>
+      </div>
+      <div class="form-section" id="fech-breakdown-section" style="display:none">
+        <div class="form-section-title">📋 Lançamentos já registrados nessa obra</div>
+        <div id="fech-breakdown-list" style="font-size:13px;line-height:1.5;max-height:180px;overflow:auto;"></div>
       </div>
       <div class="fechamento-box">
         <div class="fech-row"><span class="fl">Receita recebida</span><span class="fv" id="fv-rev">$0.00</span></div>
@@ -557,19 +562,61 @@ async function saveObra() {
   btn.disabled=false; btn.innerHTML='💾 Salvar Obra';
 }
 
-function openFechamento(id) {
+async function openFechamento(id) {
   fechId = id;
   const p = allProjects.find(x => x.id === id); if(!p) return;
   document.getElementById('fech-obra-name').textContent = p.name || 'Fechamento de Obra';
   document.getElementById('f-revenue').value  = p.actual_revenue || p.budget || '';
-  document.getElementById('f-mat').value      = p.actual_cost || '';
+  document.getElementById('f-mat').value      = '';
   document.getElementById('f-labor').value    = '';
   document.getElementById('f-travel').value   = '';
   document.getElementById('f-other').value    = '';
   document.getElementById('f-closed-at').value= new Date().toISOString().slice(0,10);
   document.getElementById('f-notes').value    = p.closing_notes||'';
+  const breakdownSection = document.getElementById('fech-breakdown-section');
+  breakdownSection.style.display = '';
+  document.getElementById('fech-breakdown-list').innerHTML = '<div style="color:var(--muted)">Carregando lançamentos já registrados...</div>';
   recalcFech();
   document.getElementById('modal-fech').classList.add('open');
+
+  // Não pede pra digitar tudo de novo: busca o que já foi lançado (compras, custos
+  // extras, invoices pagos) e pré-preenche com a soma real. O usuário só revisa/ajusta.
+  const [purchRes, transRes, invRes] = await Promise.all([
+    db.from('purchases').select('supplier_name,total,order_date').eq('project_id', id),
+    db.from('transactions').select('description,amount,date,category').eq('project_id', id).eq('type','expense'),
+    db.from('invoices').select('invoice_number,total,paid_date').eq('project_id', id).eq('status','paid'),
+  ]);
+  if (fechId !== id) return; // modal foi trocado/fechado antes da resposta chegar
+
+  const purchases    = purchRes.data    || [];
+  const transactions = transRes.data    || [];
+  const paidInvoices = invRes.data      || [];
+
+  const sumMat    = purchases.reduce((s,x)=>s+Number(x.total||0),0) + transactions.filter(t=>t.category==='material').reduce((s,x)=>s+Number(x.amount||0),0);
+  const sumLabor  = transactions.filter(t=>t.category==='labor').reduce((s,x)=>s+Number(x.amount||0),0);
+  const sumTravel = transactions.filter(t=>t.category==='transport').reduce((s,x)=>s+Number(x.amount||0),0);
+  const sumOther  = transactions.filter(t=>!['material','labor','transport'].includes(t.category)).reduce((s,x)=>s+Number(x.amount||0),0);
+  const sumPaid   = paidInvoices.reduce((s,x)=>s+Number(x.total||0),0);
+
+  if (sumMat)    document.getElementById('f-mat').value    = sumMat.toFixed(2);
+  if (sumLabor)  document.getElementById('f-labor').value  = sumLabor.toFixed(2);
+  if (sumTravel) document.getElementById('f-travel').value = sumTravel.toFixed(2);
+  if (sumOther)  document.getElementById('f-other').value  = sumOther.toFixed(2);
+  if (sumPaid)   document.getElementById('f-revenue').value = sumPaid.toFixed(2);
+
+  const catLabelFech = {material:'Material', labor:'Mão de obra', transport:'Transporte', equipment:'Equipamento', other:'Outro'};
+  const lines = [];
+  paidInvoices.forEach(iv => lines.push(`💰 ${iv.invoice_number} — <b>${fmtN(iv.total)}</b> <span style="color:var(--muted)">(pago em ${fmtDate(iv.paid_date)})</span>`));
+  purchases.forEach(pu => lines.push(`🧾 ${pu.supplier_name||'Compra'} — <b>${fmtN(pu.total)}</b> <span style="color:var(--muted)">(${fmtDate(pu.order_date)})</span>`));
+  transactions.forEach(tr => lines.push(`🔧 ${tr.description||catLabelFech[tr.category]||'Custo'} — <b>${fmtN(tr.amount)}</b> <span style="color:var(--muted)">(${catLabelFech[tr.category]||tr.category||'—'} · ${fmtDate(tr.date)})</span>`));
+
+  if (lines.length) {
+    document.getElementById('fech-breakdown-list').innerHTML = lines.map(l=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)">${l}</div>`).join('');
+  } else {
+    document.getElementById('fech-breakdown-list').innerHTML = '<div style="color:var(--muted)">Nenhum lançamento encontrado pra essa obra ainda — preencha manualmente.</div>';
+  }
+
+  recalcFech();
 }
 
 function recalcFech() {
