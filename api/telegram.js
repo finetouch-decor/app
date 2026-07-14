@@ -45,6 +45,20 @@ async function sbInsert(table, data) {
   return res.json();
 }
 
+// Upsert simples (usado pra gravar config chave/valor em marketing_data, ex:
+// o chat_id do dono no Telegram, pra automações externas (n8n) saberem pra quem mandar mensagem).
+async function sbUpsert(table, data, onConflict) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=${onConflict}`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=minimal'
+    },
+    body: JSON.stringify(data)
+  });
+  return res.ok;
+}
+
 // Garante que o fornecedor/loja da nota fiscal ou invoice esteja cadastrado em
 // "suppliers". Se for uma empresa nova que o bot ainda não conhece, cadastra
 // automaticamente em vez de deixar só como texto solto na compra.
@@ -926,6 +940,11 @@ export default async function handler(req, res) {
 
     const chatId = message.chat.id;
     const text   = (message.text || '').trim();
+
+    // Guarda o chat_id do dono pra automacoes externas (n8n) poderem mandar
+    // lembretes (ex: proximo post de blog a publicar) sem precisar de uma mensagem
+    // de entrada. Fire-and-forget, nao bloqueia a resposta do bot.
+    sbUpsert('marketing_data', { key: 'owner_telegram_chat_id', value: { chatId } }, 'key').catch(()=>{});
 
     // Foto → OCR
     if (message.photo) {
