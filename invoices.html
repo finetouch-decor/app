@@ -326,7 +326,7 @@ const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let invoices = [], quotes = [], clients = [], editInvId = null, selectedQuote = null;
+let invoices = [], quotes = [], clients = [], projects = [], editInvId = null, selectedQuote = null;
 
 const statusLabel = { draft:'Rascunho', sent:'Enviada', paid:'Paga', overdue:'Atrasada', cancelled:'Cancelada' };
 const statusClass = { draft:'b-draft', sent:'b-sent', paid:'b-paid', overdue:'b-overdue', cancelled:'b-cancelled' };
@@ -357,14 +357,16 @@ async function genInvNum() {
 }
 
 async function loadAll() {
-  const [{ data: inv }, { data: q }, { data: cl }] = await Promise.all([
+  const [{ data: inv }, { data: q }, { data: cl }, { data: pr }] = await Promise.all([
     db.from('invoices').select('*, clients(name,phone), quotes(quote_number,total)').order('created_at',{ascending:false}),
     db.from('quotes').select('id,quote_number,total,client_id,clients(id,name,email,phone,city)').eq('status','approved').order('created_at',{ascending:false}),
-    db.from('clients').select('id,name').order('name')
+    db.from('clients').select('id,name').order('name'),
+    db.from('projects').select('id,name,client_id').order('name')
   ]);
   invoices = inv || [];
   quotes   = q   || [];
   clients  = cl  || [];
+  projects = pr  || [];
 
   // populate selects
   document.getElementById('mf-client').innerHTML = '<option value="">Selecionar...</option>' + clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
@@ -466,6 +468,12 @@ function render() {
             <span class="badge ${statusClass[i.status]||'b-draft'}">${statusLabel[i.status]||i.status}</span>
             <div class="inv-amount">${fmt(amount)}</div>
             <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
+              ${!i.project_id ? `
+                <select onchange="linkInvoiceProject('${i.id}', this.value)" style="font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;max-width:150px" title="Essa invoice ainda não está vinculada a nenhuma obra">
+                  <option value="">🔗 Vincular obra</option>
+                  ${projects.filter(p=>p.client_id===i.client_id).map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
+                  ${projects.filter(p=>p.client_id!==i.client_id).length ? `<option disabled>──────────</option>${projects.filter(p=>p.client_id!==i.client_id).map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}` : ''}
+                </select>` : ''}
               ${i.status!=='paid'
                 ? `<button class="btn btn-sm" onclick="markPaid('${i.id}')" style="background:#fff;border:1px solid var(--border);color:var(--muted);font-weight:600;">💰 Recebido</button>`
                 : `<span style="font-size:11px;color:#16a34a;font-weight:700;white-space:nowrap">✅ ${fmtDate(i.paid_date)}</span>`}
@@ -675,6 +683,14 @@ async function markPaid(id) {
     showToast('✅ Invoice marcada como paga e lançada no financeiro!', 'success');
   }
 
+  await loadAll();
+}
+
+async function linkInvoiceProject(invoiceId, projectId) {
+  if (!projectId) return;
+  const { error } = await db.from('invoices').update({ project_id: projectId }).eq('id', invoiceId);
+  if (error) { showToast('Erro: '+error.message,'error'); return; }
+  showToast('✅ Invoice vinculada à obra!','success');
   await loadAll();
 }
 
