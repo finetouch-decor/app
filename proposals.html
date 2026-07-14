@@ -52,6 +52,16 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 .stat-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
 .stat-value{font-size:26px;font-weight:800;color:var(--navy);}
 
+/* FILTER TABS */
+.filter-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+.filter-tab{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;border:1.5px solid var(--border);background:var(--white);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif;}
+.filter-tab:hover{border-color:var(--gold);color:var(--navy);}
+.filter-tab.active{background:var(--navy);border-color:var(--navy);color:var(--gold);}
+.filter-tab .count{background:rgba(0,0,0,0.08);border-radius:10px;padding:1px 7px;font-size:11px;}
+.filter-tab.active .count{background:rgba(198,158,99,0.25);color:var(--gold);}
+.filter-summary{font-size:12px;color:var(--muted);margin-bottom:10px;}
+.filter-summary b{color:var(--navy);}
+
 /* TABLE */
 .section-label{font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
 .section-label::after{content:'';flex:1;height:1px;background:rgba(198,158,99,0.25);}
@@ -245,6 +255,9 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
     <div class="stat-card"><div class="stat-label">Accepted</div><div class="stat-value" id="s-accepted">—</div></div>
     <div class="stat-card"><div class="stat-label">Value (accepted)</div><div class="stat-value" id="s-value">—</div></div>
   </div>
+
+  <div class="filter-tabs" id="filter-tabs"></div>
+  <div class="filter-summary" id="filter-summary"></div>
 
   <div class="section-label">All Proposals</div>
   <div class="proposals-table" id="proposals-table">
@@ -470,6 +483,7 @@ const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let proposals = [], editId = null, itemCount = 0, catalogSvcCache = [];
+let currentFilter = 'all';
 
 async function openTemplatepicker() {
   if (!catalogSvcCache.length) {
@@ -544,6 +558,11 @@ function fmt(v) { return '$'+Number(v||0).toLocaleString('en-US',{minimumFractio
 const statusLabel = { draft:'Draft', sent:'Sent', accepted:'Accepted', rejected:'Rejected' };
 const statusBadge = { draft:'badge-draft', sent:'badge-sent', accepted:'badge-accepted', rejected:'badge-rejected' };
 
+function setFilter(status) {
+  currentFilter = status;
+  render();
+}
+
 function render() {
   const total    = proposals.length;
   const sent     = proposals.filter(p=>p.status==='sent').length;
@@ -555,8 +574,30 @@ function render() {
   document.getElementById('s-accepted').textContent = accepted;
   document.getElementById('s-value').textContent    = '$'+Math.round(value/1000)+'k';
 
-  if (!proposals.length) {
-    document.getElementById('proposals-table').innerHTML = '<div class="empty">No proposals yet. Create your first one!</div>';
+  // Abas de filtro por status, com contagem de cada uma -- clicar filtra a lista
+  // abaixo e recalcula o resumo (quantidade + valor) so daquele subconjunto.
+  const tabs = [
+    { key: 'all',      label: 'All',      count: proposals.length },
+    { key: 'draft',    label: 'Draft',    count: proposals.filter(p=>p.status==='draft').length },
+    { key: 'sent',     label: 'Sent',     count: proposals.filter(p=>p.status==='sent').length },
+    { key: 'accepted', label: 'Accepted', count: proposals.filter(p=>p.status==='accepted').length },
+    { key: 'rejected', label: 'Rejected', count: proposals.filter(p=>p.status==='rejected').length },
+  ];
+  document.getElementById('filter-tabs').innerHTML = tabs.map(t => `
+    <button class="filter-tab ${currentFilter===t.key?'active':''}" onclick="setFilter('${t.key}')">
+      ${t.label} <span class="count">${t.count}</span>
+    </button>`).join('');
+
+  const filtered = currentFilter==='all' ? proposals : proposals.filter(p=>p.status===currentFilter);
+  const filteredValue = filtered.reduce((s,p)=>s+Number(p.total_cost||0),0);
+  document.getElementById('filter-summary').innerHTML = filtered.length
+    ? `Showing <b>${filtered.length}</b> proposal${filtered.length===1?'':'s'} · Total <b>${fmt(filteredValue)}</b>`
+    : '';
+
+  if (!filtered.length) {
+    document.getElementById('proposals-table').innerHTML = proposals.length
+      ? '<div class="empty">No proposals with this status.</div>'
+      : '<div class="empty">No proposals yet. Create your first one!</div>';
     return;
   }
 
@@ -564,7 +605,7 @@ function render() {
     <span>Proposal</span><span>Client / Project</span><span>Date</span><span>Value</span><span>Actions</span>
   </div>`;
 
-  document.getElementById('proposals-table').innerHTML = header + proposals.map(p => `
+  document.getElementById('proposals-table').innerHTML = header + filtered.map(p => `
     <div class="trow" onclick="openPrint('${p.id}')">
       <div><div class="p-title">${p.title||'Untitled'}</div></div>
       <div><div class="p-title">${p.client_name||'—'}</div><div class="p-client">${p.project_name||''}</div></div>
