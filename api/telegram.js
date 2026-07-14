@@ -45,6 +45,32 @@ async function sbInsert(table, data) {
   return res.json();
 }
 
+// Garante que o fornecedor/loja da nota fiscal ou invoice esteja cadastrado em
+// "suppliers". Se for uma empresa nova que o bot ainda não conhece, cadastra
+// automaticamente em vez de deixar só como texto solto na compra.
+function normalizeSupplierName(s) {
+  return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+async function getOrCreateSupplier(rawName) {
+  const name = (rawName || '').trim();
+  if (!name || name.toLowerCase() === 'telegram') return null;
+  const target = normalizeSupplierName(name);
+  if (!target) return null;
+  // Compara normalizado (sem hifen/espaco/pontuacao) pra nao duplicar por causa de
+  // "Sherwin-Williams" vs "Sherwin Williams" etc -- ja aconteceu de ter as duas grafias.
+  const all = await sbGet('suppliers', 'select=id,name');
+  const match = all.find(s => normalizeSupplierName(s.name) === target);
+  if (match) return { id: match.id, isNew: false };
+  try {
+    const created = await sbInsert('suppliers', { name, notes: 'Cadastrado automaticamente pelo bot do Telegram (nota fiscal/invoice)' });
+    const row = Array.isArray(created) ? created[0] : created;
+    return row?.id ? { id: row.id, isNew: true } : null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── OPENAI VISION — extrai itens da nota fiscal ─────────────
 async function extractReceiptItems(imageUrl) {
   // Baixa imagem e converte para base64 (URL do Telegram requer autenticação)
@@ -581,6 +607,7 @@ async function handleSessionReply(chatId, text) {
   }
 
   const date = new Date().toISOString().slice(0,10);
+  const supplier = await getOrCreateSupplier(session.store);
   const results = [];
 
   // Agrupa itens por destino para criar uma compra por destino
@@ -600,11 +627,11 @@ async function handleSessionReply(chatId, text) {
 
     let purchRes;
     if (dest === 'geral') {
-      purchRes = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', status: 'received', order_date: date, subtotal, total: subtotal });
+      purchRes = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', supplier_id: supplier?.id || null, status: 'received', order_date: date, subtotal, total: subtotal });
     } else {
       const proj = projectMap[dest] || projectMap[dest.toUpperCase()] || Object.values(projectMap).find(p => p.name && (p.name.toLowerCase().includes(dest) || dest.includes(p.name.toLowerCase())));
       if (!proj) { itens.forEach(x => results.push(`❌ ${x.item.desc} — obra "${dest}" não encontrada`)); continue; }
-      purchRes = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', project_id: proj.id, status: 'received', order_date: date, subtotal, total: subtotal });
+      purchRes = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', supplier_id: supplier?.id || null, project_id: proj.id, status: 'received', order_date: date, subtotal, total: subtotal });
       groups[dest]._projName = proj.name;
     }
 
@@ -617,7 +644,8 @@ async function handleSessionReply(chatId, text) {
   }
 
   await clearSession(chatId);
-  await send(chatId, `📋 *Lançamentos realizados:*\n\n${results.join('\n')}\n\n🔗 [Ver financeiro](https://app-one-amber-58.vercel.app/financial)`);
+  const supplierNote = supplier?.isNew ? `\n\n🏢 *Novo fornecedor cadastrado:* ${session.store}` : '';
+  await send(chatId, `📋 *Lançamentos realizados:*\n\n${results.join('\n')}${supplierNote}\n\n🔗 [Ver financeiro](https://app-one-amber-58.vercel.app/financial)`);
   return true;
 }
 
