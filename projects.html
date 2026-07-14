@@ -458,19 +458,42 @@ function fmt(v)      { if(!v && v!==0) return '—'; return '$'+Number(v).toLoca
 function fmtN(v)     { return '$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fmtDate(d)  { if(!d) return '—'; const p=(d+'').split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
 
+// Notas diferentes escrevem o mesmo produto de jeitos diferentes (código SW muda,
+// "1 Gallon" vs "1 GAL" vs "2 Gallons"...). Aqui a gente tira o código e o tamanho
+// do texto pra achar o "nome do produto" (ex: "Venetian Yellow"), e separa o tamanho
+// (galões) à parte -- assim dá pra somar quantas latas E quantos galões de cada
+// produto entraram na obra, mesmo vindo de notas/códigos diferentes.
+function normalizeMaterialName(raw) {
+  const s0 = (raw || '').trim();
+  const sizeMatch = s0.match(/(\d+(?:\.\d+)?)\s*(gallons?|gal)\b/i);
+  const hasSize = !!sizeMatch;
+  const gallons = hasSize ? (parseFloat(sizeMatch[1]) || 1) : 0;
+
+  let s = s0.replace(/^SW\d+\s*/i, '');   // tira código tipo "SW6166 "
+  s = s.split(' - ')[0];                  // tira variante depois de " - " (ex "SPR INT SA EXTRA")
+  s = s.replace(/\d+(?:\.\d+)?\s*(gallons?|gal)\b/gi, ''); // tira o tamanho do texto
+  s = s.replace(/\s+/g, ' ').trim();
+  if (!s) s = s0;
+  return { name: s, gallons, hasSize };
+}
+
 // Agrega os itens de compra (purchase_items) de todas as notas de uma obra por
-// descrição, somando quantidade e valor -- vira o "resumo de materiais" da obra,
-// pra saber de uma vez quanto/quantas unidades de cada produto foram usadas,
-// em vez de ter que somar nota por nota.
+// PRODUTO (não pelo texto exato da linha), somando latas e galões -- vira o
+// "resumo de materiais" da obra: quantas latas/galões de cada tinta foram usados,
+// mesmo que cada nota tenha escrito o código/tamanho de um jeito diferente.
 function aggregateMaterials(purchasesWithItems) {
   const map = {};
   (purchasesWithItems || []).forEach(pu => {
     (pu.purchase_items || []).forEach(it => {
-      const key = (it.description || 'Item sem descrição').trim();
+      const rawDesc = (it.description || 'Item sem descrição').trim();
+      const { name, gallons, hasSize } = normalizeMaterialName(rawDesc);
       const qty = Number(it.quantity || 1);
       const total = Number(it.unit_price || 0) * qty;
-      if (!map[key]) map[key] = { description: key, quantity: 0, total: 0, unit: it.unit || 'un' };
+      const key = name.toUpperCase();
+      if (!map[key]) map[key] = { description: name, quantity: 0, gallons: 0, hasSize: false, total: 0, unit: it.unit || 'un' };
       map[key].quantity += qty;
+      map[key].gallons += gallons * qty;
+      map[key].hasSize = map[key].hasSize || hasSize;
       map[key].total += total;
     });
   });
@@ -823,7 +846,7 @@ async function openDetalhe(id) {
       <div style="background:var(--white);border:1px solid var(--border);border-radius:10px;overflow:hidden;">
         ${materialsSummary.map((m,idx) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;${idx>0?'border-top:1px solid var(--border);':''}">
           <div style="font-size:12px;color:var(--navy);flex:1;min-width:0;">${m.description}</div>
-          <div style="font-size:11px;color:var(--muted);white-space:nowrap;margin:0 10px;">${m.quantity} ${m.unit}</div>
+          <div style="font-size:11px;color:var(--muted);white-space:nowrap;margin:0 10px;">${m.quantity} lata(s)${m.hasSize ? ' · '+m.gallons+' gal' : ''}</div>
           <div style="font-size:13px;font-weight:700;color:var(--navy);white-space:nowrap;">${fmt(m.total)}</div>
         </div>`).join('')}
       </div>

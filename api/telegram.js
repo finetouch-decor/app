@@ -760,6 +760,43 @@ async function toolCountClients() {
   return `👥 Você tem *${rows.length} cliente(s)* cadastrados no ERP.`;
 }
 
+// Mesmo critério do resumo de materiais na tela (projects.html): agrupa por
+// PRODUTO (tira código SW e tamanho do texto), não pelo texto exato da linha --
+// assim "SW6166 Venetian Yellow 1 Gallon" e "SW1666 Venetian Yellow 1 GAL" contam
+// como o mesmo produto.
+function normalizeMaterialName(raw) {
+  const s0 = (raw || '').trim();
+  const sizeMatch = s0.match(/(\d+(?:\.\d+)?)\s*(gallons?|gal)\b/i);
+  const hasSize = !!sizeMatch;
+  const gallons = hasSize ? (parseFloat(sizeMatch[1]) || 1) : 0;
+
+  let s = s0.replace(/^SW\d+\s*/i, '');
+  s = s.split(' - ')[0];
+  s = s.replace(/\d+(?:\.\d+)?\s*(gallons?|gal)\b/gi, '');
+  s = s.replace(/\s+/g, ' ').trim();
+  if (!s) s = s0;
+  return { name: s, gallons, hasSize };
+}
+
+function aggregateMaterialsFromPurchases(purchasesWithItems) {
+  const map = {};
+  (purchasesWithItems || []).forEach(pu => {
+    (pu.purchase_items || []).forEach(it => {
+      const rawDesc = (it.description || 'Item sem descrição').trim();
+      const { name, gallons, hasSize } = normalizeMaterialName(rawDesc);
+      const qty = Number(it.quantity || 1);
+      const total = Number(it.unit_price || 0) * qty;
+      const key = name.toUpperCase();
+      if (!map[key]) map[key] = { description: name, quantity: 0, gallons: 0, hasSize: false, total: 0, unit: it.unit || 'un' };
+      map[key].quantity += qty;
+      map[key].gallons += gallons * qty;
+      map[key].hasSize = map[key].hasSize || hasSize;
+      map[key].total += total;
+    });
+  });
+  return Object.values(map).sort((a,b) => b.total - a.total);
+}
+
 async function toolGetProjectMaterials(projectNameQuery) {
   if (!projectNameQuery) return `❌ Preciso do nome da obra ou do cliente pra buscar os materiais.`;
   const q = encodeURIComponent(projectNameQuery);
@@ -777,22 +814,13 @@ async function toolGetProjectMaterials(projectNameQuery) {
   if (!summary || !summary.length) {
     // obra ainda não fechada (ou sem snapshot congelado) -- calcula na hora com o que já foi comprado
     const purchases = await sbGet('purchases', `select=purchase_items(description,quantity,unit,unit_price)&project_id=eq.${proj.id}`);
-    const map = {};
-    purchases.forEach(pu => (pu.purchase_items || []).forEach(it => {
-      const key = (it.description || 'Item sem descrição').trim();
-      const qty = Number(it.quantity || 1);
-      const total = Number(it.unit_price || 0) * qty;
-      if (!map[key]) map[key] = { description: key, quantity: 0, total: 0, unit: it.unit || 'un' };
-      map[key].quantity += qty;
-      map[key].total += total;
-    }));
-    summary = Object.values(map).sort((a,b) => b.total - a.total);
+    summary = aggregateMaterialsFromPurchases(purchases);
     frozen = false;
   }
 
   if (!summary.length) return `📦 *${proj.name}* ainda não tem nenhuma compra de material registrada.`;
 
-  const lines = summary.map((m,i) => `${i+1}. ${m.description} — ${m.quantity} ${m.unit} — $${fmtMoney(m.total)}`);
+  const lines = summary.map((m,i) => `${i+1}. ${m.description} — ${m.quantity} lata(s)${m.hasSize ? ' · ' + m.gallons + ' gal' : ''} — $${fmtMoney(m.total)}`);
   const totalGeral = summary.reduce((s,m)=>s+Number(m.total||0),0);
   const nota = frozen
     ? `_(resumo congelado no fechamento da obra${proj.materials_summary_computed_at ? ' em ' + proj.materials_summary_computed_at.slice(0,10) : ''})_`
