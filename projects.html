@@ -490,14 +490,29 @@ function aggregateMaterials(purchasesWithItems) {
       const qty = Number(it.quantity || 1);
       const total = Number(it.unit_price || 0) * qty;
       const key = name.toUpperCase();
-      if (!map[key]) map[key] = { description: name, quantity: 0, gallons: 0, hasSize: false, total: 0, unit: it.unit || 'un' };
+      if (!map[key]) map[key] = { description: name, quantity: 0, gallons: 0, hasSize: false, total: 0, unit: it.unit || 'un', sizeBreakdown: {} };
       map[key].quantity += qty;
       map[key].gallons += gallons * qty;
       map[key].hasSize = map[key].hasSize || hasSize;
       map[key].total += total;
+      if (hasSize) {
+        const sizeKey = String(gallons);
+        map[key].sizeBreakdown[sizeKey] = (map[key].sizeBreakdown[sizeKey] || 0) + qty;
+      }
     });
   });
   return Object.values(map).sort((a,b) => b.total - a.total);
+}
+
+// Ex: "2×1gal + 1×2gal" -- deixa claro que 3 latas de tamanhos diferentes
+// viram 4 galões, em vez de só mostrar "3 latas · 4 gal" (que dá a entender,
+// errado, que toda lata seria de 1 galão).
+function fmtSizeBreakdown(m) {
+  if (!m.hasSize) return '';
+  return Object.entries(m.sizeBreakdown)
+    .sort((a,b) => parseFloat(a[0]) - parseFloat(b[0]))
+    .map(([size,count]) => `${count}×${size}gal`)
+    .join(' + ');
 }
 
 let allQuotesList = [];
@@ -846,7 +861,7 @@ async function openDetalhe(id) {
       <div style="background:var(--white);border:1px solid var(--border);border-radius:10px;overflow:hidden;">
         ${materialsSummary.map((m,idx) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;${idx>0?'border-top:1px solid var(--border);':''}">
           <div style="font-size:12px;color:var(--navy);flex:1;min-width:0;">${m.description}</div>
-          <div style="font-size:11px;color:var(--muted);white-space:nowrap;margin:0 10px;">${m.quantity} lata(s)${m.hasSize ? ' · '+m.gallons+' gal' : ''}</div>
+          <div style="font-size:11px;color:var(--muted);white-space:nowrap;margin:0 10px;">${m.hasSize ? fmtSizeBreakdown(m)+' = '+m.gallons+' gal' : m.quantity+' un'}</div>
           <div style="font-size:13px;font-weight:700;color:var(--navy);white-space:nowrap;">${fmt(m.total)}</div>
         </div>`).join('')}
       </div>

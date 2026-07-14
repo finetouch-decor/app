@@ -787,14 +787,28 @@ function aggregateMaterialsFromPurchases(purchasesWithItems) {
       const qty = Number(it.quantity || 1);
       const total = Number(it.unit_price || 0) * qty;
       const key = name.toUpperCase();
-      if (!map[key]) map[key] = { description: name, quantity: 0, gallons: 0, hasSize: false, total: 0, unit: it.unit || 'un' };
+      if (!map[key]) map[key] = { description: name, quantity: 0, gallons: 0, hasSize: false, total: 0, unit: it.unit || 'un', sizeBreakdown: {} };
       map[key].quantity += qty;
       map[key].gallons += gallons * qty;
       map[key].hasSize = map[key].hasSize || hasSize;
       map[key].total += total;
+      if (hasSize) {
+        const sizeKey = String(gallons);
+        map[key].sizeBreakdown[sizeKey] = (map[key].sizeBreakdown[sizeKey] || 0) + qty;
+      }
     });
   });
   return Object.values(map).sort((a,b) => b.total - a.total);
+}
+
+// Ex: "2×1gal + 1×2gal" -- mesma lógica do projects.html, evita a impressão
+// errada de que 3 latas teriam que somar 3 galões quando são de tamanhos diferentes.
+function fmtSizeBreakdown(m) {
+  if (!m.hasSize) return '';
+  return Object.entries(m.sizeBreakdown)
+    .sort((a,b) => parseFloat(a[0]) - parseFloat(b[0]))
+    .map(([size,count]) => `${count}\u00d7${size}gal`)
+    .join(' + ');
 }
 
 async function toolGetProjectMaterials(projectNameQuery) {
@@ -820,7 +834,7 @@ async function toolGetProjectMaterials(projectNameQuery) {
 
   if (!summary.length) return `📦 *${proj.name}* ainda não tem nenhuma compra de material registrada.`;
 
-  const lines = summary.map((m,i) => `${i+1}. ${m.description} — ${m.quantity} lata(s)${m.hasSize ? ' · ' + m.gallons + ' gal' : ''} — $${fmtMoney(m.total)}`);
+  const lines = summary.map((m,i) => `${i+1}. ${m.description} — ${m.hasSize ? fmtSizeBreakdown(m) + ' = ' + m.gallons + ' gal' : m.quantity + ' un'} — $${fmtMoney(m.total)}`);
   const totalGeral = summary.reduce((s,m)=>s+Number(m.total||0),0);
   const nota = frozen
     ? `_(resumo congelado no fechamento da obra${proj.materials_summary_computed_at ? ' em ' + proj.materials_summary_computed_at.slice(0,10) : ''})_`
