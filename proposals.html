@@ -507,7 +507,7 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let proposals = [], editId = null, itemCount = 0, catalogSvcCache = [];
 let proposalImages = [];
-let currentFilter = 'all';
+let currentFilter = 'draft';
 
 async function openTemplatepicker() {
   if (!catalogSvcCache.length) {
