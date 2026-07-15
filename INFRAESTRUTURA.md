@@ -32,7 +32,9 @@ Tabelas principais: `proposals` (+ `images` jsonb — galeria de imagens na prop
 
 **Storage buckets**: `proposal-images` (público, imagens da galeria de propostas), `obra-photos` (usado pelo bot do Telegram pra fotos de obra, path `{chatId}/{timestamp}.jpg`).
 
-**Edge Functions** (Supabase, deploy via MCP): `publish-social` — publica no Instagram/Facebook via API da Meta, chamado pela scheduled task diária.
+**Edge Functions** (Supabase, deploy via MCP): `publish-social` — publica no Instagram/Facebook via API da Meta, chamado pela scheduled task diária. `assign-obra-photo` — vincula uma foto (URL do bucket `obra-photos`) a uma obra em `catalog_portfolio.image_urls` (cria a linha se não existir). `list-unassigned-photos` — lista fotos do bucket `obra-photos/876981306` (chat_id fixo do dono no bot) que ainda não estão em nenhum `catalog_portfolio.image_urls`.
+
+**Página `/sort-photos`** (`sort-photos.html`): tela de triagem manual das fotos de obra enviadas pelo bot do Telegram — carrega as pendentes via `list-unassigned-photos`, dono escolhe a obra de cada uma (ou marca "tem meu rosto" pra ignorar/nunca usar em marketing), salva via `assign-obra-photo`. Existe porque artifacts/widgets do Claude rodam num sandbox com CSP restrito a poucos CDNs e não conseguem carregar imagens do Supabase Storage — uma página real no ERP não tem essa limitação.
 
 ## Bot do Telegram (`@finetoucherp_bot` → `api/telegram.js`)
 
