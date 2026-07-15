@@ -39,10 +39,13 @@ module.exports = async function handler(req, res) {
     // 3. Descobre a propriedade verificada (domain property ou url-prefix)
     const sitesRes = await fetch('https://www.googleapis.com/webmasters/v3/sites', { headers: authHeader });
     const sitesJson = await sitesRes.json();
+    if (sitesJson.error) {
+      return res.status(400).json({ ok: false, error: 'Erro da API do Google ao listar sites', googleError: sitesJson.error, httpStatus: sitesRes.status });
+    }
     const entries = sitesJson.siteEntry || [];
     const site = entries.find(s => s.siteUrl?.includes('ftdecordesign.com')) || entries[0];
     if (!site) {
-      return res.status(400).json({ ok: false, error: 'Nenhuma propriedade verificada encontrada nessa conta Google.', allSites: entries });
+      return res.status(400).json({ ok: false, error: 'Nenhuma propriedade verificada encontrada nessa conta Google.', allSites: entries, rawResponse: sitesJson, httpStatus: sitesRes.status });
     }
 
     // 4. Consulta os dados reais dos últimos 90 dias, agrupados por keyword (query)
