@@ -1,5 +1,5 @@
 module.exports = async function handler(req, res) {
-  const { code, error } = req.query;
+  const { code, error, state } = req.query;
   if (error) return res.status(400).send(`Google OAuth error: ${error}`);
   if (!code) return res.status(400).send('No code received');
 
@@ -26,8 +26,6 @@ module.exports = async function handler(req, res) {
     return res.status(400).send(`Token exchange failed: ${JSON.stringify(tokens)}`);
   }
 
-  // Save refresh token to Supabase marketing_data (mesmo token cobre GMB + Google Drive, já que
-  // pedimos os dois escopos juntos na tela de autorização)
   const saveKey = async (key) => fetch(`${SUPABASE_URL}/rest/v1/marketing_data`, {
     method: 'POST',
     headers: {
@@ -42,6 +40,37 @@ module.exports = async function handler(req, res) {
       updated_at: new Date().toISOString(),
     }),
   });
+
+  // Esta mesma URL de callback é reaproveitada por dois fluxos de autorização diferentes
+  // (mesmo Google Cloud OAuth client, para não precisar cadastrar um novo redirect URI):
+  // - state=gsc -> fluxo do Search Console (api/gsc-auth.js), escopo webmasters.readonly
+  // - sem state -> fluxo original de GMB + Google Drive (api/gmb-auth.js)
+  if (state === 'gsc') {
+    await saveKey('gsc_refresh_token');
+
+    let sitesInfo = '';
+    try {
+      const sitesRes = await fetch('https://www.googleapis.com/webmasters/v3/sites', {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      });
+      const sitesJson = await sitesRes.json();
+      sitesInfo = JSON.stringify(sitesJson.siteEntry || sitesJson, null, 2);
+    } catch (e) {
+      sitesInfo = 'Erro ao listar sites: ' + e.message;
+    }
+
+    return res.status(200).send(`
+      <html><body style="font-family:sans-serif;padding:40px">
+        <h2>✅ Search Console conectado com sucesso!</h2>
+        <p>Refresh token salvo no banco. Pode fechar esta janela.</p>
+        <p><strong>Propriedades encontradas nessa conta Google:</strong></p>
+        <pre style="background:#f4f4f4;padding:16px;border-radius:8px;white-space:pre-wrap">${sitesInfo}</pre>
+      </body></html>
+    `);
+  }
+
+  // Fluxo original: mesmo token cobre GMB + Google Drive, já que pedimos os dois escopos
+  // juntos na tela de autorização.
   await Promise.all([saveKey('gmb_refresh_token'), saveKey('gdrive_refresh_token')]);
 
   return res.status(200).send(`
