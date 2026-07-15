@@ -51,6 +51,11 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 .stat-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:16px 20px;box-shadow:var(--shadow);}
 .stat-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
 .stat-value{font-size:26px;font-weight:800;color:var(--navy);}
+.stat-card{transition:box-shadow .15s,border-color .15s;}
+.stat-card .stat-sub{font-size:10px;color:var(--muted);margin-top:4px;}
+.stat-card.stat-alert{border-color:rgba(160,48,48,0.35);background:linear-gradient(180deg,#ffffff 0%,#fdf5f5 100%);}
+.stat-card.stat-alert .stat-value{color:var(--red);}
+.stat-card.stat-ok .stat-value{color:var(--green);}
 
 /* FILTER TABS */
 .filter-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
@@ -262,10 +267,10 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
   </div>
 
   <div class="stats-row">
-    <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value" id="s-total">—</div></div>
-    <div class="stat-card"><div class="stat-label">Sent</div><div class="stat-value" id="s-sent">—</div></div>
-    <div class="stat-card"><div class="stat-label">Accepted</div><div class="stat-value" id="s-accepted">—</div></div>
-    <div class="stat-card"><div class="stat-label">Value (accepted)</div><div class="stat-value" id="s-value">—</div></div>
+    <div class="stat-card"><div class="stat-label" id="s-count-label">All</div><div class="stat-value" id="s-total">—</div></div>
+    <div class="stat-card"><div class="stat-label">Total Value</div><div class="stat-value" id="s-value-total">—</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Value</div><div class="stat-value" id="s-value-avg">—</div></div>
+    <div class="stat-card" id="s-stale-card"><div class="stat-label">⏳ 30+ Days, Open</div><div class="stat-value" id="s-stale">—</div><div class="stat-sub" id="s-stale-sub"></div></div>
   </div>
 
   <div class="filter-tabs" id="filter-tabs"></div>
@@ -588,18 +593,9 @@ function setFilter(status) {
 }
 
 function render() {
-  const total    = proposals.length;
-  const sent     = proposals.filter(p=>p.status==='sent').length;
-  const accepted = proposals.filter(p=>p.status==='accepted').length;
-  const value    = proposals.filter(p=>p.status==='accepted').reduce((s,p)=>s+Number(p.total_cost||0),0);
-
-  document.getElementById('s-total').textContent    = total;
-  document.getElementById('s-sent').textContent     = sent;
-  document.getElementById('s-accepted').textContent = accepted;
-  document.getElementById('s-value').textContent    = '$'+Math.round(value/1000)+'k';
-
   // Abas de filtro por status, com contagem de cada uma -- clicar filtra a lista
-  // abaixo e recalcula o resumo (quantidade + valor) so daquele subconjunto.
+  // abaixo e recalcula TODOS os cartoes de resumo (quantidade, valor, media, pendencias)
+  // com base apenas no subconjunto filtrado, nao mais no total geral fixo.
   const tabs = [
     { key: 'all',      label: 'All',      count: proposals.length },
     { key: 'draft',    label: 'Draft',    count: proposals.filter(p=>p.status==='draft').length },
@@ -614,6 +610,37 @@ function render() {
 
   const filtered = currentFilter==='all' ? proposals : proposals.filter(p=>p.status===currentFilter);
   const filteredValue = filtered.reduce((s,p)=>s+Number(p.total_cost||0),0);
+  const filteredAvg   = filtered.length ? filteredValue / filtered.length : 0;
+
+  // Pendencias: dentro do filtro atual, propostas em draft/sent (ainda nao resolvidas)
+  // com mais de 30 dias desde a data do orcamento -- provavel follow-up esquecido.
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const stale = filtered.filter(p => {
+    if (p.status !== 'draft' && p.status !== 'sent') return false;
+    if (!p.date) return false;
+    const d = new Date(p.date + 'T00:00:00').getTime();
+    return !isNaN(d) && (now - d) > THIRTY_DAYS_MS;
+  });
+
+  const activeTab = tabs.find(t => t.key === currentFilter) || tabs[0];
+  document.getElementById('s-count-label').textContent = activeTab.label;
+  document.getElementById('s-total').textContent      = activeTab.count;
+  document.getElementById('s-value-total').textContent = fmt(filteredValue);
+  document.getElementById('s-value-avg').textContent   = filtered.length ? fmt(filteredAvg) : '—';
+  document.getElementById('s-stale').textContent       = stale.length;
+
+  const staleCard = document.getElementById('s-stale-card');
+  const staleSub  = document.getElementById('s-stale-sub');
+  staleCard.classList.remove('stat-alert', 'stat-ok');
+  if (stale.length > 0) {
+    staleCard.classList.add('stat-alert');
+    staleSub.textContent = 'Sitting without a decision — worth a follow-up call';
+  } else {
+    staleCard.classList.add('stat-ok');
+    staleSub.textContent = filtered.length ? 'All caught up' : '';
+  }
+
   document.getElementById('filter-summary').innerHTML = filtered.length
     ? `Showing <b>${filtered.length}</b> proposal${filtered.length===1?'':'s'} · Total <b>${fmt(filteredValue)}</b>`
     : '';
