@@ -693,6 +693,7 @@ function renderTable() {
       <td><span class="badge b-${q.status||'draft'}">${statusLbl(q.status)}</span></td>
       <td><div class="td-actions">
         <button class="btn btn-sm btn-ghost" onclick="openModal('${q.id}')">✏️ Editar</button>
+        <button class="btn btn-sm" onclick="duplicateQuote('${q.id}')" style="background:#eef2ff;color:#3730a3;font-weight:600;" title="Duplicar (ex: mesmo serviço, material diferente)">📑 Duplicar</button>
         <button class="btn btn-sm btn-gold" onclick="genProposal('${q.id}')">📄 Proposta</button>
         <button class="btn btn-sm" onclick="deleteQuote('${q.id}')" style="background:#fee2e2;color:#a03030;font-weight:600;">🗑 Excluir</button>
       </div></td>
@@ -709,6 +710,29 @@ async function deleteQuote(id) {
   if (error) { showToast('Erro: ' + error.message, 'error'); return; }
   showToast('Orçamento excluído.', 'success');
   await loadQuotes();
+}
+
+// ── DUPLICAR ORÇAMENTO (ex: mesmo serviço, orçado com materiais diferentes) ──
+async function duplicateQuote(id) {
+  const orig = allQuotes.find(x => x.id === id);
+  if (!orig) { showToast('Orçamento não encontrado.', 'error'); return; }
+  const { id: _id, quote_number, created_at, updated_at, created_by, clients, quote_items, ...rest } = orig;
+  const payload = {
+    ...rest,
+    quote_number: 'ORC-TEMP',
+    project_name: (rest.project_name || '') + ' (Cópia)',
+    status: 'draft',
+  };
+  const { data, error } = await db.from('quotes').insert(payload).select().single();
+  if (error) { showToast('Erro ao duplicar: ' + error.message, 'error'); return; }
+  await db.from('quotes').update({ quote_number: 'ORC-' + data.id.slice(-6).toUpperCase() }).eq('id', data.id);
+  if (quote_items && quote_items.length) {
+    const newItems = quote_items.map(({ id, quote_id, ...item }) => ({ ...item, quote_id: data.id }));
+    await db.from('quote_items').insert(newItems);
+  }
+  showToast('📑 Orçamento duplicado! Ajuste os materiais/valores e salve.', 'success');
+  await loadQuotes();
+  openModal(data.id);
 }
 function fmt(v){if(!v&&v!==0)return'—';return'$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 

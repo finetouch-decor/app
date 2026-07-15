@@ -104,6 +104,14 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 .scope-item-row button{padding:6px 10px;border-radius:7px;border:1.5px solid var(--border);background:transparent;cursor:pointer;color:var(--muted);font-size:14px;}
 .scope-item-row button:hover{background:var(--red-bg);border-color:var(--red);color:var(--red);}
 .btn-add-item{padding:8px 14px;border-radius:8px;border:1.5px dashed var(--gold2);background:transparent;color:var(--gold);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;width:100%;margin-top:4px;}
+.gallery-editor{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:10px;}
+.gallery-thumb-wrap{position:relative;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;background:var(--cream2);}
+.gallery-thumb-wrap img{width:100%;height:90px;object-fit:cover;display:block;}
+.gallery-thumb-wrap input.gallery-caption{width:100%;border:none;border-top:1px solid var(--border);background:var(--white);font-size:11px;padding:5px 7px;font-family:'Inter',sans-serif;outline:none;box-sizing:border-box;}
+.gallery-thumb-remove{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(16,42,75,0.75);color:#fff;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+.gallery-upload-zone{display:block;border:1.5px dashed var(--gold2);border-radius:10px;padding:14px;text-align:center;font-size:12px;color:var(--gold);font-weight:600;cursor:pointer;background:transparent;margin-top:10px;transition:all .15s;}
+.gallery-upload-zone:hover{background:#fffbf0;border-color:var(--gold);}
+.gallery-uploading{font-size:11px;color:var(--muted);margin-top:6px;}
 .modal-footer{display:flex;gap:10px;justify-content:flex-end;padding:0 28px 28px;}
 
 /* TOAST */
@@ -165,6 +173,10 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 .doc-total-box{background:#102A4B;border-radius:10px;padding:16px 24px;margin-top:20px;display:flex;align-items:center;justify-content:space-between;}
 .doc-total-box .tl{font-size:12px;font-weight:700;color:rgba(234,230,218,0.7);text-transform:uppercase;letter-spacing:1.5px;}
 .doc-total-box .tv{font-size:20px;font-weight:700;color:#C69E63;letter-spacing:0.5px;}
+.doc-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,160px));gap:14px;justify-content:start;margin-top:10px;}
+.doc-gallery-item{border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;background:#fff;break-inside:avoid;}
+.doc-gallery-item img{width:100%;height:130px;object-fit:cover;display:block;}
+.doc-gallery-cap{font-size:10px;color:#475569;padding:5px 7px;text-align:center;line-height:1.3;}
 
 /* Payment table */
 .doc-pay-table{width:100%;border-collapse:collapse;margin-top:4px;}
@@ -367,6 +379,13 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
           </select>
         </div>
       </div>
+      <div class="field">
+        <label>Images (color options, layout drawings, etc.)</label>
+        <div class="gallery-editor" id="gallery-editor"></div>
+        <label class="gallery-upload-zone" for="gallery-file-input">📷 Click to upload image(s) — any quantity</label>
+        <input type="file" id="gallery-file-input" accept="image/*" multiple style="display:none" onchange="handleGalleryUpload(this.files)">
+        <div class="gallery-uploading" id="gallery-uploading" style="display:none;">Uploading...</div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
@@ -431,6 +450,10 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
         <tbody id="doc-items-body"></tbody>
       </table>
 
+      <!-- Images / Options gallery -->
+      <div class="doc-section-title" id="gallery-section-title" style="display:none;">Images &amp; Options</div>
+      <div class="doc-gallery" id="doc-gallery"></div>
+
       <!-- Total + Payment (sempre na segunda página) -->
       <div style="page-break-before:always; padding-top:48px;">
       <div class="doc-total-box">
@@ -483,6 +506,7 @@ const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let proposals = [], editId = null, itemCount = 0, catalogSvcCache = [];
+let proposalImages = [];
 let currentFilter = 'all';
 
 async function openTemplatepicker() {
@@ -616,6 +640,7 @@ function render() {
         ${p.status!=='accepted'&&p.status!=='rejected' ? `<button class="btn-icon" style="background:#f0fdf4;border-color:#16a34a;color:#16a34a;font-size:11px;font-weight:700;padding:5px 10px;" onclick="approveProposal('${p.id}')" title="Aprovar proposta">✅ Aprovar</button>` : ''}
         ${p.status==='accepted' ? `<button class="btn-icon" style="background:#eff6ff;border-color:#2563eb;color:#2563eb;font-size:11px;font-weight:700;padding:5px 10px;" onclick="generateInvoice('${p.id}')" title="Gerar Invoice">🧾 Invoice</button>` : ''}
         <button class="btn-icon" onclick="openEdit('${p.id}')" title="Edit">✏️</button>
+        <button class="btn-icon" onclick="duplicateProposal('${p.id}')" title="Duplicar (ex: mesmo serviço, material diferente)">📑</button>
         <button class="btn-icon" onclick="openPrint('${p.id}')" title="Preview">👁️</button>
         <button class="btn-icon" onclick="deleteProposal('${p.id}')" title="Delete">🗑️</button>
       </div>
@@ -641,6 +666,10 @@ function openModal(data=null) {
   itemCount = 0;
   if (items.length) { items.forEach(t => addScopeItem(t)); }
   else { addScopeItem(); addScopeItem(); }
+
+  // Images gallery
+  proposalImages = (data?.images || []).slice();
+  renderGalleryEditor();
 
   document.getElementById('overlay-form').classList.add('open');
 }
@@ -679,6 +708,51 @@ function getScopeItems() {
   }).filter(Boolean);
 }
 
+// ─── IMAGE GALLERY (proposal images: color options, layout drawings, etc.) ───
+function renderGalleryEditor() {
+  const el = document.getElementById('gallery-editor');
+  el.innerHTML = proposalImages.map((img, i) => `
+    <div class="gallery-thumb-wrap">
+      <button type="button" class="gallery-thumb-remove" onclick="removeGalleryImage(${i})" title="Remove">✕</button>
+      <img src="${img.url}" alt="${(img.caption||'').replace(/"/g,'&quot;')}">
+      <input type="text" class="gallery-caption" placeholder="Caption (optional)" value="${(img.caption||'').replace(/"/g,'&quot;')}" oninput="updateGalleryCaption(${i}, this.value)">
+    </div>`).join('');
+}
+
+function removeGalleryImage(i) {
+  proposalImages.splice(i, 1);
+  renderGalleryEditor();
+}
+
+function updateGalleryCaption(i, value) {
+  if (proposalImages[i]) proposalImages[i].caption = value;
+}
+
+async function handleGalleryUpload(fileList) {
+  const files = [...fileList];
+  if (!files.length) return;
+  const statusEl = document.getElementById('gallery-uploading');
+  statusEl.style.display = 'block';
+  statusEl.textContent = `Uploading 0/${files.length}...`;
+  let done = 0;
+  for (const file of files) {
+    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const path = `${editId || 'draft-' + Date.now()}/${Date.now()}-${safeName}`;
+    const { error: upErr } = await db.storage.from('proposal-images').upload(path, file, { upsert: false });
+    if (upErr) {
+      showToast(`Upload failed: ${file.name}`, 'error');
+      continue;
+    }
+    const { data: pub } = db.storage.from('proposal-images').getPublicUrl(path);
+    proposalImages.push({ url: pub.publicUrl, caption: '' });
+    done++;
+    statusEl.textContent = `Uploading ${done}/${files.length}...`;
+    renderGalleryEditor();
+  }
+  statusEl.style.display = 'none';
+  document.getElementById('gallery-file-input').value = '';
+}
+
 async function saveProposal() {
   const data = {
     client_name:   document.getElementById('f-client').value.trim(),
@@ -690,6 +764,7 @@ async function saveProposal() {
     scope_items:   getScopeItems(),
     duration:      document.getElementById('f-duration').value.trim(),
     status:        document.getElementById('f-status').value,
+    images:        proposalImages,
   };
   if (!data.client_name || !data.title) { showToast('Fill in client name and title.','error'); return; }
 
@@ -713,6 +788,23 @@ async function deleteProposal(id) {
   if (error) { showToast('Erro ao deletar: ' + error.message, 'error'); return; }
   showToast('Proposal deleted.','');
   await loadProposals();
+}
+
+// ─── DUPLICAR PROPOSTA (ex: mesmo serviço, orçado com materiais diferentes) ───
+async function duplicateProposal(id) {
+  const orig = proposals.find(x => x.id === id);
+  if (!orig) { showToast('Proposta não encontrada.', 'error'); return; }
+  const { id: _id, created_at, created_by, ...rest } = orig;
+  const payload = {
+    ...rest,
+    title: (rest.title || '') + ' (Cópia)',
+    status: 'draft',
+  };
+  const { data, error } = await db.from('proposals').insert(payload).select().single();
+  if (error) { showToast('Erro ao duplicar: ' + error.message, 'error'); return; }
+  showToast('📑 Proposta duplicada! Ajuste os itens/valores e salve.', 'success');
+  await loadProposals();
+  openEdit(data.id);
 }
 
 // ─── APROVAR PROPOSTA ────────────────────────────────────────
@@ -946,6 +1038,24 @@ async function openPrint(id) {
         return `<tr><td>${i+1}</td><td>${txt}</td></tr>`;
       }).join('')
     : '<tr><td colspan="2" style="color:#64748B;font-style:italic;">—</td></tr>';
+
+  // Images / Options gallery
+  const gallery = p.images || [];
+  const galTitle = document.getElementById('gallery-section-title');
+  const galBody  = document.getElementById('doc-gallery');
+  if (gallery.length) {
+    galTitle.style.display = 'flex';
+    galBody.style.display  = 'grid';
+    galBody.innerHTML = gallery.map(g => `
+      <div class="doc-gallery-item">
+        <img src="${g.url}" alt="${(g.caption||'Project image').replace(/"/g,'&quot;')}">
+        ${g.caption ? `<div class="doc-gallery-cap">${g.caption}</div>` : ''}
+      </div>`).join('');
+  } else {
+    galTitle.style.display = 'none';
+    galBody.style.display  = 'none';
+    galBody.innerHTML = '';
+  }
 
   // Busca invoices vinculados a esta proposta específica
   const { data: invs } = await db.from('invoices')
