@@ -16,7 +16,8 @@
     { "source": "/tasks",     "destination": "/tasks.html" },
     { "source": "/users",     "destination": "/users.html" },
     { "source": "/login",     "destination": "/login.html" },
-    { "source": "/pending",   "destination": "/pending.html" }
+    { "source": "/pending",   "destination": "/pending.html" },
+    { "source": "/sort-photos", "destination": "/sort-photos.html" }
   ],
   "functions": {
     "api/telegram.js": { "maxDuration": 60 }

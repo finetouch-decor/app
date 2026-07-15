@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fine Touch — Organizar Fotos de Obra</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+:root {
+  --navy:#102A4B; --navy2:#1a3d6e; --gold:#C69E63; --gold2:#C7B090;
+  --cream:#EAE6DA; --cream2:#F7F8FA; --cream3:#FFFFFF; --white:#FFFFFF;
+  --border:rgba(15,23,42,0.08); --text:#1a1a1a; --muted:#64748B;
+  --green:#2e6b3e; --green-bg:#f0f7eb; --red:#a03030; --red-bg:#fdf0f0;
+  --shadow:0 1px 4px rgba(0,0,0,0.06);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);padding:32px;}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
+.title{font-size:22px;font-weight:800;color:var(--navy);}
+.sub{font-size:13px;color:var(--muted);margin-top:4px;}
+.bulk-row{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;background:var(--white);border:1px solid var(--border);border-radius:12px;padding:14px 18px;box-shadow:var(--shadow);}
+.bulk-row label{font-size:13px;font-weight:600;color:var(--navy);}
+select, button{font-family:'Inter',sans-serif;font-size:13px;padding:8px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--white);color:var(--navy);}
+button{cursor:pointer;font-weight:700;background:var(--navy);color:var(--gold);border:none;transition:all .15s;}
+button:hover{background:var(--navy2);}
+button.secondary{background:transparent;color:var(--navy);border:1.5px solid var(--border);}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;}
+.card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:10px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;}
+.card img{width:100%;height:140px;object-fit:cover;border-radius:8px;background:var(--cream2);}
+.card select{width:100%;}
+.face-lbl{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
+.row-status{font-size:11px;color:var(--muted);min-height:14px;}
+.footer-bar{position:sticky;bottom:0;background:var(--white);border-top:1px solid var(--border);padding:16px;margin-top:24px;display:flex;align-items:center;gap:16px;box-shadow:0 -2px 8px rgba(0,0,0,0.06);border-radius:12px 12px 0 0;}
+.empty{text-align:center;padding:60px;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="title">📸 Organizar Fotos de Obra</div>
+    <div class="sub" id="sub">Carregando fotos pendentes...</div>
+  </div>
+  <button class="secondary" onclick="loadPhotos()">↻ Recarregar</button>
+</div>
+
+<div class="bulk-row">
+  <label>Aplicar obra a todas:</label>
+  <select id="bulk-select"><option value="">Escolher...</option></select>
+  <button onclick="applyBulk()">Aplicar a todas</button>
+  <label style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+    <input type="checkbox" id="bulk-face"> marcar todas como "tem rosto"
+  </label>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="footer-bar">
+  <button onclick="saveAll()">💾 Salvar tudo</button>
+  <span id="status" style="font-size:13px;color:var(--muted);"></span>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let projects = [];
+let photos = [];
+
+async function loadProjects() {
+  const { data } = await db.from('projects').select('id,name,status,clients(name)').order('created_at', { ascending: false });
+  projects = data || [];
+  const opts = '<option value="">Obra...</option>' + projects.map(p =>
+    `<option value="${p.id}">${p.name}${p.clients?.name ? ' — ' + p.clients.name : ''} (${p.status})</option>`
+  ).join('');
+  document.getElementById('bulk-select').innerHTML = opts;
+}
+
+async function loadPhotos() {
+  document.getElementById('sub').textContent = 'Carregando fotos pendentes...';
+  document.getElementById('grid').innerHTML = '';
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/list-unassigned-photos`, {
+    headers: { Authorization: 'Bearer ' + SUPABASE_KEY, apikey: SUPABASE_KEY }
+  });
+  const json = await res.json();
+  if (!json.ok) {
+    document.getElementById('sub').textContent = 'Erro ao carregar: ' + (json.error || 'desconhecido');
+    return;
+  }
+  photos = json.photos || [];
+  document.getElementById('sub').textContent = `${photos.length} foto(s) pendente(s) de organizar`;
+  renderGrid();
+}
+
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  if (!photos.length) {
+    grid.innerHTML = '<div class="empty">Nenhuma foto pendente. Tudo organizado! 🎉</div>';
+    return;
+  }
+  const opts = '<option value="">Obra...</option>' + projects.map(p =>
+    `<option value="${p.id}">${p.name}${p.clients?.name ? ' — ' + p.clients.name : ''}</option>`
+  ).join('');
+  grid.innerHTML = photos.map((p, i) => `
+    <div class="card" data-url="${p.url}">
+      <img src="${p.url}" loading="lazy">
+      <select class="obra-sel">${opts}</select>
+      <label class="face-lbl"><input type="checkbox" class="face-chk"> Tem meu rosto</label>
+      <div class="row-status"></div>
+    </div>`).join('');
+}
+
+function applyBulk() {
+  const val = document.getElementById('bulk-select').value;
+  const faceAll = document.getElementById('bulk-face').checked;
+  document.querySelectorAll('.card').forEach(card => {
+    if (val) card.querySelector('.obra-sel').value = val;
+    if (faceAll) card.querySelector('.face-chk').checked = true;
+  });
+}
+
+async function saveAll() {
+  const statusEl = document.getElementById('status');
+  const cards = Array.from(document.querySelectorAll('.card'));
+  let done = 0, skipped = 0, errors = 0;
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i];
+    const url = card.dataset.url;
+    const sel = card.querySelector('.obra-sel');
+    const chk = card.querySelector('.face-chk');
+    const rowStatus = card.querySelector('.row-status');
+    statusEl.textContent = `Processando ${i + 1}/${cards.length}...`;
+    if (chk.checked) { rowStatus.textContent = '🚫 Ignorada (rosto)'; skipped++; continue; }
+    if (!sel.value) { rowStatus.textContent = '— sem obra, pulei'; skipped++; continue; }
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/assign-obra-photo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SUPABASE_KEY, apikey: SUPABASE_KEY },
+        body: JSON.stringify({ image_url: url, project_id: sel.value })
+      });
+      const json = await res.json();
+      if (json.ok) { rowStatus.textContent = '✅ Salvo'; card.style.opacity = '0.4'; done++; }
+      else { rowStatus.textContent = '❌ Erro'; errors++; }
+    } catch (e) {
+      rowStatus.textContent = '❌ Erro de rede'; errors++;
+    }
+  }
+  statusEl.textContent = `Concluído: ${done} salvas, ${skipped} ignoradas/puladas, ${errors} com erro.`;
+}
+
+(async function init() {
+  await loadProjects();
+  await loadPhotos();
+})();
+</script>
+</body>
+</html>
