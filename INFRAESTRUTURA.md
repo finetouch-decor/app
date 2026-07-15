@@ -1,7 +1,7 @@
 # Fine Touch Decor & Design — Infraestrutura Técnica
 
 > Documento de referência único. Leia isto ANTES de procurar qualquer coisa do zero em outra sessão.
-> Última atualização: 2026-07-15.
+> Última atualização: 2026-07-15 (Google Search Console conectado).
 
 > **REGRA PERMANENTE (não é opcional):** este arquivo é a fonte de verdade sobre tudo que existe nesse sistema — não uma conversa de chat, que se perde entre sessões. Toda vez que algo novo for criado, configurado, mudado ou abandonado (tabela, bucket, bot, integração, token, pasta, scheduled task, decisão importante), atualize este arquivo NO MESMO commit/entrega, antes de considerar a tarefa concluída. Se uma sessão futura (de qualquer chat) precisar entender o sistema, o primeiro passo é clonar `finetouch-decor/app` e ler este arquivo — nunca vasculhar tudo de novo do zero.
 
@@ -26,7 +26,7 @@ O sistema tem 3 pernas principais:
 
 Tabelas principais: `proposals` (+ `images` jsonb — galeria de imagens na proposta, `scope_items` jsonb array de strings), `quotes` + `quote_items`, `invoices`, `projects` (obras) + `project_stages`, `purchases`, `suppliers`, `catalog_portfolio` (portfólio — `image_urls` array, `ig_caption`, `blog_body`, `gmb_post_text`, ligado a `projects` via `project_id`), `catalog_services`, `content_queue` (fila de aprovação blog/instagram/facebook/gmb), `marketing_data` (tabela chave-valor genérica — usada como KV store por várias automações, incluindo sessões temporárias do bot do Telegram: chave `tg_session_{chatId}`), `api_secrets` (tabela ISOLADA e seguro para tokens sensíveis, não confundir com `marketing_data`).
 
-**Chaves importantes em `marketing_data`**: `gdrive_refresh_token` (autorizado desde 01/07/2026, usado pelo bot pra espelhar fotos de obra no Drive), `gmb_refresh_token`, `gmb_reviews_manual`, `blog`, `blog_drafts`, `schema_status`.
+**Chaves importantes em `marketing_data`**: `gdrive_refresh_token` (autorizado desde 01/07/2026, usado pelo bot pra espelhar fotos de obra no Drive), `gmb_refresh_token`, `gmb_reviews_manual`, `blog`, `blog_drafts`, `schema_status`, `gsc_refresh_token` (Search Console, desde 15/07/2026 — ver seção própria abaixo), `gsc_data` (cache do último relatório do Search Console).
 
 **`api_secrets`**: hoje só tem `meta_system_user_token` (token permanente do Meta/Instagram — ver seção Meta abaixo).
 
@@ -50,6 +50,15 @@ Já implementado e funcionando (não precisa recriar):
 - Business Portfolio: "Nucleo ND" (`1013812852349765`), App: "FT Decor Automação" (`28354626797454111`), System User: "FTdecorapp" (`61591764008459`), Página FB: "Fine Touch Decor & Design" (`1484953725147177`), Instagram: `ftdecordesign` (`17841406583374792`).
 - Token permanente (nunca expira) guardado em `api_secrets.meta_system_user_token`, 13 permissões incluindo `ads_management`/`ads_read` (pra quando formos fazer anúncios).
 - Terceiro com acesso total ao Business Manager: **João Ricardo (Marchweb)** — deixado de propósito, dono pode remover depois se quiser.
+
+## Google Search Console (SEO real do próprio site — julho/2026)
+
+- **Motivação**: a aba Concorrentes do Marketing tinha um "SEO score" e ranking 100% inventados/manuais para a própria Fine Touch. Search Console é a fonte oficial e gratuita do Google sobre cliques/impressões/posição real — decidido em vez de pagar ferramenta de SEO (Ubersuggest etc.) como primeiro passo, sem custo.
+- **Fluxo OAuth**: reaproveita o MESMO Google Cloud OAuth client já usado pro GMB/Drive (`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, env vars do Vercel) — não foi cadastrado um novo redirect URI pra evitar `redirect_uri_mismatch`. `api/gsc-auth.js` inicia o consent com escopo `webmasters.readonly` e `state=gsc`; `api/gmb-callback.js` (compartilhado com o fluxo do GMB) detecta `state=gsc` e salva o token em `marketing_data.gsc_refresh_token` em vez de `gmb_refresh_token`/`gdrive_refresh_token`.
+- **Pré-requisitos que precisaram ser feitos manualmente pelo dono** (não repetíveis por mim): (1) ativar a "Google Search Console API" no Google Cloud Console do projeto `116867789052` — link direto: `console.developers.google.com/apis/api/searchconsole.googleapis.com/overview?project=116867789052`; (2) cadastrar a propriedade `https://ftdecordesign.com/` no Search Console (search.google.com/search-console) logado como fabinhopereiramkt@gmail.com — verificou automaticamente via tag HTML que o Lovable já tinha injetado no site, sem precisar mexer em DNS.
+- **`api/gsc-report.js`** (Vercel serverless): troca o refresh token por access token, descobre a propriedade verificada, consulta `searchAnalytics.query` dos últimos 90 dias (totais + top 50 keywords por impressão), salva um cache em `marketing_data.gsc_data` e retorna o JSON. Chamado ao abrir a aba Concorrentes e pelo botão "🔄 Atualizar agora".
+- **UI**: aba Marketing → Concorrentes → nova seção "📊 Seu site no Google — dados reais" (acima do quadro de comparação com concorrentes, que continua sendo snapshot manual). Mostra cliques/impressões/CTR/posição média do período + tabela das keywords reais que geram impressão.
+- **Achado da primeira consulta (90 dias, jul/2026)**: 521 impressões, 17 cliques, posição média 32,2 — nenhuma keyword de serviço real (accent wall, tv wall, slat wall) aparece; a maior parte do tráfego é busca por marca ou por "interior designer" genérico (nicho errado). Sinaliza possível problema de título/meta/schema da página, não falta de conteúdo.
 
 ## Google Drive / Dropbox (fotos de obra — tentativas de automação, julho/2026)
 
