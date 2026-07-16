@@ -81,11 +81,19 @@ Todos os 3 fixes publicados e confirmados ao vivo em produção.
 
 - Pasta `FT Obras 📸 - Fotos e Vídeos` e `FT Obras - INBOX (bruto, todas as fotos do dia)` criadas no Drive do usuário — **tentativa abandonada** de fazer upload automático via iOS Shortcuts (não funcionou bem) e Dropbox Camera Upload (bloqueado por restrição de rede do sandbox pra baixar conteúdo do Dropbox). **Solução real já em produção**: o bot do Telegram já resolve isso (ver seção acima) — é o caminho que o dono efetivamente usa.
 
+## Comparativo de concorrentes (Marketing → Concorrentes)
+
+- **Tabela `competitors`** (Supabase, projeto do ERP): substitui o array fixo que existia antes no código do `marketing.html` (que nunca era atualizado). Campos manuais (`ads`, `reviews`, `rating`, `cities`, `manual_checked_at`) vs. automáticos (`blog`, `schema_installed`, `auto_checked_at`).
+- **Edge Function `recheck-competitors`**: busca (fetch de graça, sem custo) a home de cada concorrente e detecta se tem link/rota `/blog` e se tem `<script type="application/ld+json">` — atualiza `blog`/`schema_installed`/`auto_checked_at` na tabela. NÃO tenta automatizar reviews/rating/Google Ads de terceiros — não existe fonte gratuita confiável pra isso (Google não expõe dados de GMB/Ads de outras empresas via API sem custo).
+- **Scheduled task `ft-competitors-recheck`**: roda todo dia 1 do mês às 07h, chama a edge function acima e avisa se algum concorrente está com a checagem manual (reviews/rating) há mais de 90 dias.
+- **UI**: aba Concorrentes mostra a data da última checagem (automática e manual) por concorrente, com aviso ⚠️ quando a manual está desatualizada. O antigo "Score SEO" (0-100) foi removido — era um número inventado/manual sem base real; a linha da Fine Touch já tem dado real de posição/cliques via Search Console (seção acima na mesma aba).
+
 ## Scheduled tasks (Cowork, `/Users/fabinho/Claude/Scheduled/`)
 
 - `ft-content-queue-daily` — publica blog/Instagram/Facebook aprovados e na data, revisa pedidos de ajuste.
 - `ft-content-queue-topup` — mantém ~5 posts de blog e ~4 de Instagram/Facebook futuros na fila.
 - `ft-gbp-api-recheck` — recheca em 13/08/2026 se os 60 dias de dono/gerente do GMB já passaram pra reenviar pedido de API.
+- `ft-competitors-recheck` — todo dia 1 do mês, revalida blog/schema dos concorrentes e alerta se dado manual (reviews/rating) está com mais de 90 dias.
 
 ## Pendências conhecidas
 
