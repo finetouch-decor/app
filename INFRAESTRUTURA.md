@@ -51,6 +51,23 @@ Já implementado e funcionando (não precisa recriar):
 - Token permanente (nunca expira) guardado em `api_secrets.meta_system_user_token`, 13 permissões incluindo `ads_management`/`ads_read` (pra quando formos fazer anúncios).
 - Terceiro com acesso total ao Business Manager: **João Ricardo (Marchweb)** — deixado de propósito, dono pode remover depois se quiser.
 
+## Site institucional (ftdecordesign.com) — separado do ERP!
+
+**IMPORTANTE, descoberto em 15/07/2026**: o site público (ftdecordesign.com) NÃO faz parte do repo `finetouch-decor/app` (isso é só o ERP). O site é um projeto Lovable à parte:
+- **Lovable project**: `ftdecor` (id `e829112b-5f34-4a02-8569-7404edca689f`), workspace `FIne Touch Decor & Design` (`9nOpkLAWhHu2QE3Q5NOY`). Acessível via MCP `mcp__fa97dbb2-ac62-49e7-bd2e-6ba9aa2a76a3__*` (list_projects, read_file, query_database, send_message p/ pedir edições ao agente do Lovable, deploy_project p/ publicar).
+- **Stack**: Vite + React + react-router (SPA client-side, sem SSR) + shadcn/ui. Editar código: usar `send_message` descrevendo a mudança em linguagem natural (o próprio agente do Lovable edita e comita) — não dá pra editar arquivo direto por fora.
+- **Banco de dados PRÓPRIO, separado do ERP**: projeto Supabase `emnqolihibkbbqhxuwaa` (não é o `jpbpzlpvhdwgbmljqfyd` do ERP!). Acessível via `query_database`/`get_database_status` do MCP do Lovable. Tabelas relevantes: `blog_posts` (slug, title, published, published_at, meta_title, meta_description, content, cover_image, tags), `projects` (portfólio — slug, title, before_image, after_image, gallery, published).
+- **Publicar mudanças**: `deploy_project` (publica o commit mais recente no domínio custom ftdecordesign.com, que já está apontado pro build do Lovable). Deploys NÃO são automáticos a cada commit — precisa chamar explicitamente.
+- **Conteúdo do blog**: os posts que a ERP cria em `content_queue` (canal `blog`) são só o planejamento/aprovação — alguém (ou uma automação futura) ainda precisa inserir o post de verdade na tabela `blog_posts` deste outro Supabase pra ele aparecer no site. Hoje só 2 dos 8 posts planejados foram efetivamente publicados lá (`accent-wall-cost-orlando-fl`, `wood-slat-wall-panels-orlando`); os outros 6 estão com `status: pending_approval` e `scheduled_date` futura em `content_queue` (calendário correto, 1 por semana até 24/08) — isso não é bug, é o esperado.
+- **`scripts/generate-sitemap.ts`**: gera `public/sitemap.xml` buscando posts publicados + projetos publicados direto do Supabase do site. Só reflete no domínio depois de um `deploy_project`.
+
+### Bugs de SEO encontrados e corrigidos (15/07/2026)
+1. **Canonical tag hardcoded**: `index.html` tinha `<link rel="canonical" href="https://ftdecordesign.com/">` fixo, servido em TODA rota (já que é SPA sem SSR) — dizia pro Google que toda página (posts, projetos) era duplicata da home. Removido.
+2. **Sitemap.xml desatualizado no ar**: o gerado no repo já tinha as 12 URLs certas (home, projects, blog, privacy, 6 páginas de projeto, 2 posts), mas o domínio nunca tinha sido republicado desde que essas páginas existiam — só mostrava 3 URLs. Resolvido publicando (`deploy_project`).
+3. **`react-helmet-async` não aplicava head por página em produção**: o pacote tinha uma versão inexistente (`^3.0.0`, nunca foi publicada) no `package.json`, causando fallback silencioso quebrado — título, meta description, canonical e JSON-LD (BlogPosting/BreadcrumbList) ficavam sempre no valor genérico da home em qualquer post/projeto, mesmo com o conteúdo certo carregando. Corrigido substituindo o Helmet por um utilitário próprio de manipulação direta do DOM (`src/lib/seo-head.ts`, função `setPageHead()`) usado via `useEffect` em `Blog.tsx`, `BlogPost.tsx` e `ProjectDetail.tsx` — sem depender de biblioteca externa, testado e confirmado funcionando ao vivo.
+
+Todos os 3 fixes publicados e confirmados ao vivo em produção.
+
 ## Google Search Console (SEO real do próprio site — julho/2026)
 
 - **Motivação**: a aba Concorrentes do Marketing tinha um "SEO score" e ranking 100% inventados/manuais para a própria Fine Touch. Search Console é a fonte oficial e gratuita do Google sobre cliques/impressões/posição real — decidido em vez de pagar ferramenta de SEO (Ubersuggest etc.) como primeiro passo, sem custo.
