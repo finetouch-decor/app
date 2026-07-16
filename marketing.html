@@ -1124,12 +1124,16 @@ function buildGscSection(gscData) {
 }
 
 async function renderCompetitorsTab() {
-  // Linha "Fine Touch" é lida ao vivo do Supabase (marketing_data + marketing_tasks).
-  // As linhas dos concorrentes continuam sendo um snapshot manual — não existe hoje
-  // uma automação que monitore os sites deles; revisar esses números periodicamente.
-  const [{ data: mktRows }, { data: taskRows }] = await Promise.all([
+  // Linha "Fine Touch" e as dos concorrentes agora vêm todas do banco.
+  // Concorrentes: tabela `competitors` -- blog/schema_installed são revalidados
+  // de graça todo mês (scheduled task ft-competitors-recheck -> edge function
+  // recheck-competitors). reviews/rating/cities/ads continuam manuais
+  // (manual_checked_at) porque não existe fonte gratuita confiável pra dados
+  // de terceiros no Google (reviews do GMB, status de Google Ads etc.).
+  const [{ data: mktRows }, { data: taskRows }, { data: compRows }] = await Promise.all([
     db.from('marketing_data').select('key,value').in('key', ['schema_status','gmb_reviews','gmb_reviews_manual','gmb_refresh_token','gsc_data']),
     db.from('marketing_tasks').select('id,done').like('id', 'blog-post%'),
+    db.from('competitors').select('*').eq('is_us', false).order('display_order'),
   ]);
   const mkt = {};
   (mktRows||[]).forEach(r => mkt[r.key] = r.value);
@@ -1145,17 +1149,22 @@ async function renderCompetitorsTab() {
   const blogDoneCount = (taskRows||[]).filter(t => t.done).length;
   const blogHasAny = blogDoneCount > 0;
 
+  const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
+  const daysSince = (iso) => iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : null;
+
   const comps = [
-    { name:'Avileve', url:'accentwallsceiling.com', area:'Florida toda', ads:true,  seo:95, reviews:42, rating:4.9, cities:8,  blog:true,  schema:true,  gmb:true,  note:'Líder do mercado — presença em todo o estado' },
-    { name:'Accent Walls Orlando', url:'accentwallsorlando.com', area:'Orlando / Central FL', ads:false, seo:72, reviews:26, rating:4.8, cities:3, blog:true, schema:true, gmb:true, note:'Maior concorrente direto em Orlando' },
-    { name:'Florida Media Walls', url:'tvmediawall.com', area:'Florida toda', ads:true,  seo:68, reviews:18, rating:4.7, cities:5,  blog:false, schema:false, gmb:true,  note:'Focado em TV Media Walls — nicho específico' },
-    { name:'Accent Walls Design', url:'accentwallsdesign.com', area:'Orlando / FL', ads:false, seo:55, reviews:12, rating:4.6, cities:2, blog:true,  schema:false, gmb:true,  note:'Blog ativo, fraco em paid media' },
-    { name:'Accent Bros', url:'accentbros.com', area:'Central FL', ads:false, seo:32, reviews:4, rating:4.5, cities:1, blog:false, schema:false, gmb:false, note:'Novo no mercado (2026) — ainda fraco digitalmente' },
-    { name:'⭐ Fine Touch (você)', url:'ftdecordesign.com', area:'Orlando / South FL', ads:true, seo:28,
+    ...(compRows||[]).map(c => ({
+      name: c.name, url: c.url, area: c.area, notes: c.notes,
+      ads: c.ads, reviews: c.reviews, rating: c.rating, cities: c.cities,
+      blog: c.blog, schema: c.schema_installed,
+      autoCheckedAt: c.auto_checked_at, manualCheckedAt: c.manual_checked_at,
+      manualStale: (daysSince(c.manual_checked_at) ?? 999) > 90,
+    })),
+    { name:'⭐ Fine Touch (você)', url:'ftdecordesign.com', area:'Orlando / South FL', ads:true,
       reviews: reviewCount, reviewsLabel: reviewCount === null ? 'Verificando…' : (reviewIsManual ? String(reviewCount)+'*' : String(reviewCount)),
       rating:5.0, cities:0, blog:blogHasAny, blogLabel: blogHasAny ? `Sim (${blogDoneCount}/9)` : 'Não',
-      schema:schemaOk, gmb:gmbConnected, isUs:true,
-      note:'Google Ads ativo · Site bonito · Dados desta linha atualizados automaticamente pela ERP' },
+      schema:schemaOk, gmb:gmbConnected, isUs:true, autoCheckedAt: new Date().toISOString(),
+      notes:'Google Ads ativo · Site bonito · Dados desta linha atualizados automaticamente pela ERP' },
   ];
 
   const yes = '<span style="color:var(--green);font-weight:700">✓ Sim</span>';
@@ -1167,8 +1176,8 @@ async function renderCompetitorsTab() {
       <div style="overflow-x:auto">
       <table>
         <thead><tr>
-          <th>Empresa</th><th>Score SEO</th><th>Reviews</th><th>Rating</th>
-          <th>Páginas Cidade</th><th>Google Ads</th><th>Blog</th><th>Schema</th><th>GMB</th>
+          <th>Empresa</th><th>Reviews</th><th>Rating</th>
+          <th>Páginas Cidade</th><th>Google Ads</th><th>Blog</th><th>Schema</th><th>Última checagem</th>
         </tr></thead>
         <tbody>
           ${comps.map(c => `<tr class="${c.isUs?'comp-us':''}">
@@ -1176,25 +1185,28 @@ async function renderCompetitorsTab() {
               <div style="font-weight:700;color:var(--navy)">${c.name}</div>
               <div style="font-size:10px;color:var(--muted)">${c.area}</div>
               <div style="font-size:10px;color:var(--blue)">${c.url}</div>
+              ${c.notes ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${c.notes}</div>` : ''}
             </td>
-            <td>
-              <div style="font-weight:800;font-size:16px;color:${c.seo>70?'var(--green)':c.seo>40?'var(--navy)':'var(--red)'}">${c.seo}</div>
-              <div style="width:60px;height:5px;background:var(--cream2);border-radius:4px;overflow:hidden;margin-top:4px">
-                <div style="width:${c.seo}%;height:100%;background:${c.seo>70?'var(--green)':c.seo>40?'var(--blue)':'var(--red)'};border-radius:4px"></div>
-              </div>
-            </td>
-            <td style="font-weight:700;color:${(c.reviews||0)>20?'var(--green)':'var(--muted)'}">${c.reviewsLabel !== undefined ? c.reviewsLabel : c.reviews}</td>
-            <td style="font-weight:700">★${c.rating}</td>
-            <td style="font-weight:700;color:${c.cities>2?'var(--green)':c.cities>0?'var(--navy)':'var(--red)'}">${c.cities}</td>
+            <td style="font-weight:700;color:${(c.reviews||0)>20?'var(--green)':'var(--muted)'}">${c.reviewsLabel !== undefined ? c.reviewsLabel : (c.reviews ?? '—')}</td>
+            <td style="font-weight:700">${c.rating ? '★'+c.rating : '—'}</td>
+            <td style="font-weight:700;color:${c.cities>2?'var(--green)':c.cities>0?'var(--navy)':'var(--red)'}">${c.cities ?? '—'}</td>
             <td>${c.ads?yes:no}</td>
             <td>${c.blogLabel !== undefined ? (c.blog ? '<span style="color:var(--green);font-weight:700">✓ '+c.blogLabel+'</span>' : '<span style="color:var(--red);font-weight:700">✗ '+c.blogLabel+'</span>') : (c.blog?yes:no)}</td>
             <td>${c.schema?yes:no}</td>
-            <td>${c.gmb?yes:no}</td>
+            <td style="font-size:10px;color:var(--muted)">
+              ${c.isUs ? 'ao vivo (ERP)' : `
+                <div>Blog/Schema: ${fmtDate(c.autoCheckedAt)}</div>
+                <div style="${c.manualStale?'color:var(--red);font-weight:700':''}">Reviews/rating: ${fmtDate(c.manualCheckedAt)}${c.manualStale?' ⚠️':''}</div>
+              `}
+            </td>
           </tr>`).join('')}
         </tbody>
       </table>
       </div>
-      ${reviewIsManual ? '<div style="padding:8px 16px;font-size:11px;color:var(--muted)">* Reviews da Fine Touch: número informado manualmente na aba Reviews — leitura automática via API do Google ainda pendente de aprovação.</div>' : ''}
+      <div style="padding:8px 16px;font-size:11px;color:var(--muted)">
+        Blog e Schema dos concorrentes são revalidados automaticamente todo mês (de graça, direto do site de cada um). Reviews, rating, Google Ads e nº de páginas por cidade continuam sendo checagem manual — não existe API gratuita confiável pra esses dados de terceiros; ⚠️ aparece quando faz mais de 90 dias que não são revistos.
+        ${reviewIsManual ? '<br>* Reviews da Fine Touch: número informado manualmente na aba Reviews — leitura automática via API do Google ainda pendente de aprovação.' : ''}
+      </div>
       </div>`;
 
   const insights = `
