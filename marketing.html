@@ -1130,9 +1130,9 @@ async function renderCompetitorsTab() {
   // recheck-competitors). reviews/rating/cities/ads continuam manuais
   // (manual_checked_at) porque não existe fonte gratuita confiável pra dados
   // de terceiros no Google (reviews do GMB, status de Google Ads etc.).
-  const [{ data: mktRows }, { data: taskRows }, { data: compRows }] = await Promise.all([
-    db.from('marketing_data').select('key,value').in('key', ['schema_status','gmb_reviews','gmb_reviews_manual','gmb_refresh_token','gsc_data']),
-    db.from('marketing_tasks').select('id,done').like('id', 'blog-post%'),
+  const [{ data: mktRows }, { data: blogQueueRows }, { data: compRows }] = await Promise.all([
+    db.from('marketing_data').select('key,value').in('key', ['schema_status','gmb_reviews','gmb_reviews_manual','gmb_refresh_token','gsc_data','seo_live_counts']),
+    db.from('content_queue').select('status').eq('channel', 'blog'),
     db.from('competitors').select('*').eq('is_us', false).order('display_order'),
   ]);
   const mkt = {};
@@ -1146,8 +1146,16 @@ async function renderCompetitorsTab() {
   const manualReviewCount = typeof mkt.gmb_reviews_manual?.count === 'number' ? mkt.gmb_reviews_manual.count : null;
   const reviewCount = autoReviewCount !== null ? autoReviewCount : manualReviewCount;
   const reviewIsManual = autoReviewCount === null && manualReviewCount !== null;
-  const blogDoneCount = (taskRows||[]).filter(t => t.done).length;
-  const blogHasAny = blogDoneCount > 0;
+  // Páginas de cidade: contagem real, sincronizada do sitemap.xml ao vivo pela
+  // edge function sync-seo-tasks (marketing_data.seo_live_counts). Antes disso
+  // este valor era um "0" fixo no código, nunca ligado a nenhum dado real.
+  const citiesLive = typeof mkt.seo_live_counts?.area_pages_live === 'number' ? mkt.seo_live_counts.area_pages_live : null;
+  const citiesCheckedAt = mkt.seo_live_counts?.checked_at || null;
+  // Blog: conta o pipeline real (content_queue), não mais o checklist antigo de
+  // 8 posts (marketing_tasks). Mostra publicados/total real da fila.
+  const blogPublishedCount = (blogQueueRows||[]).filter(r => r.status === 'published').length;
+  const blogTotalCount = (blogQueueRows||[]).length;
+  const blogHasAny = blogPublishedCount > 0;
 
   const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
   const daysSince = (iso) => iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : null;
@@ -1162,9 +1170,10 @@ async function renderCompetitorsTab() {
     })),
     { name:'⭐ Fine Touch (você)', url:'ftdecordesign.com', area:'Orlando / South FL', ads:true,
       reviews: reviewCount, reviewsLabel: reviewCount === null ? 'Verificando…' : (reviewIsManual ? String(reviewCount)+'*' : String(reviewCount)),
-      rating:5.0, cities:0, blog:blogHasAny, blogLabel: blogHasAny ? `Sim (${blogDoneCount}/9)` : 'Não',
+      rating:5.0, cities: citiesLive, citiesLabel: citiesLive === null ? 'Verificando…' : String(citiesLive),
+      blog:blogHasAny, blogLabel: `${blogPublishedCount>0?'Sim':'Não'} (${blogPublishedCount}/${blogTotalCount})`,
       schema:schemaOk, gmb:gmbConnected, isUs:true, autoCheckedAt: new Date().toISOString(),
-      notes:'Google Ads ativo · Site bonito · Dados desta linha atualizados automaticamente pela ERP' },
+      notes:'Google Ads ativo · Site bonito · Dados desta linha atualizados automaticamente pela ERP' + (citiesCheckedAt ? ` · Páginas cidade verificadas em ${new Date(citiesCheckedAt).toLocaleDateString('pt-BR')}` : '') },
   ];
 
   const yes = '<span style="color:var(--green);font-weight:700">✓ Sim</span>';
@@ -1189,7 +1198,7 @@ async function renderCompetitorsTab() {
             </td>
             <td style="font-weight:700;color:${(c.reviews||0)>20?'var(--green)':'var(--muted)'}">${c.reviewsLabel !== undefined ? c.reviewsLabel : (c.reviews ?? '—')}</td>
             <td style="font-weight:700">${c.rating ? '★'+c.rating : '—'}</td>
-            <td style="font-weight:700;color:${c.cities>2?'var(--green)':c.cities>0?'var(--navy)':'var(--red)'}">${c.cities ?? '—'}</td>
+            <td style="font-weight:700;color:${(c.cities||0)>2?'var(--green)':(c.cities||0)>0?'var(--navy)':'var(--red)'}">${c.citiesLabel !== undefined ? c.citiesLabel : (c.cities ?? '—')}</td>
             <td>${c.ads?yes:no}</td>
             <td>${c.blogLabel !== undefined ? (c.blog ? '<span style="color:var(--green);font-weight:700">✓ '+c.blogLabel+'</span>' : '<span style="color:var(--red);font-weight:700">✗ '+c.blogLabel+'</span>') : (c.blog?yes:no)}</td>
             <td>${c.schema?yes:no}</td>
