@@ -356,9 +356,10 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
     </div>
     <div class="modal-body">
       <div class="form-row">
-        <div class="field"><label>Client Name</label><input type="text" id="f-client" placeholder="e.g. Tony & Doreen"></div>
+        <div class="field"><label>Client Name</label><input type="text" id="f-client" placeholder="e.g. Tony & Doreen" onblur="autofillCityFromClient()"></div>
         <div class="field"><label>Project Name</label><input type="text" id="f-project" placeholder="e.g. Dining Room Trim"></div>
       </div>
+      <div class="field"><label>City</label><input type="text" id="f-city" placeholder="e.g. Winter Garden"></div>
       <div class="field"><label>Proposal Title</label><input type="text" id="f-title" placeholder="e.g. DECORATIVE WALL TRIM INSTALLATION"></div>
       <div class="form-row">
         <div class="field"><label>Date</label><input type="date" id="f-date"></div>
@@ -434,6 +435,7 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
         <div class="label">Client</div>
         <div class="value" id="doc-client-name">—</div>
         <div class="sub" id="doc-project-name"></div>
+        <div class="sub" id="doc-client-city"></div>
       </div>
       <div style="text-align:right;">
         <div class="label">Estimated Duration</div>
@@ -680,6 +682,7 @@ function openModal(data=null) {
   document.getElementById('modal-title').textContent = data ? 'Edit Proposal' : 'New Proposal';
   document.getElementById('f-client').value   = data?.client_name || '';
   document.getElementById('f-project').value  = data?.project_name || '';
+  document.getElementById('f-city').value     = data?.city || '';
   document.getElementById('f-title').value    = data?.title || '';
   document.getElementById('f-date').value     = data?.date || new Date().toISOString().slice(0,10);
   document.getElementById('f-cost').value     = data?.total_cost || '';
@@ -780,10 +783,20 @@ async function handleGalleryUpload(fileList) {
   document.getElementById('gallery-file-input').value = '';
 }
 
+// ─── AUTO-PREENCHER CIDADE A PARTIR DO CLIENTE CADASTRADO ────
+async function autofillCityFromClient() {
+  const name = document.getElementById('f-client').value.trim();
+  if (!name) return;
+  const { data: cls } = await db.from('clients').select('city').ilike('name', name).limit(1);
+  const city = cls?.[0]?.city;
+  if (city) document.getElementById('f-city').value = city;
+}
+
 async function saveProposal() {
   const data = {
     client_name:   document.getElementById('f-client').value.trim(),
     project_name:  document.getElementById('f-project').value.trim(),
+    city:          document.getElementById('f-city').value.trim(),
     title:         document.getElementById('f-title').value.trim(),
     date:          document.getElementById('f-date').value,
     total_cost:    parseFloat(document.getElementById('f-cost').value)||0,
@@ -1053,6 +1066,7 @@ async function openPrint(id) {
   document.getElementById('doc-date').textContent       = 'Date: ' + fmtDate(p.date);
   document.getElementById('doc-client-name').textContent = p.client_name || '—';
   document.getElementById('doc-project-name').textContent = p.project_name || '';
+  document.getElementById('doc-client-city').textContent = p.city || '';
   document.getElementById('doc-duration').textContent   = p.duration || '—';
   document.getElementById('doc-scope').textContent      = p.project_scope || '';
   document.getElementById('doc-sig-client').textContent = p.client_name || '';
