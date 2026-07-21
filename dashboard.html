@@ -461,12 +461,13 @@ async function logout() { await db.auth.signOut(); }
 
 // ─── LOAD ALL ────────────────────────────────────────────
 async function loadAll() {
-  const [leadsRes, invRes, propRes, quotesRes, lancRes] = await Promise.all([
+  const [leadsRes, invRes, propRes, quotesRes, lancRes, projRes] = await Promise.all([
     db.from('leads').select('id,status,estimated_value,follow_up_date,created_at,clients(name)').order('created_at',{ascending:false}),
-    db.from('invoices').select('id,status,total,subtotal,issue_date,due_date,paid_date,project_id,invoice_number,clients(name)').order('created_at',{ascending:false}),
+    db.from('invoices').select('id,status,total,subtotal,issue_date,due_date,paid_date,project_id,project_total,invoice_number,clients(name)').order('created_at',{ascending:false}),
     db.from('proposals').select('id,status,total_cost,date,client_name').order('created_at',{ascending:false}),
     db.from('quotes').select('id,status,total,created_at,clients(name)').order('created_at',{ascending:false}),
-    db.from('transactions').select('id,type,amount,date,category,description').order('date',{ascending:false})
+    db.from('transactions').select('id,type,amount,date,category,description').order('date',{ascending:false}),
+    db.from('projects').select('id,name,budget,status')
   ]);
 
   const leads   = leadsRes.data  || [];
@@ -474,11 +475,12 @@ async function loadAll() {
   const props   = propRes.data   || [];
   const quotes  = quotesRes.data || [];
   const lancs   = lancRes.data   || [];
+  const projs   = projRes.data   || [];
 
   document.getElementById('sync-dot').className='sync-dot ok';
   document.getElementById('sync-label').textContent='Atualizado';
 
-  renderAlertas(leads, invs);
+  renderAlertas(leads, invs, projs);
   renderKpiGeral(leads, invs);
   renderCRM(leads);
   renderProposals(props);
@@ -641,7 +643,7 @@ function renderFinancial(lancs) {
 
 // ─── FOLLOW-UPS ──────────────────────────────────────────
 // ── ALERTAS INTELIGENTES ──────────────────────────────────
-function renderAlertas(leads, invs) {
+function renderAlertas(leads, invs, projs) {
   const t   = today();
   const in7 = new Date(); in7.setDate(in7.getDate()+7);
   const in7s = in7.toISOString().slice(0,10);
@@ -653,6 +655,29 @@ function renderAlertas(leads, invs) {
     level:'amber', icon:'🔗',
     text: `${semObra.length} invoice${semObra.length>1?'s':''} sem obra vinculada — ${semObra.map(i=>(i.clients?.name||i.invoice_number||'—')).join(', ')}`,
     link:'/invoices', cta:'Vincular obra'
+  });
+
+  // Orçamento da obra desatualizado (ex: obra criada a partir de 1 parcela, mas o job tem mais parcelas)
+  // -- detecta obras cujo budget não bate com o valor total real do contrato (project_total dos invoices)
+  const projMap = {};
+  (projs||[]).forEach(p=>{ projMap[p.id]=p; });
+  const orcamentoErrado = [];
+  const vistos = new Set();
+  (invs||[]).forEach(i=>{
+    if (!i.project_id || i.project_total==null || vistos.has(i.project_id)) return;
+    const proj = projMap[i.project_id];
+    if (!proj) return;
+    const correto = Number(i.project_total);
+    const atual = Number(proj.budget)||0;
+    if (Math.abs(correto - atual) > 0.01) {
+      vistos.add(i.project_id);
+      orcamentoErrado.push({ nome: proj.name, atual, correto });
+    }
+  });
+  if (orcamentoErrado.length) alerts.push({
+    level:'amber', icon:'💰',
+    text: `${orcamentoErrado.length} obra${orcamentoErrado.length>1?'s':''} com orçamento desatualizado — ${orcamentoErrado.map(o=>`${o.nome} (mostra ${fmt(o.atual)}, deveria ser ${fmt(o.correto)})`).join(', ')}`,
+    link:'/projects', cta:'Corrigir orçamento'
   });
 
   // Invoices vencidas
