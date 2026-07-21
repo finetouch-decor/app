@@ -867,12 +867,17 @@ async function generateInvoice(id) {
   parcelasClientId = cls?.[0]?.id || null;
   parcelasProjectId = null;
   if (parcelasClientId) {
-    // Só liga automático quando o cliente tem EXATAMENTE uma obra (qualquer status).
-    // Pegar "a mais recente ativa" era um chute -- cliente recorrente com mais de uma
-    // obra já causou invoice virando obra errada. Se for ambíguo, fica sem vínculo e
-    // o dono resolve com o seletor "🔗 Vincular obra" na aba Invoices.
-    const { data: projs } = await db.from('projects').select('id').eq('client_id', parcelasClientId);
-    if (projs && projs.length === 1) parcelasProjectId = projs[0].id;
+    // Só liga automático quando o cliente tem EXATAMENTE uma obra e ela está ATIVA.
+    // Corrigido em 21/07/2026: antes ligava em obra "completed" também -- isso causou
+    // invoice de uma proposta NOVA (ex: 2º job de cliente recorrente) ser silenciosamente
+    // anexado à obra antiga já finalizada, em vez de deixar o trigger criar uma obra nova
+    // ao marcar o invoice como pago. Obra "completed" quase sempre significa que a proposta
+    // atual é um job novo, não continuação -- não adivinha, fica sem vínculo e o dono
+    // resolve com o seletor "🔗 Vincular obra" na aba Invoices (ou o trigger cria uma obra
+    // nova automaticamente se o cliente não tiver nenhuma obra ativa).
+    const { data: projs } = await db.from('projects').select('id,status').eq('client_id', parcelasClientId);
+    const ativos = (projs || []).filter(pr => pr.status === 'active');
+    if (ativos.length === 1) parcelasProjectId = ativos[0].id;
   }
 
   document.getElementById('parc-subtitle').textContent = parcelasClientName + ' — defina as parcelas';
