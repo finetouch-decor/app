@@ -683,6 +683,7 @@ function openModal(data=null) {
   document.getElementById('f-client').value   = data?.client_name || '';
   document.getElementById('f-project').value  = data?.project_name || '';
   document.getElementById('f-city').value     = data?.city || '';
+  if (!document.getElementById('f-city').value) autofillCityFromClient();
   document.getElementById('f-title').value    = data?.title || '';
   document.getElementById('f-date').value     = data?.date || new Date().toISOString().slice(0,10);
   document.getElementById('f-cost').value     = data?.total_cost || '';

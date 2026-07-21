@@ -551,7 +551,7 @@ async function loadClients() {
 }
 
 async function loadQuotes() {
-  const {data,error}=await db.from('quotes').select('*,clients(name),quote_items(*)').order('created_at',{ascending:false});
+  const {data,error}=await db.from('quotes').select('*,clients(name,city),quote_items(*)').order('created_at',{ascending:false});
   if(error){showToast('Erro ao carregar','error');return;}
   allQuotes=data||[];
   populateMonthFilter();
@@ -1006,6 +1006,7 @@ async function genProposal(quoteId) {
 
   const payload={
     client_name:q.clients?.name||'',
+    city:q.clients?.city||'',
     project_name:q.project_name||'',
     title:`Proposal — ${q.project_name||q.clients?.name||'Project'}`,
     date:new Date().toISOString().slice(0,10),
