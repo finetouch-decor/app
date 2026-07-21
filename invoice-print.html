@@ -113,7 +113,7 @@
 
 <div class="page-wrap">
   <div class="toolbar">
-    <button class="btn-back" onclick="window.location.href='/invoices'">← Back</button>
+    <button class="btn-back" onclick="window.close(); if (!window.closed) window.location.href='/invoices';">✕ Fechar</button>
     <button class="btn-email" onclick="sendEmail()" id="btn-email" style="background:#2e6b3e;color:#fff;display:none">✉ Send by Email</button>
     <button id="btn-edit" onclick="editInvoice()" style="background:#C69E63;color:#102A4B;display:none">✏️ Edit</button>
     <button id="btn-delete" onclick="deleteInvoice()" style="background:#a03030;color:#fff;display:none">🗑 Delete</button>
