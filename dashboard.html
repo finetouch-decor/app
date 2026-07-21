@@ -463,7 +463,7 @@ async function logout() { await db.auth.signOut(); }
 async function loadAll() {
   const [leadsRes, invRes, propRes, quotesRes, lancRes] = await Promise.all([
     db.from('leads').select('id,status,estimated_value,follow_up_date,created_at,clients(name)').order('created_at',{ascending:false}),
-    db.from('invoices').select('id,status,total,subtotal,issue_date,due_date,paid_date,clients(name)').order('created_at',{ascending:false}),
+    db.from('invoices').select('id,status,total,subtotal,issue_date,due_date,paid_date,project_id,invoice_number,clients(name)').order('created_at',{ascending:false}),
     db.from('proposals').select('id,status,total_cost,date,client_name').order('created_at',{ascending:false}),
     db.from('quotes').select('id,status,total,created_at,clients(name)').order('created_at',{ascending:false}),
     db.from('transactions').select('id,type,amount,date,category,description').order('date',{ascending:false})
@@ -646,6 +646,14 @@ function renderAlertas(leads, invs) {
   const in7 = new Date(); in7.setDate(in7.getDate()+7);
   const in7s = in7.toISOString().slice(0,10);
   const alerts = [];
+
+  // Invoices sem obra vinculada (cliente recorrente -- sistema não adivinha, precisa de 1 clique)
+  const semObra = invs.filter(i=>!i.project_id&&i.status!=='cancelled'&&i.status!=='draft');
+  if (semObra.length) alerts.push({
+    level:'amber', icon:'🔗',
+    text: `${semObra.length} invoice${semObra.length>1?'s':''} sem obra vinculada — ${semObra.map(i=>(i.clients?.name||i.invoice_number||'—')).join(', ')}`,
+    link:'/invoices', cta:'Vincular obra'
+  });
 
   // Invoices vencidas
   const vencidas = invs.filter(i=>i.status!=='paid'&&i.status!=='cancelled'&&i.due_date&&i.due_date<t);
