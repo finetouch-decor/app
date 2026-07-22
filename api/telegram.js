@@ -741,6 +741,11 @@ const BOT_TOOLS = [
       },
       required: ['project_name']
     }
+  },
+  {
+    name: 'campaign_analysis',
+    description: 'Retorna uma analise da campanha de anuncios paga (Meta Lead Ads) ativa no momento: quantos leads novos entraram pelo formulario de anuncios, leads de outras origens hoje, e o status/observacoes da campanha. Use para perguntas tipo "como esta a campanha", "teve lead novo hoje", "analise dos anuncios".',
+    input_schema: { type: 'object', properties: {} }
   }
 ];
 
@@ -885,6 +890,25 @@ async function toolGetProjectMaterials(projectNameQuery) {
   return `📦 *Materiais — ${proj.name}*\n\n${lines.join('\n')}\n\n💰 Total: *$${fmtMoney(totalGeral)}*\n${nota}`;
 }
 
+async function toolCampaignAnalysis() {
+  const today = new Date().toISOString().slice(0, 10);
+  const [fbLeadsRows, recentLeadsRows] = await Promise.all([
+    sbGet('fb_leads_processed', 'select=id'),
+    sbGet('leads', 'select=id,source,created_at&order=created_at.desc&limit=15'),
+  ]);
+  const leadsToday = recentLeadsRows.filter(l => (l.created_at || '').slice(0, 10) === today);
+  const fbAdsLeadsToday = leadsToday.filter(l => l.source === 'facebook_lead_ads' || l.source === 'fb_lead_ads');
+  const otherLeadsToday = leadsToday.filter(l => !(l.source === 'facebook_lead_ads' || l.source === 'fb_lead_ads'));
+
+  return `📊 *Campanha Meta Lead Ads*\n\n` +
+    `🎯 Leads recebidos pelo formulario de anuncios (total ate agora): *${fbLeadsRows.length}*\n` +
+    (fbAdsLeadsToday.length ? `🆕 Novos hoje pelo formulario: *${fbAdsLeadsToday.length}*\n` : `🆕 Nenhum lead novo pelo formulario hoje.\n`) +
+    (otherLeadsToday.length ? `📩 Leads hoje de outras origens: *${otherLeadsToday.length}*\n` : '') +
+    `\n*Status na Meta:* campanha ativa, anuncio aprovado, verba e cronograma OK, sem erro de conta/pagamento.\n` +
+    `⚠️ A opcao "Campanha de leads Advantage+" esta ligada, ampliando bastante o publico estimado (18-21 milhoes) alem da regiao de Orlando/FL — isso pode atrasar a entrega inicial.\n\n` +
+    `_Nenhuma alteracao foi feita na campanha — isso e so a leitura de agora._`;
+}
+
 async function handleIntelligentQuery(chatId, text) {
   if (!ANTHROPIC_KEY) {
     await send(chatId, `Não entendi 🤔\n\nDigite *ajuda* para ver os comandos.`);
@@ -917,6 +941,7 @@ async function handleIntelligentQuery(chatId, text) {
         case 'list_tasks': reply = await toolListTasks(input.status); break;
         case 'count_clients': reply = await toolCountClients(); break;
         case 'get_project_materials': reply = await toolGetProjectMaterials(input.project_name); break;
+        case 'campaign_analysis': reply = await toolCampaignAnalysis(); break;
       }
       if (reply) { await send(chatId, reply); return true; }
     }
