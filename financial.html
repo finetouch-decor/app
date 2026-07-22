@@ -53,7 +53,7 @@
   .content { padding:24px 28px; flex:1; overflow-y:auto; }
 
   /* KPI ROW */
-  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+  .kpi-row { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:24px; }
   .kpi-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:16px 18px; box-shadow:var(--shadow); }
   .kpi-label { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
   .kpi-value { font-size:22px; font-weight:800; color:var(--navy); }
@@ -202,6 +202,7 @@
     .sidebar { display:none; }
     .content { padding:16px; }
     .kpi-row { grid-template-columns:1fr 1fr; }
+    .kpi-row .kpi-card:nth-child(5) { grid-column: span 2; }
     .proj-summary { display:none; }
     .form-2col { grid-template-columns:1fr; }
   }
@@ -258,6 +259,7 @@
     <div class="content">
       <div class="kpi-row">
         <div class="kpi-card"><div class="kpi-label">Receita Total</div><div class="kpi-value green" id="k-revenue">—</div><div class="kpi-sub">Orçamentos aprovados</div></div>
+        <div class="kpi-card"><div class="kpi-label" id="k-received-label">Já Recebido</div><div class="kpi-value green" id="k-received">—</div><div class="kpi-sub" id="k-received-sub">Invoices pagas</div></div>
         <div class="kpi-card"><div class="kpi-label">Compras</div><div class="kpi-value red" id="k-purchases">—</div><div class="kpi-sub">Materiais</div></div>
         <div class="kpi-card"><div class="kpi-label">Extras</div><div class="kpi-value red" id="k-extras">—</div><div class="kpi-sub">Custos avulsos</div></div>
         <div class="kpi-card"><div class="kpi-label">Lucro Total</div><div class="kpi-value" id="k-profit">—</div><div class="kpi-sub" id="k-margin">margem —</div></div>
@@ -266,7 +268,7 @@
       <div class="charts-section">
         <div class="chart-tabs">
           <button class="chart-tab active" onclick="switchChartView('geral')">📊 Geral</button>
-          <button class="chart-tab" onclick="switchChartView('mensal')">📅 Mensal</button>
+          <button class="chart-tab" id="tab-mensal" onclick="switchChartView('mensal')">📅 Mensal</button>
           <button class="chart-tab" onclick="switchChartView('obras')">🏗️ Por Obra</button>
         </div>
 
@@ -284,6 +286,21 @@
 
         <!-- MENSAL -->
         <div id="cv-mensal" class="charts-grid" style="display:none">
+          <div class="chart-card wide" id="mes-fechadas-card">
+            <div class="chart-title" id="mes-fechadas-title">Obras fechadas este mês</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              <div>
+                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Valor das obras fechadas</div>
+                <div style="font-size:24px;font-weight:700;color:var(--navy);" id="mes-fechadas-valor">—</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px;" id="mes-fechadas-count">—</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Recebido dessas obras neste mês</div>
+                <div style="font-size:24px;font-weight:700;color:var(--green);" id="mes-fechadas-recebido">—</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px;" id="mes-fechadas-lista"></div>
+              </div>
+            </div>
+          </div>
           <div class="chart-card wide">
             <div class="chart-title">Receita × Custo × Lucro — Últimos 6 meses</div>
             <div class="chart-wrap"><canvas id="chart-bar-mensal"></canvas></div>
@@ -425,7 +442,7 @@ function showToast(msg,type='') { const t=document.getElementById('toast'); t.te
 
 async function loadData() {
   const [{ data: proj }, { data: purch }, { data: ext }, { data: invs }] = await Promise.all([
-    db.from('projects').select('id,name,project_number,quote_id,clients(name),quotes(total,quote_number)').order('created_at',{ascending:false}),
+    db.from('projects').select('id,name,project_number,quote_id,status,closed_at,actual_revenue,budget,clients(name),quotes(total,quote_number)').order('created_at',{ascending:false}),
     db.from('purchases').select('*, purchase_items(*)').order('order_date',{ascending:false}),
     db.from('transactions').select('*').eq('type','expense').order('date',{ascending:false}),
     db.from('invoices').select('project_id,total,subtotal,status,paid_date,issue_date'),
@@ -439,7 +456,18 @@ async function loadData() {
     invoiceRevMap[i.project_id] = (invoiceRevMap[i.project_id]||0) + Number(i.total||i.subtotal||0);
   });
   populateObraSelector();
+  setMonthLabel();
   render();
+}
+
+function setMonthLabel() {
+  const now = new Date();
+  const label = now.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const labelCap = label.charAt(0).toUpperCase()+label.slice(1);
+  const btn = document.getElementById('tab-mensal');
+  if (btn) btn.textContent = `📅 Mensal (${labelCap})`;
+  const title = document.getElementById('mes-fechadas-title');
+  if (title) title.textContent = `Obras fechadas em ${labelCap}`;
 }
 
 function populateObraSelector() {
@@ -479,12 +507,22 @@ function render() {
   const allProfit    = allRevenue - allPurchases - allExtras;
   const margin       = allRevenue > 0 ? Math.round((allProfit/allRevenue)*100) : 0;
 
+  // "Ja Recebido" = dinheiro que realmente caiu no caixa (invoices com status=paid),
+  // diferente de "Receita Total" que agora conta o valor vendido/contratado inteiro.
+  const visProjectIds = new Set(visProjects.map(p=>p.id));
+  window._paidInvoicesVis = billedInvoices.filter(i => i.status === 'paid' && visProjectIds.has(i.project_id));
+  const receivedTotal = window._paidInvoicesVis.reduce((s,i)=>s+Number(i.total||i.subtotal||0),0);
+
   document.getElementById('k-revenue').textContent   = fmt(allRevenue);
   document.getElementById('k-purchases').textContent = fmt(allPurchases);
   document.getElementById('k-extras').textContent    = fmt(allExtras);
   document.getElementById('k-profit').textContent    = fmt(allProfit);
   document.getElementById('k-profit').style.color    = allProfit >= 0 ? 'var(--green)' : 'var(--red)';
   document.getElementById('k-margin').textContent    = `margem ${margin}%`;
+
+  window._receivedTotalGeral = receivedTotal;
+  updateReceivedKpi();
+  if (typeof currentChartView !== 'undefined' && currentChartView === 'mensal') renderMesFechadas();
 
   if (!visProjects.length) {
     document.getElementById('projects-list').innerHTML = `
@@ -774,7 +812,10 @@ function renderCharts(visProjects, visPurchases, visExtras) {
   });
 }
 
+let currentChartView = 'geral';
+
 function switchChartView(view) {
+  currentChartView = view;
   ['geral','mensal','obras'].forEach(v=>{
     const el = document.getElementById('cv-'+v);
     if(el) el.style.display = v===view?'grid':'none';
@@ -782,7 +823,64 @@ function switchChartView(view) {
   document.querySelectorAll('.chart-tab').forEach(btn=>{
     btn.classList.toggle('active', btn.getAttribute('onclick').includes("'"+view+"'"));
   });
+  updateReceivedKpi();
+  if (view === 'mensal') renderMesFechadas();
   setTimeout(renderCharts, 30);
+}
+
+// KPI "Ja Recebido": no Geral/Por Obra mostra o total recebido (respeitando o filtro de
+// obra); no Mensal mostra so o que entrou no caixa dentro do mes corrente, pra bater com
+// o que a aba Mensal esta de fato mostrando.
+function updateReceivedKpi() {
+  const label = document.getElementById('k-received-label');
+  const sub   = document.getElementById('k-received-sub');
+  const val   = document.getElementById('k-received');
+  if (!val) return;
+  if (currentChartView === 'mensal') {
+    const now = new Date();
+    const recebidoMes = (window._paidInvoicesVis||[]).reduce((s,i)=>{
+      const raw = i.paid_date || i.issue_date; if (!raw) return s;
+      const d = new Date(raw);
+      return (d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear()) ? s + Number(i.total||i.subtotal||0) : s;
+    }, 0);
+    if (label) label.textContent = 'Recebido no Mês';
+    if (sub)   sub.textContent   = now.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    val.textContent = fmt(recebidoMes);
+  } else {
+    if (label) label.textContent = 'Já Recebido';
+    if (sub)   sub.textContent   = 'Invoices pagas';
+    val.textContent = fmt(window._receivedTotalGeral || 0);
+  }
+}
+
+// Card "Obras fechadas em [mes]": mostra o valor total das obras que foram marcadas
+// como concluidas (Fechar Obra) dentro do mes corrente, e quanto ja foi efetivamente
+// recebido (invoices pagas) dessas MESMAS obras, dentro desse mesmo mes -- pra o dono
+// enxergar se o caixa esta acompanhando o ritmo de obras entregues.
+function renderMesFechadas() {
+  const now = new Date();
+  const fechadas = projects.filter(p => {
+    if (p.status !== 'completed' || !p.closed_at) return false;
+    const d = new Date(p.closed_at);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+
+  const valorTotal = fechadas.reduce((s,p)=>s+Number(p.actual_revenue||p.budget||0),0);
+  const idsSet = new Set(fechadas.map(p=>p.id));
+  const recebidoDessas = billedInvoices.filter(i => i.status==='paid' && idsSet.has(i.project_id)).reduce((s,i)=>{
+    const raw = i.paid_date || i.issue_date; if (!raw) return s;
+    const d = new Date(raw);
+    return (d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear()) ? s + Number(i.total||i.subtotal||0) : s;
+  }, 0);
+
+  const elValor = document.getElementById('mes-fechadas-valor');
+  const elCount = document.getElementById('mes-fechadas-count');
+  const elReceb = document.getElementById('mes-fechadas-recebido');
+  const elLista = document.getElementById('mes-fechadas-lista');
+  if (elValor) elValor.textContent = fmt(valorTotal);
+  if (elCount) elCount.textContent = fechadas.length ? `${fechadas.length} obra(s): ${fechadas.map(p=>p.name).join(', ')}` : 'Nenhuma obra fechada neste mês ainda';
+  if (elReceb) elReceb.textContent = fmt(recebidoDessas);
+  if (elLista) elLista.textContent = valorTotal > 0 ? `${Math.round((recebidoDessas/valorTotal)*100)}% do valor dessas obras já recebido` : '';
 }
 
 function filterProjects() {
