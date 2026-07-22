@@ -596,12 +596,10 @@ async function savePurchase() {
     const {data,error}=await db.from('purchases').insert({...payload,purchase_number:num}).select().single();
     if(error){showToast('Erro: '+error.message,'error');btn.disabled=false;btn.textContent='💾 Salvar Compra';return;}
     purchaseId=data.id;
-    // lança despesa no financeiro
-    await db.from('transactions').insert({
-      type:'expense', amount:total, date:payload.order_date||new Date().toISOString().slice(0,10),
-      category:'Material', description:`Compra ${num} — ${payload.supplier_name||'Fornecedor'}`,
-      reference:num,
-    });
+    // Nao lanca em "transactions" aqui -- essa compra ja fica 100% contabilizada via
+    // purchases/purchase_items (usado no Financeiro como "Compras"). Um insert extra
+    // em transactions duplicava o mesmo custo como "Custo Extra" tambem, inflando o
+    // total gasto em dobro (bug encontrado em 22/07/2026).
   }
 
   if(items.length) {
