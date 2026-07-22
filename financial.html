@@ -398,7 +398,7 @@ const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let projects = [], purchases = [], extras = [], invoiceRevMap = {};
+let projects = [], purchases = [], extras = [], invoiceRevMap = {}, paidInvoices = [];
 let currentProjectId = null, itemCount = 0;
 let activeObraId = '';
 
@@ -428,16 +428,15 @@ async function loadData() {
     db.from('projects').select('id,name,project_number,quote_id,clients(name),quotes(total,quote_number)').order('created_at',{ascending:false}),
     db.from('purchases').select('*, purchase_items(*)').order('order_date',{ascending:false}),
     db.from('transactions').select('*').eq('type','expense').order('date',{ascending:false}),
-    db.from('invoices').select('project_id,total,subtotal,status'),
+    db.from('invoices').select('project_id,total,subtotal,status,paid_date,issue_date'),
   ]);
   projects = proj || [];
   purchases = purch || [];
   extras = ext || [];
   invoiceRevMap = {};
-  (invs||[]).forEach(i => {
-    if (i.status === 'paid') {
-      invoiceRevMap[i.project_id] = (invoiceRevMap[i.project_id]||0) + Number(i.total||i.subtotal||0);
-    }
+  paidInvoices = (invs||[]).filter(i => i.status === 'paid');
+  paidInvoices.forEach(i => {
+    invoiceRevMap[i.project_id] = (invoiceRevMap[i.project_id]||0) + Number(i.total||i.subtotal||0);
   });
   populateObraSelector();
   render();
@@ -679,11 +678,14 @@ function renderCharts(visProjects, visPurchases, visExtras) {
     + visExtras.reduce((s,e)=>{const d=getItemDate(e);if(!d)return s;
       return (d.getMonth()===m.mes&&d.getFullYear()===m.ano)?s+Number(e.amount||0):s;},0));
 
-  const receitaMes = meses.map(m=>{
-    const temCusto = visPurchases.some(p=>{const d=getItemDate(p);return d&&d.getMonth()===m.mes&&d.getFullYear()===m.ano;})
-      || visExtras.some(e=>{const d=getItemDate(e);return d&&d.getMonth()===m.mes&&d.getFullYear()===m.ano;});
-    return temCusto ? allRevenue/6 : 0;
-  });
+  const visProjectIds = new Set(visProjects.map(p=>p.id));
+  const receitaMes = meses.map(m=>paidInvoices.reduce((s,i)=>{
+    if (!visProjectIds.has(i.project_id)) return s;
+    const raw = i.paid_date || i.issue_date; if (!raw) return s;
+    const d = new Date(raw);
+    if (d.getMonth()===m.mes && d.getFullYear()===m.ano) return s + Number(i.total||i.subtotal||0);
+    return s;
+  },0));
   const lucrosMes = meses.map((_,i)=>receitaMes[i]-custosMes[i]);
 
   // ── CHART: BAR MENSAL ──

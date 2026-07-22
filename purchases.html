@@ -377,16 +377,28 @@ document.addEventListener('click', e => {
 });
 
 async function loadProjects() {
-  const {data} = await db.from('projects').select('id,name,project_number,budget,clients(name)').order('name');
+  const {data} = await db.from('projects').select('id,name,project_number,budget,status,clients(name)').order('name');
   projects = data||[];
+  renderProjectOptions();
+}
+
+// Só obras em andamento entram na lista (nao faz sentido lancar custo numa obra ja
+// concluida). Excecao: se estamos editando uma compra ja vinculada a uma obra que
+// foi concluida depois, mantemos essa opcao visivel (marcada) pra nao "sumir" o
+// vinculo dela ao abrir o editar.
+function renderProjectOptions(keepProjectId) {
   const sel = document.getElementById('f-project');
-  sel.innerHTML = '<option value="">Selecionar projeto...</option>' +
-    projects.map(p=>{
-      const client = p.clients?.name || '';
-      const num = p.project_number || '';
-      const budget = p.budget ? ' · $'+Number(p.budget).toLocaleString('en-US',{minimumFractionDigits:0}) : '';
-      return `<option value="${p.id}">${client} — ${p.name} [${num}]${budget}</option>`;
-    }).join('');
+  const active = projects.filter(p => p.status !== 'completed' && p.status !== 'cancelled');
+  const extra = keepProjectId ? projects.find(p => p.id === keepProjectId && !active.some(a=>a.id===keepProjectId)) : null;
+  const list = extra ? [...active, extra] : active;
+  const optHtml = p => {
+    const client = p.clients?.name || '';
+    const num = p.project_number || '';
+    const budget = p.budget ? ' · $'+Number(p.budget).toLocaleString('en-US',{minimumFractionDigits:0}) : '';
+    const doneTag = p.status === 'completed' ? ' (concluída)' : '';
+    return `<option value="${p.id}">${client} — ${p.name} [${num}]${budget}${doneTag}</option>`;
+  };
+  sel.innerHTML = '<option value="">Selecionar projeto...</option>' + list.map(optHtml).join('');
 }
 
 async function loadPurchases() {
@@ -453,6 +465,7 @@ function openModal(id) {
     const p=allPurchases.find(x=>x.id===id);
     if(!p) return;
     document.getElementById('f-supplier').value    = p.supplier_name||'';
+    renderProjectOptions(p.project_id);
     document.getElementById('f-project').value     = p.project_id||'';
     document.getElementById('f-order-date').value  = p.order_date||'';
     document.getElementById('f-expected-date').value = p.expected_date||'';
@@ -460,6 +473,7 @@ function openModal(id) {
     document.getElementById('f-notes').value       = p.notes||'';
     (p.purchase_items||[]).forEach(i=>addItemRow(i.description,i.quantity,i.unit||'un',i.unit_price));
   } else {
+    renderProjectOptions();
     ['f-supplier','f-notes'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('f-project').value='';
     document.getElementById('f-status').value='pending';
