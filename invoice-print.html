@@ -74,6 +74,13 @@
   /* NOTES */
   .inv-notes { background:#F5F2EC; border-left:3px solid #C69E63; border-radius:0 8px 8px 0; padding:14px 16px; margin-bottom:28px; font-size:13px; color:#7a7060; line-height:1.6; }
 
+  /* PAYMENT INSTRUCTIONS */
+  .inv-payment { background:#102A4B; border-radius:10px; padding:16px 20px; margin-bottom:28px; }
+  .inv-payment .pay-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:#C7B090; margin-bottom:8px; }
+  .inv-payment .pay-method { font-size:15px; font-weight:700; color:#EAE6DA; }
+  .inv-payment .pay-method .pay-tag { color:#C69E63; }
+  .inv-payment .pay-detail { font-size:13px; color:#C7B090; margin-top:2px; }
+
   /* FOOTER */
   .inv-footer { border-top:1px solid #EAE6DA; padding:20px 40px; display:flex; justify-content:space-between; align-items:center; }
   .footer-left { font-size:11px; color:#7a7060; }
@@ -269,6 +276,13 @@ async function load() {
         </div>
       </div>
 
+      <!-- PAYMENT INSTRUCTIONS -->
+      <div class="inv-payment">
+        <div class="pay-label">Payment Instructions</div>
+        <div class="pay-method"><span class="pay-tag">Zelle:</span> (689) 252-4597</div>
+        <div class="pay-detail">FT Core Business LLC</div>
+      </div>
+
       <!-- NOTES -->
       ${inv.notes ? `<div class="inv-notes">${inv.notes}</div>` : ''}
 
@@ -325,6 +339,9 @@ Invoice Number: ${inv.invoice_number}
 Issue Date: ${inv.issue_date || '—'}
 Due Date: ${inv.due_date || '—'}
 Amount Due: $${Number(amount).toLocaleString('en-US', {minimumFractionDigits:2})}
+
+Payment Instructions:
+Zelle: (689) 252-4597 — FT Core Business LLC
 
 ${inv.notes ? 'Notes: ' + inv.notes + '\n\n' : ''}To view your invoice, please contact us at contact@ftdecordesign.com.
 
