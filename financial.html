@@ -70,6 +70,13 @@
   .proj-card-header:hover { background:var(--cream2); }
   .proj-name { font-size:15px; font-weight:700; color:var(--navy); }
   .proj-client { font-size:12px; color:var(--muted); margin-top:2px; }
+  .proj-dates { font-size:11px; color:var(--muted); margin-top:4px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .proj-date-badge { padding:2px 8px; border-radius:20px; font-weight:600; font-size:10px; }
+  .proj-date-badge.active { background:rgba(59,109,17,0.12); color:var(--green); }
+  .proj-date-badge.done { background:rgba(16,42,75,0.08); color:var(--navy,#102A4B); }
+  .month-group { margin-bottom:24px; display:flex; flex-direction:column; gap:12px; }
+  .month-group-header { font-size:13px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin:0 0 10px 4px; display:flex; align-items:center; gap:8px; }
+  .month-group-count { font-size:11px; font-weight:600; text-transform:none; letter-spacing:0; background:var(--border); color:var(--muted); padding:2px 8px; border-radius:20px; }
   .proj-summary { display:flex; gap:20px; flex-shrink:0; }
   .proj-stat { text-align:right; }
   .proj-stat-label { font-size:10px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
@@ -442,7 +449,7 @@ function showToast(msg,type='') { const t=document.getElementById('toast'); t.te
 
 async function loadData() {
   const [{ data: proj }, { data: purch }, { data: ext }, { data: invs }] = await Promise.all([
-    db.from('projects').select('id,name,project_number,quote_id,status,closed_at,actual_revenue,budget,clients(name),quotes(total,quote_number)').order('created_at',{ascending:false}),
+    db.from('projects').select('id,name,project_number,quote_id,status,start_date,closed_at,actual_revenue,budget,clients(name),quotes(total,quote_number)').order('created_at',{ascending:false}),
     db.from('purchases').select('*, purchase_items(*)').order('order_date',{ascending:false}),
     db.from('transactions').select('*').eq('type','expense').order('date',{ascending:false}),
     db.from('invoices').select('project_id,total,subtotal,status,paid_date,issue_date'),
@@ -533,13 +540,58 @@ function render() {
   }
 
   document.getElementById('projects-list').innerHTML = '<div class="projects-list">' +
-    visProjects.map(p => {
-      const f = getProjFinancials(p);
-      return `<div class="proj-card" id="card-${p.id}" data-name="${(p.name||'').toLowerCase()}" data-client="${(p.clients?.name||'').toLowerCase()}" data-status="${p.status||''}">  
+    groupProjectsByMonth(visProjects).map(group => {
+      const cards = group.projects.map(p => {
+        const f = getProjFinancials(p);
+        return renderProjCard(p, f);
+      }).join('');
+      return `<div class="month-group">
+        <div class="month-group-header">${group.label} <span class="month-group-count">${group.projects.length} obra${group.projects.length>1?'s':''}</span></div>
+        ${cards}
+      </div>`;
+    }).join('') + '</div>';
+
+  renderCharts(visProjects, visPurchases, visExtras);
+}
+
+// Agrupa as obras: as ainda em andamento (sem data de fechamento) ficam num grupo
+// "Em Andamento" no topo; as concluidas sao agrupadas pelo mes/ano em que foram
+// fechadas -- assim fica claro quais obras (e seus valores) pertencem a qual mes,
+// em vez de uma lista unica somando tudo junto sem separacao temporal.
+function groupProjectsByMonth(list) {
+  const emAndamento = list.filter(p => p.status !== 'completed' || !p.closed_at);
+  const concluidas   = list.filter(p => p.status === 'completed' && p.closed_at);
+
+  const byMonth = {};
+  concluidas.forEach(p => {
+    const d = new Date(p.closed_at);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if (!byMonth[key]) byMonth[key] = { key, date: d, projects: [] };
+    byMonth[key].projects.push(p);
+  });
+
+  const groups = Object.values(byMonth).sort((a,b)=>b.date-a.date).map(g => {
+    const label = g.date.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    return { label: '✅ Fechadas em ' + label.charAt(0).toUpperCase()+label.slice(1), projects: g.projects };
+  });
+
+  const result = [];
+  if (emAndamento.length) result.push({ label: '🔧 Em Andamento', projects: emAndamento });
+  return result.concat(groups);
+}
+
+function projStatusBadge(p) {
+  if (p.status === 'completed' && p.closed_at) return `<span class="proj-date-badge done">✅ Concluída em ${fmtDate(p.closed_at)}</span>`;
+  return `<span class="proj-date-badge active">🔧 Em andamento</span>`;
+}
+
+function renderProjCard(p, f) {
+  return `<div class="proj-card" id="card-${p.id}" data-name="${(p.name||'').toLowerCase()}" data-client="${(p.clients?.name||'').toLowerCase()}" data-status="${p.status||''}">  
         <div class="proj-card-header" onclick="toggleCard('${p.id}')">
           <div style="flex:1;min-width:0">
             <div class="proj-name">${p.name}</div>
             <div class="proj-client">👤 ${p.clients?.name||'—'} · ${p.project_number||''}</div>
+            <div class="proj-dates">📅 Aberta em ${fmtDate(p.start_date)} ${projStatusBadge(p)}</div>
           </div>
           <div class="proj-summary">
             <div class="proj-stat"><div class="proj-stat-label">Vendido</div><div class="proj-stat-value pos">${fmt(f.revenue)}</div></div>
@@ -639,9 +691,6 @@ function render() {
           </div>
         </div>
       </div>`;
-    }).join('') + '</div>';
-
-  renderCharts(visProjects, visPurchases, visExtras);
 }
 
 // ─── CHARTS ───────────────────────────────────────────────────
