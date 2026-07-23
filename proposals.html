@@ -471,7 +471,7 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
       <!-- Payment schedule -->
       <div class="doc-section-title" id="pay-section-title" style="display:none;">Payment Schedule</div>
       <table class="doc-pay-table" id="doc-pay-table" style="display:none;">
-        <thead><tr><th>#</th><th>Description</th><th>Due Date</th><th style="text-align:right;">Amount</th></tr></thead>
+        <thead><tr><th>#</th><th>Description</th><th style="text-align:right;">Amount</th></tr></thead>
         <tbody id="doc-pay-body"></tbody>
       </table>
 
@@ -1119,7 +1119,6 @@ async function openPrint(id) {
       <tr>
         <td>${i+1}</td>
         <td>${inv.notes?.split('—')[0]?.replace(/Parcela \d+\/\d+:/,'').trim() || inv.invoice_number}</td>
-        <td>${fmtDate(inv.due_date)}</td>
         <td style="text-align:right;" class="pay-val">${fmt(inv.total)}</td>
       </tr>`).join('');
     payTable.style.display = 'table';
