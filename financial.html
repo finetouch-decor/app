@@ -554,16 +554,22 @@ function render() {
   renderCharts(visProjects, visPurchases, visExtras);
 }
 
-// Agrupa as obras: as ainda em andamento (sem data de fechamento) ficam num grupo
+// Agrupa as obras: as ainda em andamento (status != completed) ficam num grupo
 // "Em Andamento" no topo; as concluidas sao agrupadas pelo mes/ano em que foram
 // fechadas -- assim fica claro quais obras (e seus valores) pertencem a qual mes,
 // em vez de uma lista unica somando tudo junto sem separacao temporal.
+// IMPORTANTE: o status ('completed') e quem manda aqui, nao a presenca de closed_at --
+// existem registros legados com status=completed mas closed_at nulo (obra fechada sem
+// passar pelo fluxo padrao de "Fechar Obra"). Uma obra concluida sem closed_at cai no
+// grupo "Concluidas — data nao registrada" em vez de ficar presa em "Em Andamento".
 function groupProjectsByMonth(list) {
-  const emAndamento = list.filter(p => p.status !== 'completed' || !p.closed_at);
-  const concluidas   = list.filter(p => p.status === 'completed' && p.closed_at);
+  const emAndamento = list.filter(p => p.status !== 'completed');
+  const concluidas   = list.filter(p => p.status === 'completed');
 
   const byMonth = {};
+  const semData = [];
   concluidas.forEach(p => {
+    if (!p.closed_at) { semData.push(p); return; }
     const d = new Date(p.closed_at);
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     if (!byMonth[key]) byMonth[key] = { key, date: d, projects: [] };
@@ -577,11 +583,17 @@ function groupProjectsByMonth(list) {
 
   const result = [];
   if (emAndamento.length) result.push({ label: '🔧 Em Andamento', projects: emAndamento });
-  return result.concat(groups);
+  result.push(...groups);
+  if (semData.length) result.push({ label: '✅ Concluídas — data de fechamento não registrada', projects: semData });
+  return result;
 }
 
 function projStatusBadge(p) {
-  if (p.status === 'completed' && p.closed_at) return `<span class="proj-date-badge done">✅ Concluída em ${fmtDate(p.closed_at)}</span>`;
+  if (p.status === 'completed') {
+    return p.closed_at
+      ? `<span class="proj-date-badge done">✅ Concluída em ${fmtDate(p.closed_at)}</span>`
+      : `<span class="proj-date-badge done">✅ Concluída (data não registrada)</span>`;
+  }
   return `<span class="proj-date-badge active">🔧 Em andamento</span>`;
 }
 
