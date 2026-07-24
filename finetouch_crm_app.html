@@ -422,7 +422,7 @@ async function loadData() {
   updateSyncUI('syncing');
   const { data, error } = await db
     .from('leads')
-    .select(`id, status, project_type, scope, estimated_value, first_contact_date, follow_up_date, notes, source, clients ( id, name, phone, city )`)
+    .select(`id, status, project_type, scope, estimated_value, first_contact_date, follow_up_date, notes, source, campaign_name, clients ( id, name, phone, city )`)
     .order('created_at', { ascending: false });
 
   if (error) { updateSyncUI('error'); showToast('Erro ao carregar dados', 'error'); return; }
@@ -432,7 +432,7 @@ async function loadData() {
     nome: l.clients?.name||'', tel: l.clients?.phone||'', local: l.clients?.city||'',
     tipo: l.project_type||'', interesse: l.scope||'', valor: l.estimated_value||'',
     status: l.status||'lead', dtcontato: l.first_contact_date||'',
-    retorno: l.follow_up_date||'', obs: l.notes||'', source: l.source||''
+    retorno: l.follow_up_date||'', obs: l.notes||'', source: l.source||'', campanha: l.campaign_name||''
   }));
 
   updateSyncUI('ok');
@@ -530,6 +530,7 @@ function renderKanban() {
         </div>
         <div class="meta">${[c.tipo,c.local].filter(Boolean).join(' · ')}</div>
         ${c.tel?`<div class="meta">${fmtPhone(c.tel)}</div>`:''}
+        ${c.campanha?`<div style="font-size:10px;color:var(--gold);margin-top:2px;">📣 ${c.campanha}</div>`:''}
 
         ${c.valor?`<div class="valor">${fmtValor(c.valor)}</div>`:''}
         ${c.retorno?`<div style="font-size:11px;margin-top:4px" class="${retornoClass(c.retorno)}">${retornoLabel(c.retorno)}</div>`:''}
@@ -774,8 +775,8 @@ async function deleteClient() {
 
 // EXPORT
 function exportCSV() {
-  const header=['Nome','Telefone','Local','Tipo','Interesse','Valor (USD)','Status','1º Contato','Retorno','Origem','Observações'];
-  const rows=records.map(c=>[c.nome,c.tel,c.local,c.tipo,c.interesse,c.valor?'$'+Number(c.valor).toLocaleString('en-US'):'',c.status,fmtDate(c.dtcontato),fmtDate(c.retorno),c.source,c.obs]);
+  const header=['Nome','Telefone','Local','Tipo','Interesse','Valor (USD)','Status','1º Contato','Retorno','Origem','Campanha','Observações'];
+  const rows=records.map(c=>[c.nome,c.tel,c.local,c.tipo,c.interesse,c.valor?'$'+Number(c.valor).toLocaleString('en-US'):'',c.status,fmtDate(c.dtcontato),fmtDate(c.retorno),c.source,c.campanha,c.obs]);
   const csv=[header,...rows].map(r=>r.map(v=>`"${(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
