@@ -811,6 +811,7 @@ async function saveProposal() {
   if (!data.client_name || !data.title) { showToast('Fill in client name and title.','error'); return; }
 
   let error;
+  const isNew = !editId;
   if (editId) {
     ({ error } = await db.from('proposals').update(data).eq('id', editId));
   } else {
@@ -818,8 +819,24 @@ async function saveProposal() {
   }
   if (error) { showToast('Error: ' + (error.message || error.code || JSON.stringify(error)), 'error'); console.error(error); return; }
   showToast(editId ? 'Proposal updated!' : 'Proposal created!', 'success');
+  if (isNew) await moveLeadToStage(data.client_name, 'proposta', 'lead');
   closeModal();
   await loadProposals();
+}
+
+// ─── AUTOMACAO CRM: mover o lead de estagio quando proposta/invoice acontece ──
+// Ao criar uma proposta nova, o lead correspondente (achado pelo mesmo nome usado
+// em "Client Name") sai de "lead" e vai pra "proposta". Ao gerar invoices de uma
+// proposta (cliente aceitou e vai pagar), o lead vai pra "fechado".
+async function moveLeadToStage(clientName, newStatus, onlyFromStatus) {
+  if (!clientName) return;
+  const { data: cls } = await db.from('clients').select('id').ilike('name', clientName.trim()).limit(1);
+  const clientId = cls?.[0]?.id;
+  if (!clientId) return;
+  let query = db.from('leads').update({ status: newStatus }).eq('client_id', clientId);
+  if (onlyFromStatus) query = query.eq('status', onlyFromStatus);
+  else query = query.neq('status', newStatus);
+  await query;
 }
 
 async function deleteProposal(id) {
@@ -1036,6 +1053,8 @@ async function criarInvoices() {
     btn.disabled = false; btn.textContent = '🧾 Generate Invoices';
     return;
   }
+
+  await moveLeadToStage(parcelasClientName, 'fechado');
 
   showToast(`🧾 ${payloads.length} invoice(s) criada(s)! Redirecionando...`, 'success');
   closeParcelas();
