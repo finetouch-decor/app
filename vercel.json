@@ -14,6 +14,7 @@
     { "source": "/marketing", "destination": "/marketing.html" },
     { "source": "/services",  "destination": "/services.html" },
     { "source": "/tasks",     "destination": "/tasks.html" },
+    { "source": "/pendencias", "destination": "/pendencias.html" },
     { "source": "/users",     "destination": "/users.html" },
     { "source": "/login",     "destination": "/login.html" },
     { "source": "/pending",   "destination": "/pending.html" },

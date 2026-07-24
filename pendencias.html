@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#102A4B">
-<title>Fine Touch — Tarefas</title>
+<title>Fine Touch — Pendências/Melhorias</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
@@ -24,9 +24,6 @@
   /* SIDEBAR */
   .sidebar { width:240px; flex-shrink:0; background:var(--navy); display:flex; flex-direction:column; }
   .sidebar-logo { padding:22px 18px 18px; border-bottom:1px solid rgba(255,255,255,0.08); }
-  .logo-fine { font-size:20px; font-weight:800; color:var(--cream); letter-spacing:1px; line-height:1; }
-  .logo-touch { font-size:20px; font-weight:800; color:var(--gold); letter-spacing:1px; line-height:1; }
-  .logo-sub { font-size:9px; color:var(--gold2); letter-spacing:2px; text-transform:uppercase; margin-top:3px; }
   .sidebar-nav { flex:1; padding:12px 0; overflow-y:auto; }
   .nav-section { padding:12px 16px 6px; font-size:9px; font-weight:700; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1.5px; }
   .nav-item { display:flex; align-items:center; gap:10px; padding:11px 16px; color:rgba(255,255,255,0.6); font-size:13px; font-weight:500; border-left:3px solid transparent; transition:all .15s; text-decoration:none; }
@@ -63,46 +60,38 @@
   .filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
   .filters input, .filters select { background:var(--white); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:13px; outline:none; }
 
-  /* COLUMNS */
-  .kanban { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
-  .col { background:var(--white); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); }
-  .col-header { padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-  .col-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:1px; }
-  .col-count { font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; }
-  .col-todo .col-title { color:var(--navy); }
-  .col-todo .col-count { background:#102A4B15; color:var(--navy); }
-  .col-progress .col-title { color:#8a6520; }
-  .col-progress .col-count { background:#C69E6318; color:#8a6520; }
-  .col-done .col-title { color:var(--green); }
-  .col-done .col-count { background:#2e6b3e18; color:var(--green); }
-  .col-body { padding:12px; min-height:200px; }
+  /* LIST */
+  .list { display:flex; flex-direction:column; gap:10px; }
+  .item { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:14px 18px; box-shadow:var(--shadow); display:flex; align-items:flex-start; gap:14px; cursor:pointer; transition:border-color .15s; }
+  .item:hover { border-color:var(--gold); }
+  .item.concluido { opacity:0.55; }
+  .item-check { width:20px; height:20px; border-radius:50%; border:2px solid var(--border); flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center; font-size:11px; }
+  .item-check.done { background:var(--green); border-color:var(--green); color:#fff; }
+  .item-check.progress { background:var(--gold); border-color:var(--gold); }
+  .item-body { flex:1; min-width:0; }
+  .item-title { font-size:14px; font-weight:700; color:var(--navy); margin-bottom:4px; }
+  .item-title.done { text-decoration:line-through; }
+  .item-desc { font-size:12.5px; color:var(--muted); line-height:1.5; margin-bottom:8px; }
+  .item-meta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .tag { font-size:10px; font-weight:700; padding:3px 9px; border-radius:20px; text-transform:uppercase; letter-spacing:.5px; }
+  .tag-cat { background:#102A4B12; color:var(--navy); }
+  .tag-priority-alta { background:#a0303015; color:var(--red); }
+  .tag-priority-media { background:#C69E6320; color:#8a6520; }
+  .tag-priority-baixa { background:#64748B15; color:var(--muted); }
+  .tag-status-pendente { background:#64748B15; color:var(--muted); }
+  .tag-status-em_andamento { background:#C69E6320; color:#8a6520; }
+  .tag-status-concluido { background:#2e6b3e18; color:var(--green); }
+  .item-follow { font-size:11px; font-weight:600; }
+  .item-follow.overdue { color:var(--red); }
+  .item-follow.soon { color:#8a6520; }
+  .item-follow.future { color:var(--muted); }
 
-  /* TASK CARDS */
-  .task-card { background:var(--cream2); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:8px; cursor:grab; transition:all .15s; user-select:none; }
-  .task-card:hover { border-color:var(--gold); box-shadow:0 2px 8px rgba(0,0,0,0.08); }
-  .task-card.done { opacity:0.6; }
-  .task-card.dragging { opacity:0.4; cursor:grabbing; transform:rotate(1.5deg); }
-  .col-body.drag-over { background:rgba(198,158,99,0.08); border-radius:8px; outline:2px dashed var(--gold); }
-  .task-title { font-size:13px; font-weight:600; color:var(--navy); margin-bottom:6px; }
-  .task-title.done { text-decoration:line-through; }
-  .task-meta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .task-proj { font-size:10px; background:var(--cream); border:1px solid var(--border); padding:2px 7px; border-radius:10px; color:var(--muted); }
-  .task-due { font-size:10px; font-weight:600; }
-  .task-due.overdue { color:var(--red); }
-  .task-due.today { color:#8a6520; }
-  .task-due.future { color:var(--muted); }
-  .priority-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-  .p-high   { background:var(--red); }
-  .p-medium { background:var(--gold); }
-  .p-low    { background:var(--muted); }
-
-  /* EMPTY COL */
-  .col-empty { text-align:center; color:var(--muted); padding:24px 12px; font-size:12px; }
+  .col-empty, .empty-state { text-align:center; color:var(--muted); padding:40px 12px; font-size:13px; }
 
   /* MODAL */
   .overlay { display:none; position:fixed; inset:0; background:rgba(16,42,75,0.5); z-index:200; align-items:center; justify-content:center; padding:20px; }
   .overlay.open { display:flex; }
-  .modal { background:var(--cream2); border-radius:16px; width:100%; max-width:480px; box-shadow:0 24px 80px rgba(0,0,0,0.2); animation:fadeUp .25s ease; }
+  .modal { background:var(--cream2); border-radius:16px; width:100%; max-width:480px; box-shadow:0 24px 80px rgba(0,0,0,0.2); animation:fadeUp .25s ease; max-height:90vh; overflow-y:auto; }
   @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
   .modal-header { padding:18px 22px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
   .modal-header h2 { font-size:16px; font-weight:700; color:var(--navy); }
@@ -111,7 +100,7 @@
   .field label { display:block; font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:5px; }
   .field input, .field select, .field textarea { width:100%; background:var(--white); border:1.5px solid var(--border); color:var(--text); padding:10px 12px; border-radius:8px; font-family:'Inter',sans-serif; font-size:14px; outline:none; }
   .field input:focus, .field select:focus, .field textarea:focus { border-color:var(--gold); }
-  .field textarea { resize:none; height:70px; }
+  .field textarea { resize:none; height:80px; }
 
   .loading { text-align:center; color:var(--muted); padding:40px; }
   .spinner { width:28px; height:28px; border:2px solid var(--border); border-top-color:var(--navy); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 8px; }
@@ -125,7 +114,6 @@
     .sidebar { display:none; }
     .content { padding:16px; }
     .kpi-row { grid-template-columns:1fr 1fr; }
-    .kanban { grid-template-columns:1fr; }
   }
 </style>
 </head>
@@ -154,8 +142,8 @@
     <a class="nav-item" href="/catalog"><span class="icon">🖼️</span>Catálogo Cliente</a>
     <a class="nav-item" href="/services"><span class="icon">📚</span>Serviços</a>
       <a class="nav-item" href="/marketing"><span class="icon">📣</span>Marketing</a>
-      <a class="nav-item active" href="/tasks"><span class="icon">✅</span>Tarefas</a>
-      <a class="nav-item" href="/pendencias"><span class="icon">🧩</span>Pendências/Melhorias</a>
+      <a class="nav-item" href="/tasks"><span class="icon">✅</span>Tarefas</a>
+      <a class="nav-item active" href="/pendencias"><span class="icon">🧩</span>Pendências/Melhorias</a>
       <div class="nav-section">Admin</div>
       <a class="nav-item" id="nav-users" href="/users" style="display:none"><span class="icon">👥</span>Usuários</a>
     </nav>
@@ -168,42 +156,42 @@
 
   <main class="main">
     <div class="topbar">
-      <h1>Tarefas</h1>
-      <button class="btn btn-primary" onclick="openModal()">+ Nova Tarefa</button>
+      <h1>Pendências / Melhorias</h1>
+      <button class="btn btn-primary" onclick="openModal()">+ Nova Pendência</button>
     </div>
     <div class="content">
       <div class="kpi-row">
-        <div class="kpi-card"><div class="kpi-label">A Fazer</div><div class="kpi-value" id="k-todo">—</div></div>
-        <div class="kpi-card"><div class="kpi-label">Em Andamento</div><div class="kpi-value" id="k-progress">—</div></div>
-        <div class="kpi-card"><div class="kpi-label">Concluídas</div><div class="kpi-value" id="k-done">—</div></div>
-        <div class="kpi-card"><div class="kpi-label">Atrasadas</div><div class="kpi-value" id="k-overdue" style="color:var(--red)">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Pendentes</div><div class="kpi-value" id="k-pendente">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Em Andamento</div><div class="kpi-value" id="k-andamento">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Concluídas</div><div class="kpi-value" id="k-concluido">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Pra revisar</div><div class="kpi-value" id="k-revisar" style="color:var(--red)">—</div></div>
       </div>
       <div class="filters">
-        <input type="search" id="search" placeholder="🔍 Buscar tarefa..." oninput="render()">
-        <select id="filterProject" onchange="render()">
-          <option value="">Todas as obras</option>
+        <input type="search" id="search" placeholder="🔍 Buscar pendência..." oninput="render()">
+        <select id="filterStatus" onchange="render()">
+          <option value="">Todos os status</option>
+          <option value="pendente">Pendente</option>
+          <option value="em_andamento">Em Andamento</option>
+          <option value="concluido">Concluído</option>
+        </select>
+        <select id="filterCategory" onchange="render()">
+          <option value="">Todas as categorias</option>
+          <option value="bug">Bug</option>
+          <option value="melhoria">Melhoria</option>
+          <option value="automacao">Automação</option>
+          <option value="integracao">Integração</option>
+          <option value="marketing">Marketing</option>
+          <option value="infra">Infra</option>
+          <option value="outro">Outro</option>
         </select>
         <select id="filterPriority" onchange="render()">
           <option value="">Todas as prioridades</option>
-          <option value="high">Alta</option>
-          <option value="medium">Média</option>
-          <option value="low">Baixa</option>
+          <option value="alta">Alta</option>
+          <option value="media">Média</option>
+          <option value="baixa">Baixa</option>
         </select>
       </div>
-      <div class="kanban">
-        <div class="col col-todo">
-          <div class="col-header"><span class="col-title">A Fazer</span><span class="col-count" id="c-todo">0</span></div>
-          <div class="col-body" id="col-todo" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'todo')"></div>
-        </div>
-        <div class="col col-progress">
-          <div class="col-header"><span class="col-title">Em Andamento</span><span class="col-count" id="c-progress">0</span></div>
-          <div class="col-body" id="col-progress" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'in_progress')"></div>
-        </div>
-        <div class="col col-done">
-          <div class="col-header"><span class="col-title">Concluídas</span><span class="col-count" id="c-done">0</span></div>
-          <div class="col-body" id="col-done" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'done')"></div>
-        </div>
-      </div>
+      <div class="list" id="list"></div>
     </div>
   </main>
 </div>
@@ -212,33 +200,43 @@
 <div class="overlay" id="overlay" onclick="closeIfOutside(event)">
   <div class="modal">
     <div class="modal-header">
-      <h2 id="modal-title">Nova Tarefa</h2>
+      <h2 id="modal-title">Nova Pendência</h2>
       <button class="btn btn-outline btn-sm" onclick="closeModal()">✕</button>
     </div>
     <div class="modal-body">
-      <div class="field"><label>Título</label><input id="f-title" placeholder="O que precisa ser feito?"></div>
+      <div class="field"><label>Título</label><input id="f-title" placeholder="O que precisa ser feito, criado ou melhorado?"></div>
       <div class="field"><label>Descrição</label><textarea id="f-desc" placeholder="Detalhes..."></textarea></div>
+      <div class="field"><label>Categoria</label>
+        <select id="f-category">
+          <option value="bug">Bug</option>
+          <option value="melhoria" selected>Melhoria</option>
+          <option value="automacao">Automação</option>
+          <option value="integracao">Integração</option>
+          <option value="marketing">Marketing</option>
+          <option value="infra">Infra</option>
+          <option value="outro">Outro</option>
+        </select>
+      </div>
       <div class="field"><label>Status</label>
         <select id="f-status">
-          <option value="todo">A Fazer</option>
-          <option value="in_progress">Em Andamento</option>
-          <option value="done">Concluída</option>
+          <option value="pendente">Pendente</option>
+          <option value="em_andamento">Em Andamento</option>
+          <option value="concluido">Concluído</option>
         </select>
       </div>
       <div class="field"><label>Prioridade</label>
         <select id="f-priority">
-          <option value="high">🔴 Alta</option>
-          <option value="medium" selected>🟡 Média</option>
-          <option value="low">⚪ Baixa</option>
+          <option value="alta">🔴 Alta</option>
+          <option value="media" selected>🟡 Média</option>
+          <option value="baixa">⚪ Baixa</option>
         </select>
       </div>
-      <div class="field"><label>Data de entrega</label><input type="date" id="f-due"></div>
-      <div class="field"><label>Obra (opcional)</label><select id="f-project"><option value="">Nenhuma</option></select></div>
+      <div class="field"><label>Revisar em (opcional)</label><input type="date" id="f-follow"></div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-danger" id="btn-delete" onclick="deleteTask()" style="display:none;margin-right:auto">Excluir</button>
+      <button class="btn btn-danger" id="btn-delete" onclick="deleteItem()" style="display:none;margin-right:auto">Excluir</button>
       <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveTask()">Salvar</button>
+      <button class="btn btn-primary" onclick="saveItem()">Salvar</button>
     </div>
   </div>
 </div>
@@ -250,7 +248,7 @@ const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let tasks = [], projects = [], editId = null;
+let items = [], editId = null;
 
 async function init() {
   const { data: { session } } = await db.auth.getSession();
@@ -261,167 +259,138 @@ async function init() {
   const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuário';
   document.getElementById('user-name').textContent = name;
   document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
-  await Promise.all([loadProjects(), loadTasks()]);
+  await loadItems();
 }
 db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
 async function logout() { await db.auth.signOut(); }
 function showToast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+type; setTimeout(()=>t.className='toast',2800); }
 function today() { return new Date().toISOString().slice(0,10); }
 
-async function loadProjects() {
-  const { data } = await db.from('projects').select('id,name').order('name');
-  projects = data || [];
-  const fp = document.getElementById('filterProject');
-  fp.innerHTML = '<option value="">Todas as obras</option>' + projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
-  const mp = document.getElementById('f-project');
-  mp.innerHTML = '<option value="">Nenhuma</option>' + projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
-}
-
-async function loadTasks() {
-  const { data } = await db.from('tasks').select('*, projects(name)').order('created_at',{ascending:false});
-  tasks = data || [];
+async function loadItems() {
+  const { data, error } = await db.from('pendencias').select('*').order('created_at',{ascending:false});
+  if (error) { document.getElementById('list').innerHTML = '<div class="empty-state">Erro ao carregar: '+error.message+'</div>'; return; }
+  items = data || [];
   render();
 }
 
-function render() {
-  const s   = document.getElementById('search').value.toLowerCase();
-  const fp  = document.getElementById('filterProject').value;
-  const pri = document.getElementById('filterPriority').value;
-  const t   = today();
+const catLabel = { bug:'Bug', melhoria:'Melhoria', automacao:'Automação', integracao:'Integração', marketing:'Marketing', infra:'Infra', outro:'Outro' };
+const statusLabel = { pendente:'Pendente', em_andamento:'Em Andamento', concluido:'Concluído' };
+const priorityLabel = { alta:'Alta', media:'Média', baixa:'Baixa' };
 
-  const filtered = tasks.filter(x =>
-    (!s  || x.title.toLowerCase().includes(s)) &&
-    (!fp || x.project_id === fp) &&
-    (!pri|| x.priority === pri)
+function render() {
+  const s    = document.getElementById('search').value.toLowerCase();
+  const fs   = document.getElementById('filterStatus').value;
+  const fc   = document.getElementById('filterCategory').value;
+  const fp   = document.getElementById('filterPriority').value;
+  const t    = today();
+
+  const filtered = items.filter(x =>
+    (!s  || x.title.toLowerCase().includes(s) || (x.description||'').toLowerCase().includes(s)) &&
+    (!fs || x.status === fs) &&
+    (!fc || x.category === fc) &&
+    (!fp || x.priority === fp)
   );
 
-  const todo     = filtered.filter(x=>x.status==='todo');
-  const progress = filtered.filter(x=>x.status==='in_progress');
-  const done     = filtered.filter(x=>x.status==='done');
-  const overdue  = filtered.filter(x=>x.due_date && x.due_date < t && x.status !== 'done');
+  document.getElementById('k-pendente').textContent  = items.filter(x=>x.status==='pendente').length;
+  document.getElementById('k-andamento').textContent = items.filter(x=>x.status==='em_andamento').length;
+  document.getElementById('k-concluido').textContent = items.filter(x=>x.status==='concluido').length;
+  document.getElementById('k-revisar').textContent   = items.filter(x=>x.follow_up_date && x.follow_up_date<=t && x.status!=='concluido').length;
 
-  document.getElementById('k-todo').textContent     = todo.length;
-  document.getElementById('k-progress').textContent = progress.length;
-  document.getElementById('k-done').textContent     = done.length;
-  document.getElementById('k-overdue').textContent  = overdue.length;
-  document.getElementById('c-todo').textContent     = todo.length;
-  document.getElementById('c-progress').textContent = progress.length;
-  document.getElementById('c-done').textContent     = done.length;
+  const list = document.getElementById('list');
+  if (!filtered.length) { list.innerHTML = '<div class="empty-state">Nenhuma pendência encontrada.</div>'; return; }
 
-  renderCol('col-todo',     todo,     t);
-  renderCol('col-progress', progress, t);
-  renderCol('col-done',     done,     t);
-}
+  // ordena: em_andamento > pendente > concluido; dentro disso por prioridade
+  const statusOrder = { em_andamento:0, pendente:1, concluido:2 };
+  const prioOrder = { alta:0, media:1, baixa:2 };
+  const sorted = [...filtered].sort((a,b) => {
+    const so = (statusOrder[a.status]??1) - (statusOrder[b.status]??1);
+    if (so !== 0) return so;
+    return (prioOrder[a.priority]??1) - (prioOrder[b.priority]??1);
+  });
 
-function renderCol(id, items, t) {
-  const el = document.getElementById(id);
-  if (!items.length) { el.innerHTML = '<div class="col-empty">Nenhuma tarefa</div>'; return; }
-  el.innerHTML = items.map(x => {
-    const isDone    = x.status === 'done';
-    const isOverdue = x.due_date && x.due_date < t && !isDone;
-    const isToday   = x.due_date === t;
-    const dueClass  = isOverdue ? 'overdue' : isToday ? 'today' : 'future';
-    const dueLabel  = x.due_date ? (isOverdue ? '⚠ '+fmtDate(x.due_date) : isToday ? '● Hoje' : '📅 '+fmtDate(x.due_date)) : '';
-    return `<div class="task-card ${isDone?'done':''}"
-      draggable="true"
-      data-id="${x.id}"
-      ondragstart="dragStart(event,'${x.id}')"
-      ondragend="dragEnd(event)"
-      onclick="openModal('${x.id}')">
-      <div class="task-title ${isDone?'done':''}">${x.title}</div>
-      <div class="task-meta">
-        <div class="priority-dot p-${x.priority||'medium'}"></div>
-        ${x.projects?.name ? `<span class="task-proj">🏗️ ${x.projects.name}</span>` : ''}
-        ${dueLabel ? `<span class="task-due ${dueClass}">${dueLabel}</span>` : ''}
+  list.innerHTML = sorted.map(x => {
+    const isDone = x.status === 'concluido';
+    const isProgress = x.status === 'em_andamento';
+    const checkIcon = isDone ? '✓' : '';
+    const checkClass = isDone ? 'done' : isProgress ? 'progress' : '';
+    let followHtml = '';
+    if (x.follow_up_date) {
+      const overdue = x.follow_up_date < t;
+      const soonCls = overdue ? 'overdue' : (x.follow_up_date === t ? 'soon' : 'future');
+      followHtml = `<span class="item-follow ${soonCls}">${overdue?'⚠ revisar desde':'📅 revisar em'} ${fmtDate(x.follow_up_date)}</span>`;
+    }
+    return `<div class="item ${isDone?'concluido':''}" onclick="openModal('${x.id}')">
+      <div class="item-check ${checkClass}">${checkIcon}</div>
+      <div class="item-body">
+        <div class="item-title ${isDone?'done':''}">${escapeHtml(x.title)}</div>
+        ${x.description ? `<div class="item-desc">${escapeHtml(x.description)}</div>` : ''}
+        <div class="item-meta">
+          <span class="tag tag-cat">${catLabel[x.category]||x.category||'—'}</span>
+          <span class="tag tag-priority-${x.priority}">${priorityLabel[x.priority]||x.priority}</span>
+          <span class="tag tag-status-${x.status}">${statusLabel[x.status]||x.status}</span>
+          ${followHtml}
+        </div>
       </div>
     </div>`;
   }).join('');
 }
 
-function fmtDate(d) { if(!d)return''; const[y,m,dia]=d.split('-'); return`${dia}/${m}`; }
-
-// ── DRAG & DROP ───────────────────────────────────────────
-let dragId = null;
-function dragStart(e, id) {
-  dragId = id;
-  setTimeout(() => e.target.classList.add('dragging'), 0);
-  e.dataTransfer.effectAllowed = 'move';
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
 }
-function dragEnd(e) {
-  e.target.classList.remove('dragging');
-  document.querySelectorAll('.col-body').forEach(c => c.classList.remove('drag-over'));
-}
-function dragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  e.currentTarget.classList.add('drag-over');
-}
-function dragLeave(e) {
-  e.currentTarget.classList.remove('drag-over');
-}
-async function drop(e, newStatus) {
-  e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
-  if (!dragId) return;
-  const task = tasks.find(t => t.id === dragId);
-  if (!task || task.status === newStatus) return;
-  task.status = newStatus;
-  render();
-  const { error } = await db.from('tasks').update({ status: newStatus }).eq('id', dragId);
-  if (error) { showToast('Erro ao mover tarefa', 'error'); await loadTasks(); }
-  else showToast('✅ Tarefa movida!');
-  dragId = null;
-}
+function fmtDate(d) { if(!d)return''; const[y,m,dia]=d.split('-'); return`${dia}/${m}/${y}`; }
 
 function openModal(id) {
   editId = id || null;
-  const x = id ? tasks.find(t=>t.id===id) : null;
-  document.getElementById('modal-title').textContent = x ? 'Editar Tarefa' : 'Nova Tarefa';
+  const x = id ? items.find(i=>i.id===id) : null;
+  document.getElementById('modal-title').textContent = x ? 'Editar Pendência' : 'Nova Pendência';
   document.getElementById('f-title').value    = x?.title || '';
   document.getElementById('f-desc').value     = x?.description || '';
-  document.getElementById('f-status').value   = x?.status || 'todo';
-  document.getElementById('f-priority').value = x?.priority || 'medium';
-  document.getElementById('f-due').value      = x?.due_date || '';
-  document.getElementById('f-project').value  = x?.project_id || '';
+  document.getElementById('f-category').value = x?.category || 'melhoria';
+  document.getElementById('f-status').value   = x?.status || 'pendente';
+  document.getElementById('f-priority').value = x?.priority || 'media';
+  document.getElementById('f-follow').value   = x?.follow_up_date || '';
   document.getElementById('btn-delete').style.display = x ? 'block' : 'none';
   document.getElementById('overlay').classList.add('open');
 }
 function closeModal() { document.getElementById('overlay').classList.remove('open'); editId=null; }
 function closeIfOutside(e) { if(e.target.id==='overlay') closeModal(); }
 
-async function saveTask() {
+async function saveItem() {
   const title = document.getElementById('f-title').value.trim();
   if (!title) { showToast('Informe o título.','error'); return; }
 
   const data = {
     title,
-    description: document.getElementById('f-desc').value.trim(),
-    status:      document.getElementById('f-status').value,
-    priority:    document.getElementById('f-priority').value,
-    due_date:    document.getElementById('f-due').value || null,
-    project_id:  document.getElementById('f-project').value || null,
-    source:      'app'
+    description:    document.getElementById('f-desc').value.trim(),
+    category:        document.getElementById('f-category').value,
+    status:          document.getElementById('f-status').value,
+    priority:        document.getElementById('f-priority').value,
+    follow_up_date:  document.getElementById('f-follow').value || null,
+    updated_at:      new Date().toISOString()
   };
 
   try {
     if (editId) {
-      await db.from('tasks').update(data).eq('id', editId);
-      showToast('Tarefa atualizada!','success');
+      await db.from('pendencias').update(data).eq('id', editId);
+      showToast('Pendência atualizada!','success');
     } else {
-      await db.from('tasks').insert(data);
-      showToast('Tarefa criada!','success');
+      await db.from('pendencias').insert(data);
+      showToast('Pendência criada!','success');
     }
     closeModal();
-    await loadTasks();
+    await loadItems();
   } catch(err) { showToast('Erro ao salvar.','error'); }
 }
 
-async function deleteTask() {
-  if (!confirm('Excluir esta tarefa?')) return;
-  await db.from('tasks').delete().eq('id', editId);
+async function deleteItem() {
+  if (!confirm('Excluir esta pendência?')) return;
+  await db.from('pendencias').delete().eq('id', editId);
   showToast('Excluída.','');
   closeModal();
-  await loadTasks();
+  await loadItems();
 }
 
 init();
