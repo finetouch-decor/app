@@ -498,6 +498,90 @@ textarea{resize:vertical;min-height:64px;}
   </div>
 </div>
 
+<!-- Modal guiado Pintura no orçamento -->
+<div id="pf-form-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.25);">
+    <div style="background:var(--navy);padding:18px 22px;border-radius:16px 16px 0 0;">
+      <div style="font-size:15px;font-weight:800;color:#fff;">🖌️ <span id="pf-form-title">Pintura</span></div>
+      <div style="font-size:11px;color:var(--gold2);margin-top:2px;">Preencha os detalhes para calcular labor + material</div>
+    </div>
+    <div style="padding:20px 22px;display:flex;flex-direction:column;gap:14px;">
+
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Nome do ambiente / área</label>
+        <input id="pf-room" type="text" placeholder="Ex: Living Room, Fachada..." oninput="recalcPForm()"
+          style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
+      </div>
+
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Perímetro das paredes × Pé-direito</label>
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <span style="font-size:11px;color:var(--muted);align-self:center;margin-right:2px;">Unidade:</span>
+          <button type="button" class="pf-unit-btn active" onclick="setPFUnit('ft',this)">ft</button>
+          <button type="button" class="pf-unit-btn" onclick="setPFUnit('m',this)">m</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="flex:1;position:relative;">
+            <input id="pf-perim" type="number" min="1" step="0.1" placeholder="Perímetro" oninput="recalcPForm()"
+              style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
+            <span id="pf-unit-label-p" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);font-weight:600;pointer-events:none;">ft</span>
+          </div>
+          <span style="color:var(--muted);font-weight:600;">×</span>
+          <div style="flex:1;position:relative;">
+            <input id="pf-height" type="number" min="1" step="0.1" placeholder="Pé-direito" value="8" oninput="recalcPForm()"
+              style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
+            <span id="pf-unit-label-h" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);font-weight:600;pointer-events:none;">ft</span>
+          </div>
+          <span style="font-size:12px;font-weight:700;color:var(--navy);min-width:64px;text-align:right;" id="pf-sqft">—</span>
+        </div>
+        <div style="margin-top:6px;">
+          <label style="font-size:11px;color:var(--muted);">ou informe a metragem direto (ft²):</label>
+          <input id="pf-sqft-manual" type="number" min="1" step="1" placeholder="Deixe em branco para usar o cálculo acima" oninput="recalcPForm()"
+            style="width:100%;margin-top:4px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
+        </div>
+      </div>
+
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Tipo e escopo</label>
+        <select id="pf-scope" onchange="recalcPForm()"
+          style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;background:#fff;">
+          <option value="1.75|1.00">🏠 Interior — Paredes apenas ($1.75 labor / $1.00 mat. por ft²)</option>
+          <option value="3.00|1.70">🏠 Interior — Paredes + Teto + Rodapé ($3.00 labor / $1.70 mat. por ft²)</option>
+          <option value="2.00|1.50">🌤️ Exterior ($2.00 labor / $1.50 mat. por ft²)</option>
+        </select>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;cursor:pointer;">
+          <input type="checkbox" id="pf-prep" onchange="recalcPForm()" style="width:16px;height:16px;accent-color:var(--navy);cursor:pointer;">
+          Preparo extra da superfície <span style="color:var(--muted);font-size:11px;">(manchas, reparos, troca de cor escura — +$0.60/ft² labor)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;cursor:pointer;">
+          <input type="checkbox" id="pf-coat3" onchange="recalcPForm()" style="width:16px;height:16px;accent-color:var(--navy);cursor:pointer;">
+          3ª demão necessária <span style="color:var(--muted);font-size:11px;">(+$0.50/ft² labor + $0.50/ft² material)</span>
+        </label>
+      </div>
+
+      <div style="background:#f8f9fb;border:1.5px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--muted);">Labor: <b id="pf-labor-sub" style="color:var(--navy);">—</b></span>
+        <span style="color:var(--muted);">Material: <b id="pf-mat-sub" style="color:var(--navy);">—</b></span>
+      </div>
+
+      <div style="background:var(--navy);border-radius:10px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:4px;">Total estimado</div>
+          <div style="font-size:26px;font-weight:800;color:var(--gold);" id="pf-total">—</div>
+        </div>
+        <button onclick="confirmPForm()"
+          style="padding:10px 20px;border-radius:8px;border:none;background:var(--gold);color:var(--navy);font-family:'Inter',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">
+          ＋ Adicionar ao orçamento
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <div id="catalog-overlay" onclick="if(event.target.id==='catalog-overlay')closeCatalogPicker()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:400;align-items:center;justify-content:center;padding:20px;">
   <div style="background:#fff;border-radius:16px;width:100%;max-width:580px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,0.2);">
     <div style="background:var(--navy);padding:18px 22px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;">
@@ -1092,20 +1176,26 @@ function toggleCatalogItem(id) {
 // --- Accent Wall guided form ---
 let awQueue = []; // items ft² waiting to be configured
 
+// --- Pintura guided form ---
+let pfQueue = []; // painting items waiting to be configured
+
 function addSelectedFromCatalog() {
   if (!catalogSelected.size) { showToast('Selecione pelo menos um serviço', 'error'); return; }
   const regular = [];
   awQueue = [];
+  pfQueue = [];
   catalogSelected.forEach(id => {
     const item = catalogItems.find(i => i.id === id);
     if (!item) return;
-    if (item.unit === 'ft²') awQueue.push(item);
+    if (item.category === 'Pintura' && item.unit === 'ft²') pfQueue.push(item);
+    else if (item.unit === 'ft²') awQueue.push(item);
     else regular.push(item);
   });
   closeCatalogPicker();
   regular.forEach(item => addMatRow(item.name, 1, item.base_price || 0));
   if (regular.length) showToast(`${regular.length} item(s) adicionado(s)`, 'success');
   if (awQueue.length) openNextAWForm();
+  else if (pfQueue.length) openNextPForm();
 }
 
 function openNextAWForm() {
@@ -1175,7 +1265,87 @@ function confirmAWForm() {
   document.getElementById('aw-form-overlay').style.display = 'none';
   awQueue.shift();
   if (awQueue.length) { setTimeout(openNextAWForm, 200); }
+  else if (pfQueue.length) { setTimeout(openNextPForm, 200); }
   else showToast('Accent Wall adicionado ao orçamento!', 'success');
+}
+
+// --- Pintura: cálculo guiado (labor + material por ft²) ---
+let pfUnit = 'ft';
+const pfToFt = { ft: 1, m: 3.28084 };
+
+function openNextPForm() {
+  if (!pfQueue.length) return;
+  const item = pfQueue[0];
+  document.getElementById('pf-form-title').textContent = item.name;
+  document.getElementById('pf-room').value = '';
+  document.getElementById('pf-perim').value = '';
+  document.getElementById('pf-height').value = '8';
+  document.getElementById('pf-sqft-manual').value = '';
+  document.getElementById('pf-scope').value = '1.75|1.00';
+  document.getElementById('pf-prep').checked = false;
+  document.getElementById('pf-coat3').checked = false;
+  recalcPForm();
+  document.getElementById('pf-form-overlay').style.display = 'flex';
+}
+
+function setPFUnit(unit, btn) {
+  pfUnit = unit;
+  document.querySelectorAll('.pf-unit-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('pf-unit-label-p').textContent = unit;
+  document.getElementById('pf-unit-label-h').textContent = unit;
+  recalcPForm();
+}
+
+function recalcPForm() {
+  const manual = parseFloat(document.getElementById('pf-sqft-manual').value) || 0;
+  let sqft = manual;
+  if (!sqft) {
+    const pRaw = parseFloat(document.getElementById('pf-perim').value) || 0;
+    const hRaw = parseFloat(document.getElementById('pf-height').value) || 0;
+    const factor = pfToFt[pfUnit] || 1;
+    sqft = (pRaw * factor) * (hRaw * factor);
+  }
+  document.getElementById('pf-sqft').textContent = sqft > 0 ? sqft.toFixed(1) + ' ft²' : '—';
+
+  const [laborRate0, matRate0] = document.getElementById('pf-scope').value.split('|').map(Number);
+  const prep = document.getElementById('pf-prep').checked ? 0.60 : 0;
+  const coat3 = document.getElementById('pf-coat3').checked;
+  const laborRate = laborRate0 + prep + (coat3 ? 0.50 : 0);
+  const matRate = matRate0 + (coat3 ? 0.50 : 0);
+
+  const laborTotal = sqft > 0 ? sqft * laborRate : 0;
+  const matTotal = sqft > 0 ? sqft * matRate : 0;
+  const total = laborTotal + matTotal;
+
+  document.getElementById('pf-labor-sub').textContent = laborTotal > 0 ? '$' + laborTotal.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+  document.getElementById('pf-mat-sub').textContent = matTotal > 0 ? '$' + matTotal.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+  document.getElementById('pf-total').textContent = total > 0 ? '$' + total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+  document.getElementById('pf-total').dataset.value = total.toFixed(2);
+  document.getElementById('pf-total').dataset.sqft = sqft.toFixed(1);
+  document.getElementById('pf-total').dataset.labor = laborTotal.toFixed(2);
+  document.getElementById('pf-total').dataset.mat = matTotal.toFixed(2);
+}
+
+function confirmPForm() {
+  const item = pfQueue[0];
+  const room = document.getElementById('pf-room').value.trim();
+  const sqft = parseFloat(document.getElementById('pf-total').dataset.sqft) || 0;
+  if (!room) { alert('Informe o nome do ambiente (ex: Living Room)'); return; }
+  if (!sqft) { alert('Informe a metragem (perímetro × pé-direito, ou direto em ft²)'); return; }
+  const total = parseFloat(document.getElementById('pf-total').dataset.value) || 0;
+  const laborTotal = parseFloat(document.getElementById('pf-total').dataset.labor) || 0;
+  const matTotal = parseFloat(document.getElementById('pf-total').dataset.mat) || 0;
+  const scopeLabel = document.getElementById('pf-scope').options[document.getElementById('pf-scope').selectedIndex].text.split(' (')[0];
+  const extras = [];
+  if (document.getElementById('pf-prep').checked) extras.push('preparo extra');
+  if (document.getElementById('pf-coat3').checked) extras.push('3ª demão');
+  const desc = `${item.name} — ${room} | ${sqft} ft² | ${scopeLabel} | Labor $${laborTotal.toFixed(2)} + Mat $${matTotal.toFixed(2)}${extras.length ? ' | ' + extras.join(', ') : ''}`;
+  addMatRow(desc, 1, total);
+  document.getElementById('pf-form-overlay').style.display = 'none';
+  pfQueue.shift();
+  if (pfQueue.length) { setTimeout(openNextPForm, 200); }
+  else showToast('Pintura adicionada ao orçamento!', 'success');
 }
 
 init();
