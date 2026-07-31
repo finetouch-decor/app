@@ -514,29 +514,26 @@ textarea{resize:vertical;min-height:64px;}
       </div>
 
       <div>
-        <label style="display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Perímetro das paredes × Pé-direito</label>
-        <div style="display:flex;gap:6px;margin-bottom:8px;">
-          <span style="font-size:11px;color:var(--muted);align-self:center;margin-right:2px;">Unidade:</span>
-          <button type="button" class="pf-unit-btn active" onclick="setPFUnit('ft',this)">ft</button>
-          <button type="button" class="pf-unit-btn" onclick="setPFUnit('m',this)">m</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+          <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Paredes (largura × altura)</label>
+          <div style="display:flex;gap:6px;">
+            <span style="font-size:11px;color:var(--muted);align-self:center;margin-right:2px;">Unidade:</span>
+            <button type="button" class="pf-unit-btn active" onclick="setPFUnit('ft',this)">ft</button>
+            <button type="button" class="pf-unit-btn" onclick="setPFUnit('in',this)">in</button>
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div style="flex:1;position:relative;">
-            <input id="pf-perim" type="number" min="1" step="0.1" placeholder="Perímetro" oninput="recalcPForm()"
-              style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
-            <span id="pf-unit-label-p" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);font-weight:600;pointer-events:none;">ft</span>
-          </div>
-          <span style="color:var(--muted);font-weight:600;">×</span>
-          <div style="flex:1;position:relative;">
-            <input id="pf-height" type="number" min="1" step="0.1" placeholder="Pé-direito" value="8" oninput="recalcPForm()"
-              style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
-            <span id="pf-unit-label-h" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);font-weight:600;pointer-events:none;">ft</span>
-          </div>
-          <span style="font-size:12px;font-weight:700;color:var(--navy);min-width:64px;text-align:right;" id="pf-sqft">—</span>
+        <div id="pf-walls-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <button type="button" onclick="addPFWall()"
+          style="margin-top:8px;width:100%;padding:8px;border:1.5px dashed var(--border);border-radius:8px;background:transparent;color:var(--navy);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+          + Adicionar parede
+        </button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding:8px 12px;background:#f8f9fb;border-radius:8px;">
+          <span style="font-size:12px;color:var(--muted);">Total das paredes acima:</span>
+          <span style="font-size:13px;font-weight:700;color:var(--navy);" id="pf-sqft">—</span>
         </div>
         <div style="margin-top:6px;">
-          <label style="font-size:11px;color:var(--muted);">ou informe a metragem direto (ft²):</label>
-          <input id="pf-sqft-manual" type="number" min="1" step="1" placeholder="Deixe em branco para usar o cálculo acima" oninput="recalcPForm()"
+          <label style="font-size:11px;color:var(--muted);">ou informe a metragem TOTAL direto (ft²), ignorando as paredes acima:</label>
+          <input id="pf-sqft-manual" type="number" min="1" step="1" placeholder="Deixe em branco para usar a soma das paredes" oninput="recalcPForm()"
             style="width:100%;margin-top:4px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
         </div>
       </div>
@@ -1269,21 +1266,22 @@ function confirmAWForm() {
   else showToast('Accent Wall adicionado ao orçamento!', 'success');
 }
 
-// --- Pintura: cálculo guiado (labor + material por ft²) ---
+// --- Pintura: cálculo guiado (labor + material por ft², múltiplas paredes) ---
 let pfUnit = 'ft';
-const pfToFt = { ft: 1, m: 3.28084 };
+const pfToFt = { ft: 1, in: 1/12 };
+let pfWalls = []; // [{w:'', h:''}, ...]
 
 function openNextPForm() {
   if (!pfQueue.length) return;
   const item = pfQueue[0];
   document.getElementById('pf-form-title').textContent = item.name;
   document.getElementById('pf-room').value = '';
-  document.getElementById('pf-perim').value = '';
-  document.getElementById('pf-height').value = '8';
   document.getElementById('pf-sqft-manual').value = '';
   document.getElementById('pf-scope').value = '1.75|1.00';
   document.getElementById('pf-prep').checked = false;
   document.getElementById('pf-coat3').checked = false;
+  pfWalls = [{ w: '', h: '8' }];
+  renderPFWalls();
   recalcPForm();
   document.getElementById('pf-form-overlay').style.display = 'flex';
 }
@@ -1292,21 +1290,55 @@ function setPFUnit(unit, btn) {
   pfUnit = unit;
   document.querySelectorAll('.pf-unit-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  document.getElementById('pf-unit-label-p').textContent = unit;
-  document.getElementById('pf-unit-label-h').textContent = unit;
+  renderPFWalls();
   recalcPForm();
 }
 
+function addPFWall() {
+  pfWalls.push({ w: '', h: '8' });
+  renderPFWalls();
+  recalcPForm();
+}
+
+function removePFWall(idx) {
+  pfWalls.splice(idx, 1);
+  if (!pfWalls.length) pfWalls.push({ w: '', h: '8' });
+  renderPFWalls();
+  recalcPForm();
+}
+
+function updatePFWall(idx, field, value) {
+  pfWalls[idx][field] = value;
+  recalcPForm();
+}
+
+function renderPFWalls() {
+  document.getElementById('pf-walls-list').innerHTML = pfWalls.map((wall, idx) => `
+    <div style="display:flex;align-items:center;gap:8px;">
+      <input type="number" min="0" step="0.1" placeholder="Largura" value="${wall.w}"
+        oninput="updatePFWall(${idx},'w',this.value)"
+        style="flex:1;min-width:0;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
+      <span style="color:var(--muted);font-weight:600;">×</span>
+      <input type="number" min="0" step="0.1" placeholder="Altura" value="${wall.h}"
+        oninput="updatePFWall(${idx},'h',this.value)"
+        style="flex:1;min-width:0;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
+      <span style="font-size:11px;color:var(--muted);min-width:16px;">${pfUnit}</span>
+      <button type="button" onclick="removePFWall(${idx})" title="Remover parede"
+        style="flex-shrink:0;width:26px;height:26px;border-radius:6px;border:1.5px solid var(--border);background:#fff;color:var(--muted);cursor:pointer;font-size:13px;">✕</button>
+    </div>
+  `).join('');
+}
+
 function recalcPForm() {
+  const factor = pfToFt[pfUnit] || 1;
+  const wallsSqft = pfWalls.reduce((sum, wall) => {
+    const w = (parseFloat(wall.w) || 0) * factor;
+    const h = (parseFloat(wall.h) || 0) * factor;
+    return sum + (w * h);
+  }, 0);
   const manual = parseFloat(document.getElementById('pf-sqft-manual').value) || 0;
-  let sqft = manual;
-  if (!sqft) {
-    const pRaw = parseFloat(document.getElementById('pf-perim').value) || 0;
-    const hRaw = parseFloat(document.getElementById('pf-height').value) || 0;
-    const factor = pfToFt[pfUnit] || 1;
-    sqft = (pRaw * factor) * (hRaw * factor);
-  }
-  document.getElementById('pf-sqft').textContent = sqft > 0 ? sqft.toFixed(1) + ' ft²' : '—';
+  const sqft = manual || wallsSqft;
+  document.getElementById('pf-sqft').textContent = wallsSqft > 0 ? wallsSqft.toFixed(1) + ' ft²' : '—';
 
   const [laborRate0, matRate0] = document.getElementById('pf-scope').value.split('|').map(Number);
   const prep = document.getElementById('pf-prep').checked ? 0.60 : 0;
@@ -1332,15 +1364,18 @@ function confirmPForm() {
   const room = document.getElementById('pf-room').value.trim();
   const sqft = parseFloat(document.getElementById('pf-total').dataset.sqft) || 0;
   if (!room) { alert('Informe o nome do ambiente (ex: Living Room)'); return; }
-  if (!sqft) { alert('Informe a metragem (perímetro × pé-direito, ou direto em ft²)'); return; }
+  if (!sqft) { alert('Informe as medidas das paredes, ou a metragem total direto'); return; }
   const total = parseFloat(document.getElementById('pf-total').dataset.value) || 0;
   const laborTotal = parseFloat(document.getElementById('pf-total').dataset.labor) || 0;
   const matTotal = parseFloat(document.getElementById('pf-total').dataset.mat) || 0;
   const scopeLabel = document.getElementById('pf-scope').options[document.getElementById('pf-scope').selectedIndex].text.split(' (')[0];
+  const manual = parseFloat(document.getElementById('pf-sqft-manual').value) || 0;
+  const wallsDetail = !manual ? pfWalls.filter(w => (parseFloat(w.w)||0) > 0 && (parseFloat(w.h)||0) > 0)
+    .map(w => `${w.w}x${w.h}${pfUnit}`).join(', ') : '';
   const extras = [];
   if (document.getElementById('pf-prep').checked) extras.push('preparo extra');
   if (document.getElementById('pf-coat3').checked) extras.push('3ª demão');
-  const desc = `${item.name} — ${room} | ${sqft} ft² | ${scopeLabel} | Labor $${laborTotal.toFixed(2)} + Mat $${matTotal.toFixed(2)}${extras.length ? ' | ' + extras.join(', ') : ''}`;
+  const desc = `${item.name} — ${room}${wallsDetail ? ' | Paredes: ' + wallsDetail : ''} | ${sqft} ft² | ${scopeLabel} | Labor $${laborTotal.toFixed(2)} + Mat $${matTotal.toFixed(2)}${extras.length ? ' | ' + extras.join(', ') : ''}`;
   addMatRow(desc, 1, total);
   document.getElementById('pf-form-overlay').style.display = 'none';
   pfQueue.shift();
