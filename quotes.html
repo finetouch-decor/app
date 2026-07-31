@@ -1092,7 +1092,14 @@ async function genProposal(quoteId) {
     const svc=svcName?catMap[svcName]:null;
     if(svc){
       if(svc.project_overview&&!overviews.includes(svc.project_overview)) overviews.push(svc.project_overview);
-      (svc.scope_template||[]).forEach(line=>scopeItems.push({item:line,qty:null,price:null}));
+      // Auto-preenche [SQFT] com a metragem real extraída da descrição do item (ex: Pintura)
+      const sqftMatch = i.description && i.description.match(/([\d.]+)\s*ft²/);
+      const sqftVal = sqftMatch ? sqftMatch[1] : null;
+      (svc.scope_template||[]).forEach(line=>{
+        let text=line;
+        if(sqftVal && text.includes('[SQFT]')) text=text.replace('[SQFT]', sqftVal);
+        scopeItems.push({item:text,qty:null,price:null});
+      });
       if(svc.important_notes&&!stdNotes.length) stdNotes=svc.important_notes;
     } else {
       scopeItems.push({item:i.description,qty:i.quantity,price:i.total});
