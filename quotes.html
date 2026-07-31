@@ -659,7 +659,7 @@ function renderMonthlyBreakdown() {
     const ym = q.created_at.slice(0,7);
     if (!byMonth[ym]) byMonth[ym] = { count: 0, value: 0 };
     byMonth[ym].count += 1;
-    byMonth[ym].value += Number(q.sale_price) || Number(q.total) || 0;
+    byMonth[ym].value += Number(q.total) || Number(q.sale_price) || 0;
   });
   const months = Object.keys(byMonth).sort();
   const labels = months.map(ym => {
@@ -743,17 +743,17 @@ function renderKPIs() {
   const filtered = getFilteredQuotes();
   const total=filtered.length;
   const totalCost=filtered.reduce((s,q)=>s+(Number(q.total_cost)||0),0);
-  const totalSale=filtered.reduce((s,q)=>s+(Number(q.sale_price)||Number(q.total)||0),0);
+  const totalSale=filtered.reduce((s,q)=>s+(Number(q.total)||Number(q.sale_price)||0),0);
   // Margem real = diferenca entre preco de venda lancado e custo interno lancado,
   // ja que o markup% do formulario nao e usado no fluxo real de trabalho.
   const mkps=filtered.map(q=>{
     const cost=Number(q.total_cost)||0;
-    const sale=Number(q.sale_price)||Number(q.total)||0;
+    const sale=Number(q.total)||Number(q.sale_price)||0;
     if(cost<=0) return null;
     return ((sale-cost)/cost)*100;
   }).filter(v=>v!==null);
   const avgMkp=mkps.length?Math.round(mkps.reduce((a,b)=>a+b,0)/mkps.length):0;
-  const approvedTotal=filtered.filter(q=>q.status==='approved').reduce((s,q)=>s+(Number(q.sale_price)||Number(q.total)||0),0);
+  const approvedTotal=filtered.filter(q=>q.status==='approved').reduce((s,q)=>s+(Number(q.total)||Number(q.sale_price)||0),0);
   const approvedCount=filtered.filter(q=>q.status==='approved').length;
   document.getElementById('kpi-strip').innerHTML=`
     <div class="kpi n"><div class="kpi-label">Total</div><div class="kpi-value">${total}</div><div class="kpi-sub">orçamentos</div></div>
@@ -770,9 +770,9 @@ function renderTable() {
   if(!rows.length){tb.innerHTML=`<tr><td colspan="9"><div class="empty"><div class="ico">📋</div><p>Nenhum orçamento encontrado.</p></div></td></tr>`;return;}
   tb.innerHTML=rows.map(q=>{
     const cost=Number(q.total_cost)||0;
-    const sale=Number(q.sale_price)||Number(q.total)||0;
+    const sale=Number(q.total)||Number(q.sale_price)||0;
     const costForMkp=Number(q.total_cost)||0;
-    const saleForMkp=Number(q.sale_price)||Number(q.total)||0;
+    const saleForMkp=Number(q.total)||Number(q.sale_price)||0;
     const mkp=costForMkp>0?Math.round(((saleForMkp-costForMkp)/costForMkp)*100):0;
     return `<tr>
       <td class="td-num">${q.quote_number||'—'}</td>
