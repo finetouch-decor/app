@@ -468,6 +468,9 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
         <div class="tl">Total Investment</div>
         <div class="tv" id="doc-total">$0.00</div>
       </div>
+      <div style="text-align:right;font-size:12.5px;color:#64748B;margin-top:8px;">
+        💵 Cash or Zelle price (3% discount): <strong id="doc-total-cash" style="color:#102A4B;">$0.00</strong>
+      </div>
 
       <!-- Payment schedule -->
       <div class="doc-section-title" id="pay-section-title" style="display:none;">Payment Schedule</div>
@@ -479,7 +482,8 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
       <!-- Validity -->
       <div class="doc-note" style="margin-top:28px;">
         📌 This proposal includes all labor and materials necessary to complete the project as described above.<br>
-        ⏳ This proposal is valid for <strong>30 days</strong> from the date of issue.
+        ⏳ This proposal is valid for <strong>30 days</strong> from the date of issue.<br>
+        💳 We accept credit/debit card (Stripe) and PayPal. Pay by cash or Zelle and save 3%.
       </div>
 
       <!-- Signatures -->
@@ -1092,6 +1096,7 @@ async function openPrint(id) {
   document.getElementById('doc-scope').textContent      = p.project_scope || '';
   document.getElementById('doc-sig-client').textContent = p.client_name || '';
   document.getElementById('doc-total').textContent      = fmt(p.total_cost);
+  document.getElementById('doc-total-cash').textContent  = fmt((Number(p.total_cost)||0) * 0.97);
 
   // Scope items table
   const items = p.scope_items || [];
