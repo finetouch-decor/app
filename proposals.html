@@ -295,11 +295,31 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
     </div>
     <div class="modal-body" style="padding:20px 24px;">
 
+      <!-- PASSO 1: QUAL VALOR O CLIENTE APROVOU -->
+      <div id="parc-method-step" style="margin-bottom:18px;">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Which price did the client approve?</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <button type="button" id="parc-method-full" onclick="selectPaymentMethod('full')" style="text-align:left;padding:12px 14px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;font-family:'Inter',sans-serif;">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;">💳 Card / PayPal / Venmo</div>
+            <div style="font-size:18px;font-weight:800;color:var(--navy);margin-top:4px;" id="parc-method-full-value">$0.00</div>
+            <div style="font-size:10.5px;color:var(--muted);margin-top:2px;">Full price</div>
+          </button>
+          <button type="button" id="parc-method-cash" onclick="selectPaymentMethod('cash')" style="text-align:left;padding:12px 14px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;font-family:'Inter',sans-serif;">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;">💵 Cash / Zelle</div>
+            <div style="font-size:18px;font-weight:800;color:var(--navy);margin-top:4px;" id="parc-method-cash-value">$0.00</div>
+            <div style="font-size:10.5px;color:var(--muted);margin-top:2px;">3% discount</div>
+          </button>
+        </div>
+      </div>
+
+      <div id="parc-body-rest" style="display:none;">
+
       <!-- TOTAL + ALERTA -->
       <div style="background:#f0f7eb;border:1px solid rgba(46,107,62,.2);border-radius:10px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;">
         <div>
           <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Proposal Total</div>
           <div style="font-size:22px;font-weight:800;color:var(--navy);" id="parc-total-display">$0.00</div>
+          <div style="font-size:10.5px;font-weight:700;color:var(--muted);margin-top:2px;" id="parc-method-label"></div>
         </div>
         <div style="text-align:right;">
           <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Distributed</div>
@@ -326,10 +346,11 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
       <button onclick="addParcela()" style="background:none;border:1.5px dashed var(--border);border-radius:8px;padding:8px;width:100%;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">
         + Add installment
       </button>
+      </div><!-- end #parc-body-rest -->
     </div>
     <div class="modal-footer" style="padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;background:#f7f8fa;">
       <button class="btn btn-outline" onclick="closeParcelas()">Cancel</button>
-      <button class="btn btn-primary" id="btn-criar-invoices" onclick="criarInvoices()" style="background:var(--navy);color:var(--gold);">🧾 Generate Invoices</button>
+      <button class="btn btn-primary" id="btn-criar-invoices" onclick="criarInvoices()" style="background:var(--navy);color:var(--gold);" disabled>🧾 Generate Invoices</button>
     </div>
   </div>
 </div>
@@ -884,6 +905,9 @@ async function approveProposal(id) {
 // ─── MODAL PARCELAMENTO ───────────────────────────────────────
 let parcelasProposalId = null;
 let parcelasTotal = 0;
+let parcelasFullTotal = 0;
+let parcelasCashTotal = 0;
+let parcelasPaymentMethod = null; // 'full' | 'cash'
 let parcelasClientId = null;
 let parcelasProjectId = null;
 let parcelasClientName = '';
@@ -916,14 +940,39 @@ async function generateInvoice(id) {
     if (ativos.length === 1) parcelasProjectId = ativos[0].id;
   }
 
-  document.getElementById('parc-subtitle').textContent = parcelasClientName + ' — defina as parcelas';
-  document.getElementById('parc-total-display').textContent = fmtMoney(parcelasTotal);
+  parcelasFullTotal = Number(p.total_cost) || 0;
+  parcelasCashTotal = Math.round(parcelasFullTotal * 0.97 * 100) / 100;
+  parcelasPaymentMethod = null;
+
+  document.getElementById('parc-subtitle').textContent = parcelasClientName + ' — qual valor o cliente aprovou?';
+  document.getElementById('parc-method-full-value').textContent = fmtMoney(parcelasFullTotal);
+  document.getElementById('parc-method-cash-value').textContent = fmtMoney(parcelasCashTotal);
+  document.getElementById('parc-method-full').style.borderColor = 'var(--border)';
+  document.getElementById('parc-method-cash').style.borderColor = 'var(--border)';
+  document.getElementById('parc-body-rest').style.display = 'none';
+  document.getElementById('btn-criar-invoices').disabled = true;
   document.getElementById('parcelas-list').innerHTML = '';
   parcelaCount = 0;
 
-  // começa com 2 parcelas 50/50 como padrão
-  applyTemplate([50, 50]);
   document.getElementById('overlay-parcelas').style.display = 'flex';
+}
+
+function selectPaymentMethod(method) {
+  parcelasPaymentMethod = method;
+  parcelasTotal = method === 'cash' ? parcelasCashTotal : parcelasFullTotal;
+
+  document.getElementById('parc-method-full').style.borderColor = method === 'full' ? 'var(--gold)' : 'var(--border)';
+  document.getElementById('parc-method-cash').style.borderColor = method === 'cash' ? 'var(--gold)' : 'var(--border)';
+
+  document.getElementById('parc-total-display').textContent = fmtMoney(parcelasTotal);
+  document.getElementById('parc-method-label').textContent = method === 'cash'
+    ? '💵 Cash / Zelle — 3% discount applied'
+    : '💳 Card / PayPal / Venmo — full price';
+  document.getElementById('parc-body-rest').style.display = 'block';
+  document.getElementById('btn-criar-invoices').disabled = false;
+
+  // recalcula as parcelas em cima do valor escolhido (mantém template 50/50 como padrão)
+  applyTemplate([50, 50]);
 }
 
 function closeParcelas() {
@@ -1006,6 +1055,7 @@ function updateDistribuido() {
 }
 
 async function criarInvoices() {
+  if (!parcelasPaymentMethod) { showToast('Selecione a forma de pagamento aprovada pelo cliente', 'error'); return; }
   const rows = document.querySelectorAll('#parcelas-list > div');
   if (!rows.length) { showToast('Adicione pelo menos uma parcela', 'error'); return; }
 
@@ -1030,6 +1080,7 @@ async function criarInvoices() {
     const valor  = parseFloat(inputs[1]?.value) || 0;
     const venc   = inputs[2]?.value || hoje;
     const num    = 'INV-' + Date.now().toString().slice(-4) + '-' + i;
+    const methodLabel = parcelasPaymentMethod === 'cash' ? 'Cash/Zelle (-3%)' : 'Card/PayPal/Venmo (full price)';
     payloads.push({
       invoice_number: num,
       client_id:      parcelasClientId,
@@ -1042,7 +1093,7 @@ async function criarInvoices() {
       due_date:       venc,
       subtotal:       valor,
       total:          valor,
-      notes:          `Installment ${i}/${total}: ${desc} — Proposal ${parcelasClientName}`,
+      notes:          `Installment ${i}/${total}: ${desc} — Proposal ${parcelasClientName} — Payment: ${methodLabel}`,
     });
   });
 
