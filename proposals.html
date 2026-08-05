@@ -399,13 +399,26 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
       <div class="form-row">
         <div class="field"><label>Project Duration</label><input type="text" id="f-duration" placeholder="e.g. 1–2 working days"></div>
         <div class="field"><label>Status</label>
-          <select id="f-status">
+          <select id="f-status" onchange="toggleRejectionWrap()">
             <option value="draft">Draft</option>
             <option value="sent">Sent</option>
             <option value="accepted">Accepted</option>
             <option value="rejected">Rejected</option>
           </select>
         </div>
+      </div>
+      <div class="field" id="f-rejection-wrap" style="display:none;background:#fef2f2;border:1.5px solid rgba(160,48,48,0.25);border-radius:9px;padding:12px 14px;">
+        <label style="color:#a03030;">Motivo da rejeição</label>
+        <select id="f-rejection-reason" onchange="toggleRejectionDetail()">
+          <option value="">Selecione um motivo…</option>
+          <option value="preco_alto">Preço alto</option>
+          <option value="fechou_outro">Fechou com outro</option>
+          <option value="mudou_ideia">Mudou de ideia</option>
+          <option value="sem_retorno">Sem retorno</option>
+          <option value="projeto_adiado">Projeto adiado (não é o momento)</option>
+          <option value="outro">Outro</option>
+        </select>
+        <input type="text" id="f-rejection-detail" placeholder="Detalhe (opcional)" style="margin-top:8px;display:none;">
       </div>
       <div class="field">
         <label>Images (color options, layout drawings, etc.)</label>
@@ -716,6 +729,10 @@ function openModal(data=null) {
   document.getElementById('f-scope').value    = data?.project_scope || '';
   document.getElementById('f-duration').value = data?.duration || '';
   document.getElementById('f-status').value   = data?.status || 'draft';
+  document.getElementById('f-rejection-reason').value = data?.rejection_reason || '';
+  document.getElementById('f-rejection-detail').value = data?.rejection_reason_detail || '';
+  toggleRejectionWrap();
+  toggleRejectionDetail();
 
   // Scope items
   const items = data?.scope_items || [];
@@ -738,6 +755,15 @@ function openEdit(id) {
 
 function closeModal() { document.getElementById('overlay-form').classList.remove('open'); }
 function closeIfOutside(e, id) { if(e.target.id===id) closeModal(); }
+
+function toggleRejectionWrap() {
+  const isRejected = document.getElementById('f-status').value === 'rejected';
+  document.getElementById('f-rejection-wrap').style.display = isRejected ? 'block' : 'none';
+}
+function toggleRejectionDetail() {
+  const isOutro = document.getElementById('f-rejection-reason').value === 'outro';
+  document.getElementById('f-rejection-detail').style.display = isOutro ? 'block' : 'none';
+}
 
 function addScopeItem(data='') {
   const text = (typeof data === 'object' && data !== null) ? (data.item || '') : String(data);
@@ -820,6 +846,15 @@ async function autofillCityFromClient() {
 }
 
 async function saveProposal() {
+  const status = document.getElementById('f-status').value;
+  const rejectionReason = document.getElementById('f-rejection-reason').value;
+  const rejectionDetail = document.getElementById('f-rejection-detail').value.trim();
+
+  if (status === 'rejected' && !rejectionReason) {
+    showToast('Selecione o motivo da rejeição.', 'error');
+    return;
+  }
+
   const data = {
     client_name:   document.getElementById('f-client').value.trim(),
     project_name:  document.getElementById('f-project').value.trim(),
@@ -830,8 +865,10 @@ async function saveProposal() {
     project_scope: document.getElementById('f-scope').value.trim(),
     scope_items:   getScopeItems(),
     duration:      document.getElementById('f-duration').value.trim(),
-    status:        document.getElementById('f-status').value,
+    status:        status,
     images:        proposalImages,
+    rejection_reason:        status === 'rejected' ? rejectionReason : null,
+    rejection_reason_detail: (status === 'rejected' && rejectionReason === 'outro') ? (rejectionDetail || null) : null,
   };
   if (!data.client_name || !data.title) { showToast('Fill in client name and title.','error'); return; }
 
