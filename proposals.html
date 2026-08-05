@@ -882,6 +882,7 @@ async function saveProposal() {
   if (error) { showToast('Error: ' + (error.message || error.code || JSON.stringify(error)), 'error'); console.error(error); return; }
   showToast(editId ? 'Proposal updated!' : 'Proposal created!', 'success');
   if (isNew) await moveLeadToStage(data.client_name, 'proposta', 'lead');
+  if (data.status === 'rejected') await moveLeadToStage(data.client_name, 'perdido');
   closeModal();
   await loadProposals();
 }
@@ -889,7 +890,9 @@ async function saveProposal() {
 // ─── AUTOMACAO CRM: mover o lead de estagio quando proposta/invoice acontece ──
 // Ao criar uma proposta nova, o lead correspondente (achado pelo mesmo nome usado
 // em "Client Name") sai de "lead" e vai pra "proposta". Ao gerar invoices de uma
-// proposta (cliente aceitou e vai pagar), o lead vai pra "fechado".
+// proposta (cliente aceitou e vai pagar), o lead vai pra "fechado". Ao salvar uma
+// proposta com status "Rejected" (motivo obrigatorio, ver f-rejection-reason), o
+// lead correspondente vai automaticamente pra "perdido".
 async function moveLeadToStage(clientName, newStatus, onlyFromStatus) {
   if (!clientName) return;
   const { data: cls } = await db.from('clients').select('id').ilike('name', clientName.trim()).limit(1);
