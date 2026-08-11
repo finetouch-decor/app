@@ -5,6 +5,7 @@
     { "source": "/app",       "destination": "/finetouch_crm_app.html" },
     { "source": "/quotes",    "destination": "/quotes.html" },
     { "source": "/proposals", "destination": "/proposals.html" },
+    { "source": "/proposal-bundles", "destination": "/proposal-bundles.html" },
     { "source": "/invoices",       "destination": "/invoices.html" },
     { "source": "/invoice-print",  "destination": "/invoice-print.html" },
     { "source": "/projects",  "destination": "/projects.html" },
