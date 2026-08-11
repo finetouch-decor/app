@@ -230,6 +230,7 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
     <div class="nav-section">Venda</div>
     <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
     <a class="nav-item active" href="/proposals"><span class="icon">📄</span>Propostas</a>
+    <a class="nav-item" href="/proposal-bundles"><span class="icon">🧩</span>Propostas Combinadas</a>
     <a class="nav-item dim"><span class="icon">📝</span><s style="opacity:.45">Contratos</s></a>
     <a class="nav-item" href="/invoices"><span class="icon">🧾</span>Invoices</a>
     <div class="nav-section">Execução</div>
@@ -609,7 +610,7 @@ db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='
 async function logout() { await db.auth.signOut(); }
 
 async function loadProposals() {
-  const { data } = await db.from('proposals').select('*').order('created_at', {ascending:false});
+  const { data } = await db.from('proposals').select('*').is('bundle_id', null).order('created_at', {ascending:false});
   proposals = data || [];
   render();
 }
