@@ -242,7 +242,7 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 <div class="overlay" id="overlay-new-bundle">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">🧩 Nova Proposta Combinada</div>
+      <div class="modal-title" id="nb-modal-title">🧩 Nova Proposta Combinada</div>
       <button class="modal-close" onclick="closeNewBundleModal()">✕</button>
     </div>
     <div class="modal-body">
@@ -283,7 +283,7 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeNewBundleModal()">Cancelar</button>
-      <button class="btn btn-primary" id="btn-save-bundle" onclick="saveBundle()">Salvar Combo</button>
+      <button class="btn btn-primary" id="btn-save-bundle" onclick="submitBundleForm()">Salvar Combo</button>
     </div>
   </div>
 </div>
@@ -292,11 +292,11 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 <div class="print-overlay" id="print-overlay">
   <div class="print-toolbar">
     <span id="print-toolbar-label">Proposta Combinada</span>
-    <div class="print-toolbar-btns">
+    <div class="print-toolbar-btns"><button class="btn-close-print" id="btn-edit-bundle" onclick="editCurrentBundle()" style="border-color:#2563eb;background:#2563eb;color:#fff;">✏️ Editar</button>
       <button class="btn-close-print" id="btn-mark-sent" onclick="setBundleStatus('sent')" style="background:rgba(198,158,99,0.15);border-color:var(--gold);color:var(--gold);">📤 Marcar como Enviada</button>
       <button class="btn-close-print accept" id="btn-mark-accepted" onclick="setBundleStatus('accepted')">✅ Aprovada pelo cliente</button>
       <button class="btn-close-print reject" id="btn-mark-rejected" onclick="showRejectInline()">❌ Rejeitada</button>
-      <button class="btn-print" onclick="window.print()">🖨️ Salvar PDF</button>
+      <button class="btn-print" onclick="window.print()">🖨️ Salvar PDF</button><button class="btn-close-print" id="btn-delete-bundle" onclick="deleteCurrentBundle()" style="border-color:var(--red);background:var(--red);color:#fff;">🗑️ Excluir</button>
       <button class="btn-close-print" onclick="closePrint()">✕ Fechar</button>
     </div>
   </div>
@@ -349,7 +349,7 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 
       <div class="doc-total-box">
         <div class="doc-total-row"><span>Subtotal</span><span id="doc-subtotal">$0.00</span></div>
-        <div class="doc-total-row"><span>Bundle Discount</span><span id="doc-discount">-$0.00</span></div>
+        <div class="doc-total-row"><span id="doc-discount-label">Bundle Discount</span><span id="doc-discount">-$0.00</span></div>
         <div class="doc-total-row final"><span>Total Investment</span><span class="tv" id="doc-total">$0.00</span></div>
       </div>
 
@@ -432,6 +432,7 @@ let bundles = [], currentFilter = 'all';
 let eligibleProposals = [];
 let currentPrintBundle = null;
 let currentPrintBundleItems = [];
+let editingBundleId = null;
 
 async function init() {
   const { data: { session } } = await db.auth.getSession();
@@ -475,7 +476,7 @@ function renderTabs() {
 }
 function setFilter(f) { currentFilter = f; renderTabs(); render(); }
 
-function render() {
+function discountLabel(b) { if (!b || !(b.discount_amount > 0)) return ''; return b.discount_type === 'percent' ? ('-' + Number(b.discount_value) + '%') : ('-' + fmt(b.discount_value)); } function render() {
   const list = currentFilter === 'all' ? bundles : bundles.filter(b => b.status === currentFilter);
   const wrap = document.getElementById('bundle-list');
   if (!list.length) { wrap.innerHTML = '<div class="empty">Nenhuma proposta combinada aqui ainda.</div>'; return; }
@@ -489,19 +490,19 @@ function render() {
       <div class="p-date">${fmtDate(b.created_at)}</div>
       <div class="p-value">
         ${b.discount_amount > 0 ? `<span class="strike">${fmt(b.subtotal)}</span>` : ''}
-        ${fmt(b.total)}
+        ${fmt(b.total)}<span style="display:block;font-size:10.5px;color:var(--red);font-weight:700;">${discountLabel(b)}</span>
       </div>
       <div class="row-actions" onclick="event.stopPropagation()">
-        <button class="btn-icon" onclick="openPrint('${b.id}')" title="Ver / Imprimir">👁️</button>
+        <button class="btn-icon" onclick="openPrint('${b.id}')" title="Ver / Imprimir">👁️</button><button class="btn-icon" onclick="openEditBundleModal('${b.id}')" title="Editar">✏️</button>
         ${b.status==='accepted' ? `<button class="btn-icon" style="background:#eff6ff;border-color:#2563eb;color:#2563eb;font-weight:700;" onclick="generateInvoice('${b.id}')" title="Gerar Invoice">🧾</button>` : ''}
-        ${b.status==='draft' ? `<button class="btn-icon" style="background:var(--red-bg);border-color:var(--red);color:var(--red);" onclick="deleteBundle('${b.id}')" title="Excluir rascunho">🗑️</button>` : ''}
+        <button class="btn-icon" style="background:var(--red-bg);border-color:var(--red);color:var(--red);" onclick="deleteBundle('${b.id}')" title="Excluir">🗑️</button>
       </div>
     </div>`).join('');
 }
-function statusLabel(s) { return {draft:'Rascunho', sent:'Enviada', accepted:'Aprovada', rejected:'Rejeitada'}[s] || s; }
+function editCurrentBundle() { if (!currentPrintBundle) return; const id = currentPrintBundle.id; closePrint(); openEditBundleModal(id); } function deleteCurrentBundle() { if (!currentPrintBundle) return; deleteBundle(currentPrintBundle.id); } function statusLabel(s) { return {draft:'Rascunho', sent:'Enviada', accepted:'Aprovada', rejected:'Rejeitada'}[s] || s; }
 
 /* ─── NOVA PROPOSTA COMBINADA ─── */
-async function openNewBundleModal() {
+async function openNewBundleModal() { editingBundleId = null; document.getElementById('nb-modal-title').textContent = '🧩 Nova Proposta Combinada'; document.getElementById('nb-client').disabled = false; document.getElementById('btn-save-bundle').textContent = 'Salvar Combo';
   document.getElementById('nb-title').value = '';
   document.getElementById('nb-discount-type').value = 'percent';
   document.getElementById('nb-discount-value').value = 0;
@@ -515,7 +516,7 @@ async function openNewBundleModal() {
 
   document.getElementById('overlay-new-bundle').classList.add('open');
 }
-function closeNewBundleModal() { document.getElementById('overlay-new-bundle').classList.remove('open'); }
+function closeNewBundleModal() { document.getElementById('overlay-new-bundle').classList.remove('open'); editingBundleId = null; document.getElementById('nb-client').disabled = false; }
 
 async function onBundleClientChange() {
   const client = document.getElementById('nb-client').value;
@@ -565,7 +566,7 @@ function recomputeBundleTotals() {
   return { ids, subtotal, discountAmount, total, type, val };
 }
 
-async function saveBundle() {
+function submitBundleForm() { if (editingBundleId) { updateBundle(); } else { saveBundle(); } } async function openEditBundleModal(id) { const b = bundles.find(x => x.id === id) || (await db.from('proposal_bundles').select('*').eq('id',id).single()).data; if (!b) return; editingBundleId = id; document.getElementById('nb-modal-title').textContent = '✏️ Editar Proposta Combinada'; document.getElementById('nb-title').value = b.title || ''; document.getElementById('nb-discount-type').value = b.discount_type || 'percent'; document.getElementById('nb-discount-value').value = b.discount_value || 0; document.getElementById('nb-client').innerHTML = `<option value="${(b.client_name||'').replace(/"/g,'&quot;')}">${b.client_name||''}</option>`; document.getElementById('nb-client').disabled = true; const { data: oldItems } = await db.from('proposal_bundle_items').select('proposal_id').eq('bundle_id', id); const oldIds = (oldItems||[]).map(i => i.proposal_id); const { data } = await db.from('proposals').select('id,title,project_name,total_cost,city,duration').eq('client_name', b.client_name).or(`bundle_id.is.null,bundle_id.eq.${id}`).neq('status','rejected').order('created_at'); eligibleProposals = data || []; const wrap = document.getElementById('nb-proposal-list'); if (!eligibleProposals.length) { wrap.innerHTML = '<div class="check-empty">Nenhuma proposta disponível.</div>'; } else { wrap.innerHTML = eligibleProposals.map(p => `<label class="proposal-check-row"><input type="checkbox" value="${p.id}" ${oldIds.includes(p.id) ? 'checked' : ''} onchange="recomputeBundleTotals()"><div><div class="pcr-name">${p.title || p.project_name || 'Sem título'}</div><div class="pcr-meta">${p.city || ''} ${p.duration ? '· '+p.duration : ''}</div></div><div class="pcr-price">${fmt(p.total_cost)}</div></label>`).join(''); } document.getElementById('btn-save-bundle').textContent = 'Salvar Alterações'; recomputeBundleTotals(); document.getElementById('overlay-new-bundle').classList.add('open'); } async function updateBundle() { const title = document.getElementById('nb-title').value.trim(); const { ids, subtotal, discountAmount, total, type, val } = recomputeBundleTotals(); if (ids.length < 2) { showToast('Selecione pelo menos 2 propostas para combinar', 'error'); return; } const btn = document.getElementById('btn-save-bundle'); btn.disabled = true; btn.textContent = 'Salvando...'; const id = editingBundleId; const { data: oldItems } = await db.from('proposal_bundle_items').select('proposal_id').eq('bundle_id', id); const oldIds = (oldItems||[]).map(i => i.proposal_id); const removedIds = oldIds.filter(pid => !ids.includes(pid)); const addedIds = ids.filter(pid => !oldIds.includes(pid)); const { error } = await db.from('proposal_bundles').update({ title: title || null, discount_type: type, discount_value: val, subtotal, discount_amount: discountAmount, total }).eq('id', id); if (error) { showToast('Erro: ' + error.message, 'error'); btn.disabled=false; btn.textContent='Salvar Alterações'; return; } if (removedIds.length) await db.from('proposals').update({ bundle_id: null }).in('id', removedIds); if (addedIds.length) await db.from('proposals').update({ bundle_id: id }).in('id', addedIds); await db.from('proposal_bundle_items').delete().eq('bundle_id', id); const items = ids.map((pid, i) => { const p = eligibleProposals.find(x => x.id === pid); return { bundle_id: id, proposal_id: pid, price_snapshot: Number(p?.total_cost)||0, sort_order: i }; }); await db.from('proposal_bundle_items').insert(items); showToast('🧩 Proposta combinada atualizada!', 'success'); btn.disabled = false; btn.textContent = 'Salvar Combo'; editingBundleId = null; closeNewBundleModal(); await loadBundles(); openPrint(id); } async function saveBundle() {
   const client = document.getElementById('nb-client').value;
   const title = document.getElementById('nb-title').value.trim();
   if (!client) { showToast('Selecione um cliente', 'error'); return; }
@@ -606,11 +607,11 @@ async function saveBundle() {
   openPrint(bundle.id);
 }
 
-async function deleteBundle(id) {
-  if (!confirm('Excluir este combo? As propostas incluídas voltam a ficar disponíveis.')) return;
+async function deleteBundle(id) { const { data: invs } = await db.from('invoices').select('id').eq('proposal_bundle_id', id); const invCount = (invs||[]).length; const warnMsg = invCount ? (' AVISO: ' + invCount + ' invoice(s) serao desvinculadas do combo (nao excluidas).') : '';
+  if (!confirm('Excluir este combo? As propostas incluídas voltam a ficar disponíveis.' + warnMsg)) return; if (invCount) await db.from('invoices').update({ proposal_bundle_id: null }).eq('proposal_bundle_id', id);
   await db.from('proposals').update({ bundle_id: null }).eq('bundle_id', id);
   await db.from('proposal_bundles').delete().eq('id', id);
-  showToast('Combo excluído', 'success');
+  showToast('Combo excluído', 'success'); closePrint();
   await loadBundles();
 }
 
@@ -631,7 +632,7 @@ async function openPrint(id) {
   document.getElementById('doc-room-count').textContent = currentPrintBundleItems.length + ' rooms';
   document.getElementById('doc-sig-client').textContent = b.client_name || '';
   document.getElementById('doc-subtotal').textContent = fmt(b.subtotal);
-  document.getElementById('doc-discount').textContent = '-' + fmt(b.discount_amount);
+  document.getElementById('doc-discount-label').textContent = 'Bundle Discount' + (b.discount_amount > 0 ? (' (' + discountLabel(b) + ')') : ''); document.getElementById('doc-discount').textContent = '-' + fmt(b.discount_amount);
   document.getElementById('doc-total').textContent = fmt(b.total);
 
   document.getElementById('doc-bundle-cards').innerHTML = currentPrintBundleItems.map(it => {
