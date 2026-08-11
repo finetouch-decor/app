@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fine Touch — Propostas Combinadas</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+:root {
+  --navy:#102A4B; --navy2:#1a3d6e; --gold:#C69E63; --gold2:#C7B090;
+  --cream:#EAE6DA; --cream2:#F7F8FA; --cream3:#FFFFFF; --white:#FFFFFF;
+  --border:rgba(15,23,42,0.08); --text:#1a1a1a; --muted:#64748B;
+  --green:#2e6b3e; --green-bg:#f0f7eb; --red:#a03030; --red-bg:#fdf0f0;
+  --shadow:0 1px 4px rgba(0,0,0,0.06); --sidebar:220px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);display:flex;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar);background:var(--navy);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;}
+.sidebar-logo{padding:22px 18px 18px;border-bottom:1px solid rgba(255,255,255,0.1);}
+.logo-ft{font-size:20px;font-weight:800;color:var(--cream);letter-spacing:1px;line-height:1;}
+.logo-ft span{color:var(--gold);}
+.logo-sub{font-size:9px;color:var(--gold2);letter-spacing:2px;text-transform:uppercase;margin-top:3px;}
+.sidebar-nav{flex:1;padding:16px 0;overflow-y:auto;}
+.nav-section{padding:8px 20px 4px;font-size:9px;font-weight:700;color:rgba(234,230,218,0.35);letter-spacing:1.5px;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;color:rgba(234,230,218,0.6);font-size:13px;font-weight:500;text-decoration:none;transition:all .15s;border-left:3px solid transparent;}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:var(--cream);}
+.nav-item.active{background:rgba(198,158,99,0.15);color:var(--gold);border-left-color:var(--gold);}
+.nav-item .icon{font-size:15px;width:20px;text-align:center;}
+.sidebar-user{padding:16px 20px;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px;}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--navy);flex-shrink:0;}
+.user-name{font-size:13px;font-weight:600;color:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-role{font-size:10px;color:var(--gold2);text-transform:uppercase;letter-spacing:1px;}
+.logout-btn{margin-left:auto;background:none;border:none;color:rgba(234,230,218,0.4);cursor:pointer;font-size:16px;}
+
+/* MAIN */
+.main{margin-left:var(--sidebar);flex:1;padding:32px;min-height:100vh;}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;}
+.page-title{font-size:22px;font-weight:800;color:var(--navy);}
+.page-sub{font-size:13px;color:var(--muted);margin-top:4px;}
+.btn{padding:10px 18px;border-radius:9px;border:none;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;transition:all .15s;}
+.btn-primary{background:var(--navy);color:var(--gold);}
+.btn-primary:hover{background:var(--navy2);}
+.btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--navy);}
+.btn-outline:hover{border-color:var(--navy);}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+
+/* FILTER TABS */
+.filter-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+.filter-tab{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;border:1.5px solid var(--border);background:var(--white);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif;}
+.filter-tab:hover{border-color:var(--gold);color:var(--navy);}
+.filter-tab.active{background:var(--navy);border-color:var(--navy);color:var(--gold);}
+.filter-tab .count{background:rgba(0,0,0,0.08);border-radius:10px;padding:1px 7px;font-size:11px;}
+.filter-tab.active .count{background:rgba(198,158,99,0.25);color:var(--gold);}
+
+/* TABLE */
+.proposals-table{background:var(--white);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);}
+.trow{display:grid;grid-template-columns:1.4fr 1fr 0.8fr 0.9fr auto;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--border);}
+.trow:last-child{border-bottom:none;}
+.trow.header{background:rgba(16,42,75,0.03);padding:10px 20px;}
+.trow.header span{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.trow:not(.header):hover{background:var(--cream2);}
+.p-title{font-size:14px;font-weight:600;color:var(--navy);}
+.p-client{font-size:12px;color:var(--muted);margin-top:2px;}
+.p-date{font-size:12px;color:var(--muted);}
+.p-value{font-size:14px;font-weight:700;color:var(--navy);}
+.p-value .strike{font-size:11px;color:var(--red);text-decoration:line-through;font-weight:600;display:block;}
+.badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+.badge-draft{background:rgba(16,42,75,0.08);color:var(--navy);}
+.badge-sent{background:rgba(198,158,99,0.2);color:#7a5c2e;}
+.badge-accepted{background:var(--green-bg);color:var(--green);}
+.badge-rejected{background:var(--red-bg);color:var(--red);}
+.row-actions{display:flex;gap:6px;}
+.btn-icon{padding:6px 10px;border-radius:7px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:13px;transition:all .15s;}
+.btn-icon:hover{border-color:var(--navy);background:var(--cream2);}
+.empty{text-align:center;padding:40px;color:var(--muted);font-size:13px;}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:200;display:none;align-items:center;justify-content:center;padding:20px;}
+.overlay.open{display:flex;}
+.modal{background:var(--white);border-radius:18px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.25);}
+.modal-header{padding:24px 28px 0;display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:18px;font-weight:800;color:var(--navy);}
+.modal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;line-height:1;}
+.modal-body{padding:20px 28px 28px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+.field input,.field select,.field textarea{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:9px;background:var(--cream2);color:var(--navy);font-family:'Inter',sans-serif;font-size:14px;outline:none;transition:border-color .15s;}
+.field input:focus,.field select:focus{border-color:var(--gold);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;padding:0 28px 28px;}
+
+.proposal-check-list{border:1.5px solid var(--border);border-radius:10px;max-height:260px;overflow-y:auto;}
+.proposal-check-row{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;}
+.proposal-check-row:last-child{border-bottom:none;}
+.proposal-check-row:hover{background:var(--cream2);}
+.proposal-check-row input{width:16px;height:16px;flex-shrink:0;}
+.pcr-name{font-size:13px;font-weight:600;color:var(--navy);}
+.pcr-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+.pcr-price{margin-left:auto;font-size:13px;font-weight:700;color:var(--navy);flex-shrink:0;}
+.check-empty{padding:20px;text-align:center;color:var(--muted);font-size:12.5px;}
+
+.bundle-summary{background:var(--cream2);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-top:8px;}
+.bundle-summary-row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;}
+.bundle-summary-row.total{font-size:16px;font-weight:800;color:var(--navy);border-top:1px dashed var(--border);padding-top:8px;margin-top:4px;}
+.bundle-summary-row.discount{color:var(--red);}
+
+/* TOAST */
+.toast{position:fixed;top:20px;right:20px;background:var(--navy);color:var(--cream);padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:all .3s;transform:translateY(-10px);}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.success{background:var(--green);}
+.toast.error{background:var(--red);}
+
+/* ─── PRINT / BUNDLE DOC ─── */
+.print-overlay{position:fixed;inset:0;background:#d6d2c8;z-index:300;display:none;overflow-y:auto;}
+.print-overlay.open{display:block;}
+.print-toolbar{background:var(--navy);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;flex-wrap:wrap;gap:10px;}
+.print-toolbar span{color:var(--cream);font-size:14px;font-weight:600;}
+.print-toolbar-btns{display:flex;gap:10px;flex-wrap:wrap;}
+.btn-print{padding:8px 18px;border-radius:8px;border:none;background:var(--gold);color:var(--navy);font-weight:700;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;}
+.btn-close-print{padding:8px 18px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.3);background:transparent;color:var(--cream);font-weight:600;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;}
+.btn-close-print.accept{border-color:var(--green);background:var(--green);color:#fff;}
+.btn-close-print.reject{border-color:var(--red);background:var(--red);color:#fff;}
+
+.proposal-doc{width:820px;min-height:1060px;margin:28px auto 60px;background:#fff;position:relative;font-family:'Inter',sans-serif;box-shadow:0 8px 60px rgba(0,0,0,0.22);}
+.doc-band{height:8px;background:linear-gradient(90deg,#102A4B 0%,#C69E63 60%,#102A4B 100%);}
+.doc-header{padding:30px 48px 22px;display:flex;align-items:center;justify-content:space-between;}
+.doc-logo img{height:200px;width:auto;max-width:400px;}
+.doc-title-block{text-align:right;}
+.doc-title-block .proposal-word{font-size:34px;font-weight:900;color:#102A4B;letter-spacing:3px;line-height:1;display:block;text-transform:uppercase;}
+.doc-title-block .proposal-num{font-size:12px;font-weight:700;color:#C69E63;letter-spacing:2px;margin-top:4px;display:block;text-transform:uppercase;}
+.doc-title-block .proposal-date{font-size:12px;color:#64748B;margin-top:2px;display:block;}
+.doc-divider{margin:0;height:2px;background:linear-gradient(90deg,#C69E63,rgba(198,158,99,0.15));}
+.doc-client-band{background:#102A4B;padding:16px 48px;display:flex;align-items:center;justify-content:space-between;}
+.doc-client-band .label{font-size:9px;font-weight:700;color:rgba(198,158,99,0.7);text-transform:uppercase;letter-spacing:2px;margin-bottom:3px;}
+.doc-client-band .value{font-size:15px;font-weight:700;color:#fff;}
+.doc-client-band .sub{font-size:12px;color:rgba(234,230,218,0.6);margin-top:1px;}
+.doc-body{padding:32px 48px 40px;}
+.doc-section-title{font-size:11px;font-weight:800;color:#C69E63;text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;margin-top:28px;display:flex;align-items:center;gap:10px;}
+.doc-section-title::after{content:'';flex:1;height:1px;background:rgba(198,158,99,0.3);}
+.doc-text{font-size:13.5px;color:#2a2a2a;line-height:1.75;}
+
+.bundle-card{border:1px solid #e2e8f0;border-radius:10px;margin-bottom:16px;page-break-inside:avoid;break-inside:avoid;overflow:hidden;}
+.bundle-card-header{background:#102A4B;padding:9px 16px;display:flex;justify-content:space-between;align-items:center;}
+.bundle-card-header .bch-name{color:#fff;font-size:13px;font-weight:700;}
+.bundle-card-header .bch-meta{color:#C7B090;font-size:9.5px;}
+.bundle-card-body{padding:12px 16px;}
+.bundle-card-scope{font-size:11px;color:#334155;margin:0;padding-left:16px;}
+.bundle-card-scope li{margin-bottom:3px;}
+.bundle-card-price{text-align:right;font-size:15px;font-weight:800;color:#102A4B;margin-top:8px;}
+.bundle-card-gallery{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.bundle-card-gallery img{width:100px;height:72px;object-fit:contain;background:#f4f3ef;border:1px solid #e2e8f0;border-radius:6px;}
+
+.doc-total-box{background:#102A4B;border-radius:10px;padding:16px 24px;margin-top:20px;page-break-inside:avoid;break-inside:avoid;}
+.doc-total-row{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;color:rgba(234,230,218,0.75);padding:2px 0;}
+.doc-total-row.final{margin-top:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.15);font-size:12px;font-weight:700;color:rgba(234,230,218,0.9);text-transform:uppercase;letter-spacing:1.5px;}
+.doc-total-row.final .tv{font-size:22px;color:#C69E63;letter-spacing:0.5px;font-weight:700;text-transform:none;}
+.doc-note{font-size:12.5px;color:#64748B;line-height:1.7;margin-top:6px;}
+.doc-sig-section{margin-top:36px;display:grid;grid-template-columns:1fr 1fr;gap:40px;page-break-inside:avoid;break-inside:avoid;}
+.doc-sig-box{border-top:2px solid #102A4B;padding-top:10px;}
+.doc-sig-box .sig-label{font-size:11px;font-weight:700;color:#102A4B;text-transform:uppercase;letter-spacing:1px;}
+.doc-sig-box .sig-name{font-size:12px;color:#64748B;margin-top:4px;}
+.doc-footer-band{background:#f7f8fa;border-top:1px solid #e2e8f0;padding:14px 48px;display:flex;align-items:center;justify-content:space-between;}
+.doc-footer-band .fc{font-size:11.5px;color:#64748B;}
+.doc-footer-band .fc span{color:#102A4B;font-weight:700;}
+.doc-footer-band img{height:28px;width:auto;opacity:.55;}
+
+.reject-inline{background:#fef2f2;border:1.5px solid rgba(160,48,48,0.25);border-radius:9px;padding:12px 14px;margin:0 48px 20px;}
+.reject-inline select,.reject-inline input{width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;margin-top:6px;}
+
+@media print {
+  @page { margin:0; size:A4 portrait; }
+  * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; color-adjust:exact!important; }
+  body > * { display:none!important; }
+  .print-overlay { display:block!important; position:static!important; background:#fff!important; overflow:visible!important; padding:0!important; width:100%!important; }
+  .print-toolbar, .reject-inline { display:none!important; }
+  .proposal-doc { display:block!important; margin:0!important; box-shadow:none!important; width:210mm!important; max-width:100%!important; border-radius:0!important; }
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo" style="padding:22px 18px 18px;border-bottom:1px solid rgba(255,255,255,0.1);">
+    <img src="/logo-dark-bg.png" alt="Fine Touch" style="width:100%;max-width:190px;height:auto;display:block;">
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
+    <div class="nav-section">Vendas</div>
+    <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
+    <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
+    <a class="nav-item" href="/proposals"><span class="icon">📄</span>Propostas</a>
+    <a class="nav-item active" href="/proposal-bundles"><span class="icon">🧩</span>Propostas Combinadas</a>
+    <a class="nav-item" href="/invoices"><span class="icon">🧾</span>Invoices</a>
+    <div class="nav-section">Operação</div>
+    <a class="nav-item" href="/projects"><span class="icon">🏗️</span>Obras</a>
+    <a class="nav-item" href="/purchases"><span class="icon">🛒</span>Compras</a>
+    <div class="nav-section">Gestão</div>
+    <a class="nav-item" href="/financial"><span class="icon">💰</span>Financeiro</a>
+    <a class="nav-item" href="/reports"><span class="icon">📈</span>Relatórios</a>
+    <a class="nav-item" href="/catalog"><span class="icon">🖼️</span>Catálogo Cliente</a>
+    <a class="nav-item" href="/services"><span class="icon">📚</span>Serviços</a>
+    <a class="nav-item" href="/marketing"><span class="icon">📣</span>Marketing</a>
+    <a class="nav-item" href="/tasks"><span class="icon">✅</span>Tarefas</a>
+    <a class="nav-item" href="/pendencias"><span class="icon">🧩</span>Pendências/Melhorias</a>
+    <a class="nav-item" id="nav-users" href="/users" style="display:none"><span class="icon">👥</span>Usuários</a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-avatar" id="user-avatar">U</div>
+    <div>
+      <div class="user-name" id="user-name">User</div>
+      <div class="user-role">Fine Touch</div>
+    </div>
+    <button class="logout-btn" onclick="logout()" title="Sair">⏻</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Propostas Combinadas</div>
+      <div class="page-sub">Junte várias propostas já criadas em um único fechamento quando o cliente aprova só uma parte dos ambientes agora.</div>
+    </div>
+    <button class="btn btn-primary" onclick="openNewBundleModal()">+ Nova Proposta Combinada</button>
+  </div>
+
+  <div class="filter-tabs" id="filter-tabs"></div>
+
+  <div class="proposals-table">
+    <div class="trow header">
+      <span>Combo</span><span>Cliente</span><span>Data</span><span>Valor</span><span></span>
+    </div>
+    <div id="bundle-list"></div>
+  </div>
+</div>
+
+<!-- MODAL: NOVA PROPOSTA COMBINADA -->
+<div class="overlay" id="overlay-new-bundle">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🧩 Nova Proposta Combinada</div>
+      <button class="modal-close" onclick="closeNewBundleModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Cliente</label>
+        <select id="nb-client" onchange="onBundleClientChange()">
+          <option value="">Selecione o cliente…</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Título do combo</label>
+        <input type="text" id="nb-title" placeholder="Ex: Combo Inicial — 5 ambientes">
+      </div>
+      <div class="field">
+        <label>Propostas em aberto deste cliente</label>
+        <div class="proposal-check-list" id="nb-proposal-list">
+          <div class="check-empty">Selecione um cliente acima.</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Tipo de desconto</label>
+          <select id="nb-discount-type" onchange="recomputeBundleTotals()">
+            <option value="percent">Percentual (%)</option>
+            <option value="fixed">Valor fixo ($)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Desconto do combo</label>
+          <input type="number" id="nb-discount-value" min="0" step="0.01" value="0" oninput="recomputeBundleTotals()">
+        </div>
+      </div>
+      <div class="bundle-summary">
+        <div class="bundle-summary-row"><span>Subtotal (soma das propostas)</span><span id="nb-subtotal">$0.00</span></div>
+        <div class="bundle-summary-row discount"><span>Desconto do combo</span><span id="nb-discount-amount">-$0.00</span></div>
+        <div class="bundle-summary-row total"><span>Total do combo</span><span id="nb-total">$0.00</span></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeNewBundleModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-bundle" onclick="saveBundle()">Salvar Combo</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRINT / BUNDLE VIEW -->
+<div class="print-overlay" id="print-overlay">
+  <div class="print-toolbar">
+    <span id="print-toolbar-label">Proposta Combinada</span>
+    <div class="print-toolbar-btns">
+      <button class="btn-close-print" id="btn-mark-sent" onclick="setBundleStatus('sent')" style="background:rgba(198,158,99,0.15);border-color:var(--gold);color:var(--gold);">📤 Marcar como Enviada</button>
+      <button class="btn-close-print accept" id="btn-mark-accepted" onclick="setBundleStatus('accepted')">✅ Aprovada pelo cliente</button>
+      <button class="btn-close-print reject" id="btn-mark-rejected" onclick="showRejectInline()">❌ Rejeitada</button>
+      <button class="btn-print" onclick="window.print()">🖨️ Salvar PDF</button>
+      <button class="btn-close-print" onclick="closePrint()">✕ Fechar</button>
+    </div>
+  </div>
+
+  <div id="reject-inline-wrap" style="display:none;">
+    <div class="reject-inline" style="max-width:820px;margin:16px auto;">
+      <label style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;">Motivo da rejeição</label>
+      <select id="bundle-rejection-reason">
+        <option value="">Selecione um motivo…</option>
+        <option value="preco_alto">Preço alto</option>
+        <option value="fechou_outro">Fechou com outro</option>
+        <option value="mudou_ideia">Mudou de ideia</option>
+        <option value="sem_retorno">Sem retorno</option>
+        <option value="projeto_adiado">Projeto adiado (não é o momento)</option>
+        <option value="outro">Outro</option>
+      </select>
+      <input type="text" id="bundle-rejection-detail" placeholder="Detalhe (opcional)">
+      <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-outline" onclick="document.getElementById('reject-inline-wrap').style.display='none'">Cancelar</button>
+        <button class="btn btn-primary" style="background:var(--red);color:#fff;" onclick="confirmReject()">Confirmar rejeição</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="proposal-doc" id="proposal-doc">
+    <div class="doc-band"></div>
+    <div class="doc-header">
+      <div class="doc-logo"><img src="/logo-light-bg.png" alt="Fine Touch Decor & Design"></div>
+      <div class="doc-title-block">
+        <span class="proposal-word">PROJECT BUNDLE</span>
+        <span class="proposal-num" id="doc-num"></span>
+        <span class="proposal-date" id="doc-date"></span>
+      </div>
+    </div>
+    <div class="doc-divider"></div>
+    <div class="doc-client-band">
+      <div>
+        <div class="label">Client</div>
+        <div class="value" id="doc-client-name">—</div>
+        <div class="sub" id="doc-bundle-title"></div>
+      </div>
+      <div style="text-align:right;">
+        <div class="label">Rooms Included</div>
+        <div class="value" id="doc-room-count">—</div>
+      </div>
+    </div>
+    <div class="doc-body">
+      <div class="doc-section-title">Projects in this bundle</div>
+      <div id="doc-bundle-cards"></div>
+
+      <div class="doc-total-box">
+        <div class="doc-total-row"><span>Subtotal</span><span id="doc-subtotal">$0.00</span></div>
+        <div class="doc-total-row"><span>Bundle Discount</span><span id="doc-discount">-$0.00</span></div>
+        <div class="doc-total-row final"><span>Total Investment</span><span class="tv" id="doc-total">$0.00</span></div>
+      </div>
+
+      <div class="doc-note" style="margin-top:20px;">
+        📌 This document combines the individually detailed proposals listed above into a single agreement.<br>
+        ⏳ This bundle proposal is valid for <strong>30 days</strong> from the date of issue.<br>
+        💳 We accept credit/debit card (Stripe) and PayPal. Pay by cash or Zelle and save 3%.
+      </div>
+
+      <div class="doc-sig-section">
+        <div class="doc-sig-box">
+          <div class="sig-label">Client Signature</div>
+          <div class="sig-name" id="doc-sig-client" style="margin-top:36px;"></div>
+        </div>
+        <div class="doc-sig-box">
+          <div class="sig-label">Fine Touch Decor &amp; Design</div>
+          <div class="sig-name" style="margin-top:36px;color:var(--navy);">Fine Touch Decor &amp; Design</div>
+        </div>
+      </div>
+    </div>
+    <div class="doc-footer-band">
+      <div class="fc">📧 <span>contact@ftdecordesign.com</span> &nbsp;|&nbsp; 🌐 <span>www.ftdecordesign.com</span></div>
+      <img src="/logo-light-bg.png" alt="Fine Touch">
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: GERAR INVOICE -->
+<div class="overlay" id="overlay-parcelas">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <div class="modal-title" style="color:var(--navy);">🧾 Generate Invoices</div>
+      <button class="modal-close" onclick="closeParcelas()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="parc-subtitle" style="font-size:13px;color:var(--muted);margin-bottom:14px;"></div>
+      <div class="form-row" style="margin-bottom:16px;">
+        <div id="parc-method-full" onclick="selectPaymentMethod('full')" style="border:2px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;text-align:center;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;">Card / PayPal / Venmo</div>
+          <div id="parc-method-full-value" style="font-size:18px;font-weight:800;color:var(--navy);margin-top:4px;">$0.00</div>
+        </div>
+        <div id="parc-method-cash" onclick="selectPaymentMethod('cash')" style="border:2px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;text-align:center;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;">Cash / Zelle (-3%)</div>
+          <div id="parc-method-cash-value" style="font-size:18px;font-weight:800;color:var(--navy);margin-top:4px;">$0.00</div>
+        </div>
+      </div>
+      <div id="parc-body-rest" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span id="parc-method-label" style="font-size:12.5px;color:var(--muted);font-weight:600;"></span>
+          <span id="parc-total-display" style="font-size:16px;font-weight:800;color:var(--navy);"></span>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <button class="btn btn-outline" style="font-size:11px;padding:6px 12px;" onclick="applyTemplate([50,50])">50/50</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:6px 12px;" onclick="applyTemplate([100])">À vista</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:6px 12px;" onclick="applyTemplate([30,30,40])">30/30/40</button>
+          <button class="btn btn-outline" style="font-size:11px;padding:6px 12px;" onclick="addParcela(0,0)">+ Parcela</button>
+        </div>
+        <div id="parcelas-list"></div>
+        <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:12.5px;">
+          <span>Distribuído: <b id="parc-distribuido">$0.00</b></span>
+          <span id="parc-restante"></span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeParcelas()">Cancel</button>
+      <button class="btn btn-primary" id="btn-criar-invoices" onclick="criarInvoices()" style="background:var(--navy);color:var(--gold);" disabled>🧾 Generate Invoices</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let bundles = [], currentFilter = 'all';
+let eligibleProposals = [];
+let currentPrintBundle = null;
+let currentPrintBundleItems = [];
+
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { window.location.href = '/login.html'; return; }
+  const { data: prof } = await db.from('user_profiles').select('status,role').eq('id', session.user.id).single();
+  if (!prof || (prof.status !== 'approved' && prof.role !== 'admin')) { window.location.href = '/pending.html'; return; }
+  if (prof.role === 'admin') { const ul = document.getElementById('nav-users'); if(ul) ul.style.display='flex'; }
+  const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User';
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+  await loadBundles();
+}
+db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
+async function logout() { await db.auth.signOut(); }
+
+function fmt(v) { return '$' + Number(v||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}); }
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',3000);
+}
+
+async function loadBundles() {
+  const { data } = await db.from('proposal_bundles').select('*').order('created_at', {ascending:false});
+  bundles = data || [];
+  renderTabs();
+  render();
+}
+
+function renderTabs() {
+  const counts = { all: bundles.length, draft:0, sent:0, accepted:0, rejected:0 };
+  bundles.forEach(b => { if (counts[b.status] !== undefined) counts[b.status]++; });
+  const tabs = [
+    ['all','Todos'], ['draft','Rascunho'], ['sent','Enviadas'], ['accepted','Aprovadas'], ['rejected','Rejeitadas']
+  ];
+  document.getElementById('filter-tabs').innerHTML = tabs.map(([key,label]) => `
+    <button class="filter-tab ${currentFilter===key?'active':''}" onclick="setFilter('${key}')">
+      ${label} <span class="count">${counts[key]||0}</span>
+    </button>`).join('');
+}
+function setFilter(f) { currentFilter = f; renderTabs(); render(); }
+
+function render() {
+  const list = currentFilter === 'all' ? bundles : bundles.filter(b => b.status === currentFilter);
+  const wrap = document.getElementById('bundle-list');
+  if (!list.length) { wrap.innerHTML = '<div class="empty">Nenhuma proposta combinada aqui ainda.</div>'; return; }
+  wrap.innerHTML = list.map(b => `
+    <div class="trow" onclick="openPrint('${b.id}')">
+      <div>
+        <div class="p-title">🧩 ${b.title || 'Combo sem título'}</div>
+        <div class="p-client"><span class="badge badge-${b.status}">${statusLabel(b.status)}</span></div>
+      </div>
+      <div class="p-client">${b.client_name || '—'}</div>
+      <div class="p-date">${fmtDate(b.created_at)}</div>
+      <div class="p-value">
+        ${b.discount_amount > 0 ? `<span class="strike">${fmt(b.subtotal)}</span>` : ''}
+        ${fmt(b.total)}
+      </div>
+      <div class="row-actions" onclick="event.stopPropagation()">
+        <button class="btn-icon" onclick="openPrint('${b.id}')" title="Ver / Imprimir">👁️</button>
+        ${b.status==='accepted' ? `<button class="btn-icon" style="background:#eff6ff;border-color:#2563eb;color:#2563eb;font-weight:700;" onclick="generateInvoice('${b.id}')" title="Gerar Invoice">🧾</button>` : ''}
+        ${b.status==='draft' ? `<button class="btn-icon" style="background:var(--red-bg);border-color:var(--red);color:var(--red);" onclick="deleteBundle('${b.id}')" title="Excluir rascunho">🗑️</button>` : ''}
+      </div>
+    </div>`).join('');
+}
+function statusLabel(s) { return {draft:'Rascunho', sent:'Enviada', accepted:'Aprovada', rejected:'Rejeitada'}[s] || s; }
+
+/* ─── NOVA PROPOSTA COMBINADA ─── */
+async function openNewBundleModal() {
+  document.getElementById('nb-title').value = '';
+  document.getElementById('nb-discount-type').value = 'percent';
+  document.getElementById('nb-discount-value').value = 0;
+  document.getElementById('nb-proposal-list').innerHTML = '<div class="check-empty">Selecione um cliente acima.</div>';
+  recomputeBundleTotals();
+
+  const { data } = await db.from('proposals').select('client_name').is('bundle_id', null).neq('status','rejected');
+  const names = [...new Set((data||[]).map(p => p.client_name).filter(Boolean))].sort();
+  document.getElementById('nb-client').innerHTML = '<option value="">Selecione o cliente…</option>' +
+    names.map(n => `<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join('');
+
+  document.getElementById('overlay-new-bundle').classList.add('open');
+}
+function closeNewBundleModal() { document.getElementById('overlay-new-bundle').classList.remove('open'); }
+
+async function onBundleClientChange() {
+  const client = document.getElementById('nb-client').value;
+  const wrap = document.getElementById('nb-proposal-list');
+  if (!client) { wrap.innerHTML = '<div class="check-empty">Selecione um cliente acima.</div>'; recomputeBundleTotals(); return; }
+
+  const { data } = await db.from('proposals').select('id,title,project_name,total_cost,city,duration')
+    .eq('client_name', client).is('bundle_id', null).neq('status','rejected').order('created_at');
+  eligibleProposals = data || [];
+
+  if (!eligibleProposals.length) {
+    wrap.innerHTML = '<div class="check-empty">Este cliente não tem propostas abertas disponíveis para combinar.</div>';
+    recomputeBundleTotals();
+    return;
+  }
+  wrap.innerHTML = eligibleProposals.map(p => `
+    <label class="proposal-check-row">
+      <input type="checkbox" value="${p.id}" onchange="recomputeBundleTotals()">
+      <div>
+        <div class="pcr-name">${p.title || p.project_name || 'Sem título'}</div>
+        <div class="pcr-meta">${p.city || ''} ${p.duration ? '· '+p.duration : ''}</div>
+      </div>
+      <div class="pcr-price">${fmt(p.total_cost)}</div>
+    </label>`).join('');
+  if (!document.getElementById('nb-title').value) {
+    document.getElementById('nb-title').value = client + ' — Combo Inicial';
+  }
+  recomputeBundleTotals();
+}
+
+function getSelectedProposalIds() {
+  return Array.from(document.querySelectorAll('#nb-proposal-list input[type="checkbox"]:checked')).map(i => i.value);
+}
+
+function recomputeBundleTotals() {
+  const ids = getSelectedProposalIds();
+  const subtotal = eligibleProposals.filter(p => ids.includes(p.id)).reduce((s,p) => s + (Number(p.total_cost)||0), 0);
+  const type = document.getElementById('nb-discount-type').value;
+  const val = Number(document.getElementById('nb-discount-value').value) || 0;
+  const discountAmount = Math.min(subtotal, type === 'percent' ? subtotal * val / 100 : val);
+  const total = Math.max(0, subtotal - discountAmount);
+
+  document.getElementById('nb-subtotal').textContent = fmt(subtotal);
+  document.getElementById('nb-discount-amount').textContent = '-' + fmt(discountAmount);
+  document.getElementById('nb-total').textContent = fmt(total);
+  document.getElementById('btn-save-bundle').disabled = ids.length < 2;
+  return { ids, subtotal, discountAmount, total, type, val };
+}
+
+async function saveBundle() {
+  const client = document.getElementById('nb-client').value;
+  const title = document.getElementById('nb-title').value.trim();
+  if (!client) { showToast('Selecione um cliente', 'error'); return; }
+  const { ids, subtotal, discountAmount, total, type, val } = recomputeBundleTotals();
+  if (ids.length < 2) { showToast('Selecione pelo menos 2 propostas para combinar', 'error'); return; }
+
+  const btn = document.getElementById('btn-save-bundle');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+
+  const { data: cls } = await db.from('clients').select('id').ilike('name', client);
+  const clientId = cls?.[0]?.id || null;
+  const cityRef = eligibleProposals.find(p => ids.includes(p.id))?.city || null;
+
+  const { data: bundle, error } = await db.from('proposal_bundles').insert({
+    client_id: clientId,
+    client_name: client,
+    title: title || (client + ' — Combo'),
+    city: cityRef,
+    status: 'draft',
+    discount_type: type,
+    discount_value: val,
+    subtotal, discount_amount: discountAmount, total,
+  }).select().single();
+
+  if (error) { showToast('Erro: ' + error.message, 'error'); btn.disabled=false; btn.textContent='Salvar Combo'; return; }
+
+  const items = ids.map((pid, i) => {
+    const p = eligibleProposals.find(x => x.id === pid);
+    return { bundle_id: bundle.id, proposal_id: pid, price_snapshot: Number(p?.total_cost)||0, sort_order: i };
+  });
+  await db.from('proposal_bundle_items').insert(items);
+  await db.from('proposals').update({ bundle_id: bundle.id }).in('id', ids);
+
+  showToast('🧩 Proposta combinada criada!', 'success');
+  btn.disabled = false; btn.textContent = 'Salvar Combo';
+  closeNewBundleModal();
+  await loadBundles();
+  openPrint(bundle.id);
+}
+
+async function deleteBundle(id) {
+  if (!confirm('Excluir este combo? As propostas incluídas voltam a ficar disponíveis.')) return;
+  await db.from('proposals').update({ bundle_id: null }).eq('bundle_id', id);
+  await db.from('proposal_bundles').delete().eq('id', id);
+  showToast('Combo excluído', 'success');
+  await loadBundles();
+}
+
+/* ─── PRINT / DETALHE DO COMBO ─── */
+async function openPrint(id) {
+  const b = bundles.find(x => x.id === id) || (await db.from('proposal_bundles').select('*').eq('id',id).single()).data;
+  if (!b) return;
+  currentPrintBundle = b;
+
+  const { data: items } = await db.from('proposal_bundle_items').select('*, proposals(*)').eq('bundle_id', id).order('sort_order');
+  currentPrintBundleItems = items || [];
+
+  const idx = bundles.slice().reverse().findIndex(x=>x.id===id) + 1;
+  document.getElementById('doc-num').textContent = 'FTB-' + String(idx).padStart(4,'0');
+  document.getElementById('doc-date').textContent = 'Date: ' + fmtDate(b.created_at);
+  document.getElementById('doc-client-name').textContent = b.client_name || '—';
+  document.getElementById('doc-bundle-title').textContent = b.title || '';
+  document.getElementById('doc-room-count').textContent = currentPrintBundleItems.length + ' rooms';
+  document.getElementById('doc-sig-client').textContent = b.client_name || '';
+  document.getElementById('doc-subtotal').textContent = fmt(b.subtotal);
+  document.getElementById('doc-discount').textContent = '-' + fmt(b.discount_amount);
+  document.getElementById('doc-total').textContent = fmt(b.total);
+
+  document.getElementById('doc-bundle-cards').innerHTML = currentPrintBundleItems.map(it => {
+    const p = it.proposals || {};
+    const scopeHtml = (p.scope_items||[]).filter(s => typeof s === 'string' && !s.startsWith('---'))
+      .map(s => `<li>${s}</li>`).join('');
+    const gal = (p.images||[]).map(g => `<img src="${g.url}" alt="${(g.caption||'').replace(/"/g,'&quot;')}">`).join('');
+    return `
+      <div class="bundle-card">
+        <div class="bundle-card-header">
+          <span class="bch-name">${p.title || p.project_name || 'Room'}</span>
+          <span class="bch-meta">${p.city||''} ${p.duration ? '· '+p.duration : ''}</span>
+        </div>
+        <div class="bundle-card-body">
+          <ul class="bundle-card-scope">${scopeHtml}</ul>
+          ${gal ? `<div class="bundle-card-gallery">${gal}</div>` : ''}
+          <div class="bundle-card-price">${fmt(it.price_snapshot)}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('print-toolbar-label').textContent = `Bundle — ${b.client_name||''} · ${fmt(b.total)}`;
+  document.getElementById('btn-mark-sent').style.display = b.status==='draft' ? 'inline-block' : 'none';
+  document.getElementById('btn-mark-accepted').style.display = (b.status==='draft'||b.status==='sent') ? 'inline-block' : 'none';
+  document.getElementById('btn-mark-rejected').style.display = b.status!=='accepted' ? 'inline-block' : 'none';
+  document.getElementById('reject-inline-wrap').style.display = 'none';
+
+  document.getElementById('print-overlay').classList.add('open');
+}
+function closePrint() { document.getElementById('print-overlay').classList.remove('open'); }
+
+async function setBundleStatus(status) {
+  if (!currentPrintBundle) return;
+  const patch = { status };
+  if (status === 'sent') patch.sent_at = new Date().toISOString();
+  if (status === 'accepted') patch.accepted_at = new Date().toISOString();
+  const { error } = await db.from('proposal_bundles').update(patch).eq('id', currentPrintBundle.id);
+  if (error) { showToast('Erro: '+error.message, 'error'); return; }
+  showToast('Status atualizado', 'success');
+  await loadBundles();
+  openPrint(currentPrintBundle.id);
+}
+function showRejectInline() { document.getElementById('reject-inline-wrap').style.display = 'block'; }
+async function confirmReject() {
+  const reason = document.getElementById('bundle-rejection-reason').value;
+  const detail = document.getElementById('bundle-rejection-detail').value;
+  if (!reason) { showToast('Selecione um motivo', 'error'); return; }
+  await db.from('proposal_bundles').update({
+    status: 'rejected', rejection_reason: reason,
+    rejection_reason_detail: reason==='outro' ? (detail||null) : null,
+  }).eq('id', currentPrintBundle.id);
+  showToast('Combo marcado como rejeitado', 'success');
+  await loadBundles();
+  openPrint(currentPrintBundle.id);
+}
+
+/* ─── GERAR INVOICE A PARTIR DO COMBO ─── */
+let parcelasTotal = 0, parcelasFullTotal = 0, parcelasCashTotal = 0;
+let parcelasBundleId = null, parcelasClientId = null, parcelasProjectId = null, parcelasClientName = '', parcelasBundleTitle = '';
+let parcelasPaymentMethod = null, parcelaCount = 0;
+
+async function generateInvoice(id) {
+  const b = bundles.find(x => x.id === id);
+  if (!b) return;
+  parcelasBundleId = id;
+  parcelasClientName = b.client_name || '';
+  parcelasBundleTitle = b.title || '';
+
+  const { data: cls } = await db.from('clients').select('id,name').ilike('name', b.client_name || '');
+  parcelasClientId = cls?.[0]?.id || null;
+  parcelasProjectId = null;
+  if (parcelasClientId) {
+    const { data: projs } = await db.from('projects').select('id,status').eq('client_id', parcelasClientId);
+    const ativos = (projs || []).filter(pr => pr.status === 'active');
+    if (ativos.length === 1) parcelasProjectId = ativos[0].id;
+  }
+
+  parcelasFullTotal = Number(b.total) || 0;
+  parcelasCashTotal = Math.round(parcelasFullTotal * 0.97 * 100) / 100;
+  parcelasPaymentMethod = null;
+
+  document.getElementById('parc-subtitle').textContent = parcelasClientName + ' — qual valor o cliente aprovou?';
+  document.getElementById('parc-method-full-value').textContent = fmt(parcelasFullTotal);
+  document.getElementById('parc-method-cash-value').textContent = fmt(parcelasCashTotal);
+  document.getElementById('parc-method-full').style.borderColor = 'var(--border)';
+  document.getElementById('parc-method-cash').style.borderColor = 'var(--border)';
+  document.getElementById('parc-body-rest').style.display = 'none';
+  document.getElementById('btn-criar-invoices').disabled = true;
+  document.getElementById('parcelas-list').innerHTML = '';
+  parcelaCount = 0;
+
+  document.getElementById('overlay-parcelas').classList.add('open');
+}
+
+function selectPaymentMethod(method) {
+  parcelasPaymentMethod = method;
+  parcelasTotal = method === 'cash' ? parcelasCashTotal : parcelasFullTotal;
+  document.getElementById('parc-method-full').style.borderColor = method === 'full' ? 'var(--gold)' : 'var(--border)';
+  document.getElementById('parc-method-cash').style.borderColor = method === 'cash' ? 'var(--gold)' : 'var(--border)';
+  document.getElementById('parc-total-display').textContent = fmt(parcelasTotal);
+  document.getElementById('parc-method-label').textContent = method === 'cash' ? '💵 Cash / Zelle — 3% discount applied' : '💳 Card / PayPal / Venmo — full price';
+  document.getElementById('parc-body-rest').style.display = 'block';
+  document.getElementById('btn-criar-invoices').disabled = false;
+  applyTemplate([50, 50]);
+}
+function closeParcelas() { document.getElementById('overlay-parcelas').classList.remove('open'); }
+
+function addParcela(pct, diasOffset) {
+  parcelaCount++;
+  const idx = parcelaCount;
+  const valor = pct ? Math.round(parcelasTotal * pct / 100 * 100) / 100 : 0;
+  const hoje = new Date();
+  if (diasOffset) hoje.setDate(hoje.getDate() + diasOffset);
+  const dateStr = hoje.toISOString().slice(0, 10);
+  const div = document.createElement('div');
+  div.id = 'parc-row-' + idx;
+  div.style.cssText = 'display:grid;grid-template-columns:36px 1fr 1fr 1fr 32px;gap:8px;align-items:center;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;';
+  div.innerHTML = `
+    <div style="font-size:12px;font-weight:700;color:var(--muted);text-align:center;">#${idx}</div>
+    <div><div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Description</div>
+      <input type="text" value="${getDescDefault(idx)}" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;" oninput="updateDistribuido()"></div>
+    <div><div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Amount ($)</div>
+      <input type="number" value="${valor.toFixed(2)}" min="0" step="0.01" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;" oninput="updateDistribuido()" onchange="updateDistribuido()"></div>
+    <div><div style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Due Date</div>
+      <input type="date" value="${dateStr}" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;outline:none;"></div>
+    <button onclick="removeParcela(${idx})" style="background:var(--red-bg);border:none;border-radius:7px;padding:6px;cursor:pointer;font-size:14px;color:var(--red);" title="Remover">✕</button>`;
+  document.getElementById('parcelas-list').appendChild(div);
+  updateDistribuido();
+}
+function removeParcela(idx) { const el = document.getElementById('parc-row-' + idx); if (el) el.remove(); updateDistribuido(); }
+function getDescDefault(idx) { const labels = ['Deposit / Signing', 'Material Delivery', 'Project Completion', 'Installment 4', 'Installment 5']; return labels[idx - 1] || 'Installment ' + idx; }
+function applyTemplate(pcts) {
+  document.getElementById('parcelas-list').innerHTML = '';
+  parcelaCount = 0;
+  let offset = 0;
+  pcts.forEach(pct => { addParcela(pct, offset); offset += 30; });
+}
+function updateDistribuido() {
+  const rows = document.querySelectorAll('#parcelas-list > div');
+  let total = 0;
+  rows.forEach(row => { const inp = row.querySelectorAll('input[type="number"]')[0]; if (inp) total += parseFloat(inp.value) || 0; });
+  const diff = parcelasTotal - total;
+  const distEl = document.getElementById('parc-distribuido');
+  const restEl = document.getElementById('parc-restante');
+  distEl.textContent = fmt(total);
+  distEl.style.color = Math.abs(diff) < 0.01 ? '#2e6b3e' : '#a03030';
+  if (Math.abs(diff) < 0.01) { restEl.textContent = '✅ 100% distributed'; restEl.style.color = '#2e6b3e'; }
+  else if (diff > 0) { restEl.textContent = 'Remaining: ' + fmt(diff); restEl.style.color = '#a03030'; }
+  else { restEl.textContent = 'Over by ' + fmt(Math.abs(diff)); restEl.style.color = '#a03030'; }
+}
+
+async function criarInvoices() {
+  if (!parcelasPaymentMethod) { showToast('Selecione a forma de pagamento aprovada pelo cliente', 'error'); return; }
+  const rows = document.querySelectorAll('#parcelas-list > div');
+  if (!rows.length) { showToast('Adicione pelo menos uma parcela', 'error'); return; }
+  let totalParc = 0;
+  rows.forEach(r => { const i = r.querySelectorAll('input[type="number"]')[0]; if(i) totalParc += parseFloat(i.value)||0; });
+  if (Math.abs(totalParc - parcelasTotal) > 0.5) { showToast('⚠ Installment total does not match bundle value', 'error'); return; }
+
+  const btn = document.getElementById('btn-criar-invoices');
+  btn.disabled = true; btn.textContent = 'Criando...';
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  const total = rows.length;
+  const payloads = [];
+  let i = 0;
+  rows.forEach(row => {
+    i++;
+    const inputs = row.querySelectorAll('input');
+    const desc   = inputs[0]?.value || ('Parcela ' + i);
+    const valor  = parseFloat(inputs[1]?.value) || 0;
+    const venc   = inputs[2]?.value || hoje;
+    const num    = 'INV-' + Date.now().toString().slice(-4) + '-' + i;
+    const methodLabel = parcelasPaymentMethod === 'cash' ? 'Cash/Zelle (-3%)' : 'Card/PayPal/Venmo (full price)';
+    payloads.push({
+      invoice_number: num,
+      client_id: parcelasClientId,
+      proposal_bundle_id: parcelasBundleId || null,
+      project_id: parcelasProjectId || null,
+      project_name: parcelasBundleTitle || null,
+      project_total: parcelasTotal || null,
+      status: 'sent',
+      issue_date: hoje,
+      due_date: venc,
+      subtotal: valor,
+      total: valor,
+      notes: `Installment ${i}/${total}: ${desc} — Bundle ${parcelasClientName} — Payment: ${methodLabel}`,
+    });
+  });
+
+  let errors = [];
+  for (const p of payloads) {
+    const { error } = await db.from('invoices').insert(p);
+    if (error) errors.push(error.message);
+  }
+  if (errors.length) { showToast('Erro: ' + errors[0], 'error'); btn.disabled = false; btn.textContent = '🧾 Generate Invoices'; return; }
+
+  showToast(`🧾 ${payloads.length} invoice(s) criada(s)! Redirecionando...`, 'success');
+  closeParcelas();
+  setTimeout(() => window.location.href = '/invoices', 1500);
+}
+
+init();
+</script>
+</body>
+</html>
