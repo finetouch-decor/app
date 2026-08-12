@@ -330,7 +330,7 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let invoices = [], quotes = [], clients = [], projects = [], editInvId = null, selectedQuote = null;
 
 const statusLabel = { draft:'Rascunho', sent:'Enviada', paid:'Paga', overdue:'Atrasada', cancelled:'Cancelada' };
-const statusClass = { draft:'b-draft', sent:'b-sent', paid:'b-paid', overdue:'b-overdue', cancelled:'b-cancelled' }; const projStatusLabel = {planning:'Planejamento',active:'Em andamento',completed:'Concluída',paused:'Pausada',cancelled:'Cancelada'}; function obraLabel(p){ const num = p.project_number ? p.project_number+' — ' : ''; const city = p.city ? ' · '+p.city : ''; const tag = (p.status && p.status!=='active') ? ' ('+(projStatusLabel[p.status]||p.status)+')' : ''; return num+(p.name||'Obra')+city+tag; } function buildObraOptionsHtml(clientId){ const mine = projects.filter(p=>p.client_id===clientId); const others = projects.filter(p=>p.client_id!==clientId); const mineActive = mine.filter(p=>p.status!=='completed' && p.status!=='cancelled'); const mineDone = mine.filter(p=>p.status==='completed' || p.status==='cancelled'); let opts=''; if(mineActive.length) opts += '<optgroup label="Deste cliente">'+mineActive.map(p=>'<option value="'+p.id+'">'+obraLabel(p)+'</option>').join('')+'</optgroup>'; if(mineDone.length) opts += '<optgroup label="Deste cliente — concluídas">'+mineDone.map(p=>'<option value="'+p.id+'">'+obraLabel(p)+'</option>').join('')+'</optgroup>'; if(others.length) opts += '<optgroup label="Outros clientes">'+others.map(p=>'<option value="'+p.id+'">'+(p.clients&&p.clients.name?p.clients.name:'?')+' — '+obraLabel(p)+'</option>').join('')+'</optgroup>'; return opts; }
+const statusClass = { draft:'b-draft', sent:'b-sent', paid:'b-paid', overdue:'b-overdue', cancelled:'b-cancelled' }; const projStatusLabel = {planning:'Planejamento',active:'Em andamento',completed:'Concluída',paused:'Pausada',cancelled:'Cancelada'}; function obraLabel(p){ const num = p.project_number ? p.project_number+' — ' : ''; const city = p.city ? ' · '+p.city : ''; const tag = (p.status && p.status!=='active') ? ' ('+(projStatusLabel[p.status]||p.status)+')' : ''; return num+(p.name||'Obra')+city+tag; } function buildObraOptionsHtml(clientId){ const mine = projects.filter(p=>p.client_id===clientId); const others = projects.filter(p=>p.client_id!==clientId); const mineActive = mine.filter(p=>p.status!=='completed' && p.status!=='cancelled'); const mineDone = mine.filter(p=>p.status==='completed' || p.status==='cancelled'); let opts=''; if(mineActive.length) opts += '<optgroup label="Deste cliente">'+mineActive.map(p=>'<option value="'+p.id+'">'+obraLabel(p)+'</option>').join('')+'</optgroup>'; if(mineDone.length) opts += '<optgroup label="Deste cliente — concluídas">'+mineDone.map(p=>'<option value="'+p.id+'">'+obraLabel(p)+'</option>').join('')+'</optgroup>'; if(others.length) opts += '<optgroup label="Outros clientes">'+others.map(p=>'<option value="'+p.id+'">'+(p.clients&&p.clients.name?p.clients.name:'?')+' — '+obraLabel(p)+'</option>').join('')+'</optgroup>'; return opts; } function findActiveProjectId(clientId){ if(!clientId) return null; const p = projects.find(p=>p.client_id===clientId && p.status!=="completed" && p.status!=="cancelled"); return p?p.id:null; }
 
 async function init() {
   const { data: { session } } = await db.auth.getSession();
@@ -479,12 +479,12 @@ function render() {
             <span class="badge ${statusClass[i.status]||'b-draft'}">${statusLabel[i.status]||i.status}</span>
             <div class="inv-amount">${fmt(amount)}</div>
             <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
-              ${!i.project_id ? `
-                <select onchange="linkInvoiceProject('${i.id}', this.value)" style="font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;max-width:220px" title="Essa invoice ainda não está vinculada a nenhuma obra">
-                  <option value="">🔗 Vincular obra</option>
-                  ${buildObraOptionsHtml(i.client_id)}
+              
+                
                   
-                </select>` : ''}
+                  
+                  
+                
               ${i.status!=='paid'
                 ? `<button class="btn btn-sm" onclick="markPaid('${i.id}')" style="background:#fff;border:1px solid var(--border);color:var(--muted);font-weight:600;">💰 Recebido</button>`
                 : `<span style="font-size:11px;color:#16a34a;font-weight:700;white-space:nowrap">✅ ${fmtDate(i.paid_date)}</span>`}
@@ -556,7 +556,7 @@ async function saveInvoiceFromQuote() {
 
   const data = {
     invoice_number: await genInvNum(),
-    client_id:  selectedQuote.client_id,
+    client_id:  selectedQuote.client_id, project_id: findActiveProjectId(selectedQuote.client_id),
     quote_id:   selectedQuote.id,
     status:     'sent',
     issue_date: today(),
@@ -636,7 +636,7 @@ async function saveManualInvoice() {
       await db.from('invoices').update(data).eq('id', editInvId);
       showToast('Invoice atualizada!','success');
     } else {
-      data.invoice_number = await genInvNum();
+      data.invoice_number = await genInvNum(); if (!data.project_id) { const pid = findActiveProjectId(data.client_id); if (pid) data.project_id = pid; }
       await db.from('invoices').insert(data);
       showToast('Invoice criada!','success');
     }
@@ -667,10 +667,10 @@ async function markPaid(id) {
   });
 
   // 3. Verifica se já existe obra para este cliente/invoice — se não, cria
-  const { data: existingProjects } = await db.from('projects')
-    .select('id').eq('client_id', inv.client_id).limit(1);
+  let projectId = findActiveProjectId(inv.client_id);
+    
 
-  if (!existingProjects || existingProjects.length === 0) {
+  if (!projectId) {
     // Busca o orçamento vinculado para pegar o nome do projeto
     let projectName = `Projeto — ${clientName}`;
     let quoteId = inv.quote_id || null;
@@ -679,7 +679,7 @@ async function markPaid(id) {
       if (q?.project_name) projectName = q.project_name;
     }
     const num = 'OBR-' + Date.now().toString().slice(-5);
-    await db.from('projects').insert({
+    projectId = crypto.randomUUID(); await db.from("projects").insert({ id: projectId,
       project_number: num,
       name:           projectName,
       client_id:      inv.client_id || null,
@@ -689,9 +689,9 @@ async function markPaid(id) {
       quote_id:       quoteId,
       description:    `Obra criada automaticamente ao receber invoice ${inv.invoice_number}`,
     });
-    showToast('✅ Recebido! Obra criada automaticamente em /projects 🏗️', 'success');
+    showToast("✅ Recebido! Obra criada automaticamente em /projects 🏗️", "success"); if (projectId && inv.client_id) { await db.from("invoices").update({ project_id: projectId }).eq("client_id", inv.client_id).is("project_id", null); }
   } else {
-    showToast('✅ Invoice marcada como paga e lançada no financeiro!', 'success');
+    showToast("✅ Invoice marcada como paga e lançada no financeiro!", "success"); if (projectId && inv.client_id) { await db.from("invoices").update({ project_id: projectId }).eq("client_id", inv.client_id).is("project_id", null); }
   }
 
   await loadAll();
