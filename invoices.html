@@ -330,7 +330,7 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let invoices = [], quotes = [], clients = [], projects = [], editInvId = null, selectedQuote = null;
 
 const statusLabel = { draft:'Rascunho', sent:'Enviada', paid:'Paga', overdue:'Atrasada', cancelled:'Cancelada' };
-const statusClass = { draft:'b-draft', sent:'b-sent', paid:'b-paid', overdue:'b-overdue', cancelled:'b-cancelled' };
+const statusClass = { draft:'b-draft', sent:'b-sent', paid:'b-paid', overdue:'b-overdue', cancelled:'b-cancelled' }; const projStatusLabel = {planning:'Planejamento',active:'Em andamento',completed:'Concluída',paused:'Pausada',cancelled:'Cancelada'}; function obraLabel(p){ const num = p.project_number ? p.project_number+' — ' : ''; const city = p.city ? ' · '+p.city : ''; const tag = (p.status && p.status!=='active') ? ' ('+(projStatusLabel[p.status]||p.status)+')' : ''; return num+(p.name||'Obra')+city+tag; } function buildObraOptionsHtml(clientId){ const mine = projects.filter(p=>p.client_id===clientId); const others = projects.filter(p=>p.client_id!==clientId); const mineActive = mine.filter(p=>p.status!=='completed' && p.status!=='cancelled'); const mineDone = mine.filter(p=>p.status==='completed' || p.status==='cancelled'); let opts=''; if(mineActive.length) opts += '<optgroup label="Deste cliente">'+mineActive.map(p=>'<option value="'+p.id+'">'+obraLabel(p)+'</option>').join('')+'</optgroup>'; if(mineDone.length) opts += '<optgroup label="Deste cliente — concluídas">'+mineDone.map(p=>'<option value="'+p.id+'">'+obraLabel(p)+'</option>').join('')+'</optgroup>'; if(others.length) opts += '<optgroup label="Outros clientes">'+others.map(p=>'<option value="'+p.id+'">'+(p.clients&&p.clients.name?p.clients.name:'?')+' — '+obraLabel(p)+'</option>').join('')+'</optgroup>'; return opts; }
 
 async function init() {
   const { data: { session } } = await db.auth.getSession();
@@ -362,7 +362,7 @@ async function loadAll() {
     db.from('invoices').select('*, clients(name,phone), quotes(quote_number,total)').order('created_at',{ascending:false}),
     db.from('quotes').select('id,quote_number,total,client_id,clients(id,name,email,phone,city)').eq('status','approved').order('created_at',{ascending:false}),
     db.from('clients').select('id,name').order('name'),
-    db.from('projects').select('id,name,client_id').order('name')
+    db.from('projects').select('id,name,client_id,status,city,project_number,closed_at,clients(name)').order('name')
   ]);
   invoices = inv || [];
   quotes   = q   || [];
@@ -480,10 +480,10 @@ function render() {
             <div class="inv-amount">${fmt(amount)}</div>
             <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
               ${!i.project_id ? `
-                <select onchange="linkInvoiceProject('${i.id}', this.value)" style="font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;max-width:150px" title="Essa invoice ainda não está vinculada a nenhuma obra">
+                <select onchange="linkInvoiceProject('${i.id}', this.value)" style="font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;max-width:220px" title="Essa invoice ainda não está vinculada a nenhuma obra">
                   <option value="">🔗 Vincular obra</option>
-                  ${projects.filter(p=>p.client_id===i.client_id).map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
-                  ${projects.filter(p=>p.client_id!==i.client_id).length ? `<option disabled>──────────</option>${projects.filter(p=>p.client_id!==i.client_id).map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}` : ''}
+                  ${buildObraOptionsHtml(i.client_id)}
+                  
                 </select>` : ''}
               ${i.status!=='paid'
                 ? `<button class="btn btn-sm" onclick="markPaid('${i.id}')" style="background:#fff;border:1px solid var(--border);color:var(--muted);font-weight:600;">💰 Recebido</button>`
