@@ -349,14 +349,14 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 
       <div class="doc-total-box">
         <div class="doc-total-row"><span>Subtotal</span><span id="doc-subtotal">$0.00</span></div>
-        <div class="doc-total-row"><span id="doc-discount-label">Bundle Discount</span><span id="doc-discount">-$0.00</span></div>
+        
         <div class="doc-total-row final"><span>Total Investment</span><span class="tv" id="doc-total">$0.00</span></div>
       </div>
 
       <div class="doc-note" style="margin-top:20px;">
         📌 This document combines the individually detailed proposals listed above into a single agreement.<br>
-        ⏳ This bundle proposal is valid for <strong>30 days</strong> from the date of issue.<br>
-        💳 We accept credit/debit card (Stripe) and PayPal. Pay by cash or Zelle and save 3%.
+        ⏳ This bundle proposal is valid for <strong>30 days</strong> from the date of issue.
+
       </div>
 
       <div class="doc-sig-section">
@@ -632,7 +632,7 @@ async function openPrint(id) {
   document.getElementById('doc-room-count').textContent = currentPrintBundleItems.length + ' rooms';
   document.getElementById('doc-sig-client').textContent = b.client_name || '';
   document.getElementById('doc-subtotal').textContent = fmt(b.subtotal);
-  document.getElementById('doc-discount-label').textContent = 'Bundle Discount' + (b.discount_amount > 0 ? (' (' + discountLabel(b) + ')') : ''); document.getElementById('doc-discount').textContent = '-' + fmt(b.discount_amount);
+  
   document.getElementById('doc-total').textContent = fmt(b.total);
 
   document.getElementById('doc-bundle-cards').innerHTML = currentPrintBundleItems.map(it => {
