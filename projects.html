@@ -944,6 +944,8 @@ async function deleteObra(id) {
   if (!confirm('Excluir esta obra? Compras e tarefas vinculadas também serão removidas.')) return;
   await db.from('tasks').delete().eq('project_id', id);
   await db.from('purchases').delete().eq('project_id', id);
+  await db.from('catalog_portfolio').delete().eq('project_id', id);
+  await db.from('invoices').update({project_id:null}).eq('project_id', id);
   const { error } = await db.from('projects').delete().eq('id', id);
   if (error) { showToast('Erro: ' + error.message, 'error'); return; }
   showToast('Obra excluída.', 'success');
