@@ -749,8 +749,9 @@ function openModal(data=null) {
   document.getElementById('overlay-form').classList.add('open');
 }
 
-function openEdit(id) {
-  const p = proposals.find(x=>x.id===id);
+async function openEdit(id) {
+  let p = proposals.find(x=>x.id===id);
+  if (!p) { const { data } = await db.from('proposals').select('*').eq('id', id).single(); p = data; }
   if (p) openModal(p);
 }
 
@@ -1257,7 +1258,11 @@ function showToast(msg, type='') {
   setTimeout(()=>t.className='toast',3000);
 }
 
-init();
+init().then(() => {
+  const params = new URLSearchParams(window.location.search);
+  const editId = params.get('edit');
+  if (editId) openEdit(editId);
+});
 </script>
 </body>
 </html>
