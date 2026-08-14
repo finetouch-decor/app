@@ -671,6 +671,9 @@ async function setBundleStatus(status) {
   if (status === 'accepted') patch.accepted_at = new Date().toISOString();
   const { error } = await db.from('proposal_bundles').update(patch).eq('id', currentPrintBundle.id);
   if (error) { showToast('Erro: '+error.message, 'error'); return; }
+  if (status === 'accepted') {
+    await db.from('proposals').update({ status: 'accepted' }).eq('bundle_id', currentPrintBundle.id);
+  }
   showToast('Status atualizado', 'success');
   await loadBundles();
   openPrint(currentPrintBundle.id);
