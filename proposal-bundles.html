@@ -275,6 +275,11 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
           <input type="number" id="nb-discount-value" min="0" step="0.01" value="0" oninput="recomputeBundleTotals()">
         </div>
       </div>
+      <div class="field">
+        <label>Itens adicionais / Observações (bullet points)</label>
+        <div id="nb-bullets-list"></div>
+        <button type="button" class="btn btn-outline" style="margin-top:6px;font-size:12px;padding:6px 12px;" onclick="addBundleBullet()">+ Adicionar item</button>
+      </div>
       <div class="bundle-summary">
         <div class="bundle-summary-row"><span>Subtotal (soma das propostas)</span><span id="nb-subtotal">$0.00</span></div>
         <div class="bundle-summary-row discount"><span>Desconto do combo</span><span id="nb-discount-amount">-$0.00</span></div>
@@ -346,6 +351,8 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
     <div class="doc-body">
       <div class="doc-section-title">Projects in this bundle</div>
       <div id="doc-bundle-cards"></div>
+
+      <div id="doc-bundle-notes"></div>
 
       <div class="doc-total-box">
         <div class="doc-total-row"><span>Subtotal</span><span id="doc-subtotal">$0.00</span></div>
@@ -506,6 +513,8 @@ async function openNewBundleModal() { editingBundleId = null; document.getElemen
   document.getElementById('nb-title').value = '';
   document.getElementById('nb-discount-type').value = 'percent';
   document.getElementById('nb-discount-value').value = 0;
+  bundleBullets = [];
+  renderBundleBullets();
   document.getElementById('nb-proposal-list').innerHTML = '<div class="check-empty">Selecione um cliente acima.</div>';
   recomputeBundleTotals();
 
@@ -566,7 +575,22 @@ function recomputeBundleTotals() {
   return { ids, subtotal, discountAmount, total, type, val };
 }
 
-function submitBundleForm() { if (editingBundleId) { updateBundle(); } else { saveBundle(); } } async function openEditBundleModal(id) { const b = bundles.find(x => x.id === id) || (await db.from('proposal_bundles').select('*').eq('id',id).single()).data; if (!b) return; editingBundleId = id; document.getElementById('nb-modal-title').textContent = '✏️ Editar Proposta Combinada'; document.getElementById('nb-title').value = b.title || ''; document.getElementById('nb-discount-type').value = b.discount_type || 'percent'; document.getElementById('nb-discount-value').value = b.discount_value || 0; document.getElementById('nb-client').innerHTML = `<option value="${(b.client_name||'').replace(/"/g,'&quot;')}">${b.client_name||''}</option>`; document.getElementById('nb-client').disabled = true; const { data: oldItems } = await db.from('proposal_bundle_items').select('proposal_id').eq('bundle_id', id); const oldIds = (oldItems||[]).map(i => i.proposal_id); const { data } = await db.from('proposals').select('id,title,project_name,total_cost,city,duration').eq('client_name', b.client_name).or(`bundle_id.is.null,bundle_id.eq.${id}`).neq('status','rejected').order('created_at'); eligibleProposals = data || []; const wrap = document.getElementById('nb-proposal-list'); if (!eligibleProposals.length) { wrap.innerHTML = '<div class="check-empty">Nenhuma proposta disponível.</div>'; } else { wrap.innerHTML = eligibleProposals.map(p => `<label class="proposal-check-row"><input type="checkbox" value="${p.id}" ${oldIds.includes(p.id) ? 'checked' : ''} onchange="recomputeBundleTotals()"><div><div class="pcr-name">${p.title || p.project_name || 'Sem título'} <a href="/proposals?edit=${p.id}" target="_blank" onclick="event.stopPropagation()" style="font-size:11px;color:#0ea5e9;text-decoration:none;" title="Editar esta proposta individualmente">✏️</a></div><div class="pcr-meta">${p.city || ''} ${p.duration ? '· '+p.duration : ''}</div></div><div class="pcr-price">${fmt(p.total_cost)}</div></label>`).join(''); } document.getElementById('btn-save-bundle').textContent = 'Salvar Alterações'; recomputeBundleTotals(); document.getElementById('overlay-new-bundle').classList.add('open'); } async function updateBundle() { const title = document.getElementById('nb-title').value.trim(); const { ids, subtotal, discountAmount, total, type, val } = recomputeBundleTotals(); if (ids.length < 2) { showToast('Selecione pelo menos 2 propostas para combinar', 'error'); return; } const btn = document.getElementById('btn-save-bundle'); btn.disabled = true; btn.textContent = 'Salvando...'; const id = editingBundleId; const { data: oldItems } = await db.from('proposal_bundle_items').select('proposal_id').eq('bundle_id', id); const oldIds = (oldItems||[]).map(i => i.proposal_id); const removedIds = oldIds.filter(pid => !ids.includes(pid)); const addedIds = ids.filter(pid => !oldIds.includes(pid)); const { error } = await db.from('proposal_bundles').update({ title: title || null, discount_type: type, discount_value: val, subtotal, discount_amount: discountAmount, total }).eq('id', id); if (error) { showToast('Erro: ' + error.message, 'error'); btn.disabled=false; btn.textContent='Salvar Alterações'; return; } if (removedIds.length) await db.from('proposals').update({ bundle_id: null }).in('id', removedIds); if (addedIds.length) await db.from('proposals').update({ bundle_id: id }).in('id', addedIds); await db.from('proposal_bundle_items').delete().eq('bundle_id', id); const items = ids.map((pid, i) => { const p = eligibleProposals.find(x => x.id === pid); return { bundle_id: id, proposal_id: pid, price_snapshot: Number(p?.total_cost)||0, sort_order: i }; }); await db.from('proposal_bundle_items').insert(items); showToast('🧩 Proposta combinada atualizada!', 'success'); btn.disabled = false; btn.textContent = 'Salvar Combo'; editingBundleId = null; closeNewBundleModal(); await loadBundles(); openPrint(id); } async function saveBundle() {
+function submitBundleForm() { if (editingBundleId) { updateBundle(); } else { saveBundle(); } } async function openEditBundleModal(id) { const b = bundles.find(x => x.id === id) || (await db.from('proposal_bundles').select('*').eq('id',id).single()).data; if (!b) return; editingBundleId = id; document.getElementById('nb-modal-title').textContent = '✏️ Editar Proposta Combinada'; document.getElementById('nb-title').value = b.title || ''; document.getElementById('nb-discount-type').value = b.discount_type || 'percent'; document.getElementById('nb-discount-value').value = b.discount_value || 0; bundleBullets = b.bullet_points || []; renderBundleBullets(); document.getElementById('nb-client').innerHTML = `<option value="${(b.client_name||'').replace(/"/g,'&quot;')}">${b.client_name||''}</option>`; document.getElementById('nb-client').disabled = true; const { data: oldItems } = await db.from('proposal_bundle_items').select('proposal_id').eq('bundle_id', id); const oldIds = (oldItems||[]).map(i => i.proposal_id); const { data } = await db.from('proposals').select('id,title,project_name,total_cost,city,duration').eq('client_name', b.client_name).or(`bundle_id.is.null,bundle_id.eq.${id}`).neq('status','rejected').order('created_at'); eligibleProposals = data || []; const wrap = document.getElementById('nb-proposal-list'); if (!eligibleProposals.length) { wrap.innerHTML = '<div class="check-empty">Nenhuma proposta disponível.</div>'; } else { wrap.innerHTML = eligibleProposals.map(p => `<label class="proposal-check-row"><input type="checkbox" value="${p.id}" ${oldIds.includes(p.id) ? 'checked' : ''} onchange="recomputeBundleTotals()"><div><div class="pcr-name">${p.title || p.project_name || 'Sem título'} <a href="/proposals?edit=${p.id}" target="_blank" onclick="event.stopPropagation()" style="font-size:18px;color:#0ea5e9;text-decoration:none;padding:3px 8px;margin-left:6px;border-radius:6px;background:#eaf6ff;border:1px solid #bfe6fb;" title="Editar esta proposta individualmente">✏️ editar</a></div><div class="pcr-meta">${p.city || ''} ${p.duration ? '· '+p.duration : ''}</div></div><div class="pcr-price">${fmt(p.total_cost)}</div></label>`).join(''); } document.getElementById('btn-save-bundle').textContent = 'Salvar Alterações'; recomputeBundleTotals(); document.getElementById('overlay-new-bundle').classList.add('open'); } async function updateBundle() { const title = document.getElementById('nb-title').value.trim(); const { ids, subtotal, discountAmount, total, type, val } = recomputeBundleTotals(); if (ids.length < 2) { showToast('Selecione pelo menos 2 propostas para combinar', 'error'); return; } const btn = document.getElementById('btn-save-bundle'); btn.disabled = true; btn.textContent = 'Salvando...'; const id = editingBundleId; const { data: oldItems } = await db.from('proposal_bundle_items').select('proposal_id').eq('bundle_id', id); const oldIds = (oldItems||[]).map(i => i.proposal_id); const removedIds = oldIds.filter(pid => !ids.includes(pid)); const addedIds = ids.filter(pid => !oldIds.includes(pid)); const { error } = await db.from('proposal_bundles').update({ title: title || null, discount_type: type, discount_value: val, subtotal, discount_amount: discountAmount, total, bullet_points: bundleBullets.filter(x => x && x.trim()) }).eq('id', id); if (error) { showToast('Erro: ' + error.message, 'error'); btn.disabled=false; btn.textContent='Salvar Alterações'; return; } if (removedIds.length) await db.from('proposals').update({ bundle_id: null }).in('id', removedIds); if (addedIds.length) await db.from('proposals').update({ bundle_id: id }).in('id', addedIds); await db.from('proposal_bundle_items').delete().eq('bundle_id', id); const items = ids.map((pid, i) => { const p = eligibleProposals.find(x => x.id === pid); return { bundle_id: id, proposal_id: pid, price_snapshot: Number(p?.total_cost)||0, sort_order: i }; }); await db.from('proposal_bundle_items').insert(items); showToast('🧩 Proposta combinada atualizada!', 'success'); btn.disabled = false; btn.textContent = 'Salvar Combo'; editingBundleId = null; closeNewBundleModal(); await loadBundles(); openPrint(id); } let bundleBullets = [];
+function renderBundleBullets() {
+  const c = document.getElementById('nb-bullets-list');
+  if (!c) return;
+  c.innerHTML = bundleBullets.map((v,i) => `
+    <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
+      <input type="text" value="${(v||'').replace(/"/g,'&quot;')}" placeholder="Ex: Inclui remoção de móveis antigos"
+        oninput="bundleBullets[${i}]=this.value"
+        style="flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--cream2);color:var(--navy);">
+      <button type="button" onclick="removeBundleBullet(${i})" style="background:none;border:none;color:#a03030;cursor:pointer;font-size:18px;line-height:1;padding:2px 6px;">×</button>
+    </div>`).join('') || '<div style="font-size:12px;color:var(--muted);">Nenhum item adicionado.</div>';
+}
+function addBundleBullet() { bundleBullets.push(''); renderBundleBullets(); }
+function removeBundleBullet(i) { bundleBullets.splice(i,1); renderBundleBullets(); }
+
+async function saveBundle() {
   const client = document.getElementById('nb-client').value;
   const title = document.getElementById('nb-title').value.trim();
   if (!client) { showToast('Selecione um cliente', 'error'); return; }
@@ -589,6 +613,7 @@ function submitBundleForm() { if (editingBundleId) { updateBundle(); } else { sa
     discount_type: type,
     discount_value: val,
     subtotal, discount_amount: discountAmount, total,
+    bullet_points: bundleBullets.filter(x => x && x.trim()),
   }).select().single();
 
   if (error) { showToast('Erro: ' + error.message, 'error'); btn.disabled=false; btn.textContent='Salvar Combo'; return; }
@@ -654,6 +679,8 @@ async function openPrint(id) {
       </div>`;
   }).join('');
 
+  const __bBullets = (b.bullet_points||[]).filter(x => x && x.trim());
+  document.getElementById('doc-bundle-notes').innerHTML = __bBullets.length ? `<div class="doc-section-title">Additional Notes</div><ul class="bundle-card-scope">${__bBullets.map(x=>`<li>${x}</li>`).join('')}</ul>` : '';
   document.getElementById('print-toolbar-label').textContent = `Bundle — ${b.client_name||''} · ${fmt(b.total)}`;
   document.getElementById('btn-mark-sent').style.display = b.status==='draft' ? 'inline-block' : 'none';
   document.getElementById('btn-mark-accepted').style.display = (b.status==='draft'||b.status==='sent') ? 'inline-block' : 'none';
