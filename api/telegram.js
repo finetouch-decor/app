@@ -453,17 +453,13 @@ async function handlePhoto(chatId, fileId) {
     return;
   }
 
-  // Buscar obras -- inclui concluidas tambem (compra de material pode acontecer depois
-  // da obra "fechada", ex: retrabalho, complemento, ajuste). So exclui canceladas.
+  // Buscar obras -- so as que estao "em andamento" (active). Obras concluidas ou canceladas
+  // nao aparecem aqui; se precisar lancar uma compra numa obra ja fechada, reabra o status
+  // dela em /projects antes de mandar a nota.
   const allProjects = await sbGet('projects', `select=id,name,status,clients(name)&order=name`); // service role key — ver nota acima sobre RLS
-  const filteredProjects = allProjects.filter(p => p.status !== 'cancelled').sort((a, b) => {
-    const aDone = a.status === 'completed' ? 1 : 0;
-    const bDone = b.status === 'completed' ? 1 : 0;
-    if (aDone !== bDone) return aDone - bDone;
-    return (a.name || "").localeCompare(b.name || "");
-  });
+  const filteredProjects = allProjects.filter(p => p.status === 'active').sort((a, b) => (a.name || "").localeCompare(b.name || ""));
   // client name vem do join clients(name)
-  filteredProjects.forEach(p => { p.client_name = p.clients?.name || ''; p.doneTag = p.status === 'completed' ? ' (concluída)' : ''; });
+  filteredProjects.forEach(p => { p.client_name = p.clients?.name || ''; });
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
   // Salvar sessão com itens E projetos mapeados por letra
@@ -472,7 +468,7 @@ async function handlePhoto(chatId, fileId) {
   await saveSession(chatId, { kind: 'invoice', items: data.items, store: data.store, total: data.total, projectsByLetter });
 
   const itemList    = data.items.map((it, i) => `*${i+1}.* ${it.desc} — $${Number(it.value).toFixed(2)}`).join('\n');
-  const projectList = filteredProjects.map((p, i) => i < 26 ? `*${letters[i]}.* ${p.name}${p.client_name ? ' — '+p.client_name : ''}${p.doneTag||''}` : '').filter(Boolean).join('\n');
+  const projectList = filteredProjects.map((p, i) => i < 26 ? `*${letters[i]}.* ${p.name}${p.client_name ? ' — '+p.client_name : ''}` : '').filter(Boolean).join('\n') || '_Nenhuma obra em andamento no momento._';
 
   await send(chatId,
     `🧾 *${data.store || 'Nota Fiscal'}* — Total: $${Number(data.total||0).toFixed(2)}\n\n` +
@@ -480,7 +476,8 @@ async function handlePhoto(chatId, fileId) {
     `*Obras em andamento:*\n${projectList}\n\n` +
     `Responda com itens e obras:\n` +
     `Ex: \`itens 1 e 3 obra A, item 2 obra B, resto ignorar\`\n` +
-    `_(Pode responder por áudio!)_`
+    `_(Pode responder por áudio!)_\n` +
+    `_Obra já concluída não aparece aqui — reabra o status dela em /projects se precisar lançar algo nela._`
   );
 }
 
