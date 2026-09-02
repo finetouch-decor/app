@@ -11,6 +11,7 @@
     { "source": "/projects",  "destination": "/projects.html" },
     { "source": "/purchases", "destination": "/purchases.html" },
     { "source": "/financial", "destination": "/financial.html" },
+    { "source": "/financial2", "destination": "/financial2.html" },
     { "source": "/reports",   "destination": "/reports.html" },
     { "source": "/marketing", "destination": "/marketing.html" },
     { "source": "/services",  "destination": "/services.html" },
