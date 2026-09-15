@@ -984,9 +984,10 @@ async function generateInvoice(id) {
     // atual é um job novo, não continuação -- não adivinha, fica sem vínculo e o dono
     // resolve com o seletor "🔗 Vincular obra" na aba Invoices (ou o trigger cria uma obra
     // nova automaticamente se o cliente não tiver nenhuma obra ativa).
-    const { data: projs } = await db.from('projects').select('id,status').eq('client_id', parcelasClientId);
-    const ativos = (projs || []).filter(pr => pr.status === 'active');
-    if (ativos.length === 1) parcelasProjectId = ativos[0].id;
+    // Corrigido em 15/09/2026: nao adivinha mais mesmo com 1 obra ativa --
+    // cliente recorrente pode estar iniciando um job NOVO e diferente (ex: telhado vs
+    // pintura). Fica sem vinculo; o trigger do banco cria obra nova se o cliente nao
+    // tiver nenhuma, ou o dono vincula manualmente com o seletor "🔗 Vincular obra" na aba Invoices.
   }
 
   parcelasFullTotal = Number(p.total_cost) || 0;
