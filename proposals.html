@@ -617,7 +617,7 @@ db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='
 async function logout() { await db.auth.signOut(); }
 
 async function loadProposals() {
-  const { data } = await db.from('proposals').select('*').is('bundle_id', null).order('created_at', {ascending:false});
+  const { data } = await db.from('proposals').select('*').order('created_at', {ascending:false});
   proposals = data || [];
   render();
 }
@@ -707,7 +707,7 @@ function render() {
 
   document.getElementById('proposals-table').innerHTML = header + filtered.map(p => `
     <div class="trow" onclick="openPrint('${p.id}')">
-      <div><div class="p-title">${p.title||'Untitled'}</div></div>
+      <div><div class="p-title">${p.title||'Untitled'}</div>${p.bundle_id ? `<div style="margin-top:3px;"><span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;">📦 Em Proposta Combinada</span></div>` : ''}</div>
       <div><div class="p-title">${p.client_name||'—'}</div><div class="p-client">${p.project_name||''}</div></div>
       <div class="p-date">${fmtDate(p.date)}</div>
       <div class="p-value">${fmt(p.total_cost)}</div>
