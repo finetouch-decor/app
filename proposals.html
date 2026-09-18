@@ -278,6 +278,10 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 
   <div class="filter-tabs" id="filter-tabs"></div>
   <div class="filter-summary" id="filter-summary"></div>
+  <div class="sort-tabs-wrap" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+    <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Ordenar por:</span>
+    <div class="filter-tabs" id="sort-tabs" style="margin-bottom:0;"></div>
+  </div>
 
   <div class="section-label">All Proposals</div>
   <div class="proposals-table" id="proposals-table">
@@ -562,6 +566,7 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let proposals = [], editId = null, itemCount = 0, catalogSvcCache = [];
 let proposalImages = [];
 let currentFilter = 'draft';
+let currentSort = 'date';
 
 async function openTemplatepicker() {
   if (!catalogSvcCache.length) {
@@ -641,6 +646,34 @@ function setFilter(status) {
   render();
 }
 
+function setSort(key) {
+  currentSort = key;
+  render();
+}
+
+const sortOptions = [
+  { key: 'date',       label: 'Data' },
+  { key: 'client',     label: 'Cliente' },
+  { key: 'title',      label: 'Título' },
+  { key: 'project',    label: 'Projeto' },
+  { key: 'value_desc', label: 'Maior valor' },
+  { key: 'value_asc',  label: 'Menor valor' },
+];
+
+function sortProposals(list) {
+  const arr = list.slice();
+  const cmps = {
+    date:       (a,b) => new Date(b.date||b.created_at||0) - new Date(a.date||a.created_at||0),
+    client:     (a,b) => (a.client_name||'').localeCompare(b.client_name||''),
+    title:      (a,b) => (a.title||'').localeCompare(b.title||''),
+    project:    (a,b) => (a.project_name||'').localeCompare(b.project_name||''),
+    value_desc: (a,b) => Number(b.total_cost||0) - Number(a.total_cost||0),
+    value_asc:  (a,b) => Number(a.total_cost||0) - Number(b.total_cost||0),
+  };
+  arr.sort(cmps[currentSort] || cmps.date);
+  return arr;
+}
+
 function render() {
   // Abas de filtro por status, com contagem de cada uma -- clicar filtra a lista
   // abaixo e recalcula TODOS os cartoes de resumo (quantidade, valor, media, pendencias)
@@ -656,6 +689,9 @@ function render() {
     <button class="filter-tab ${currentFilter===t.key?'active':''}" onclick="setFilter('${t.key}')">
       ${t.label} <span class="count">${t.count}</span>
     </button>`).join('');
+
+  document.getElementById('sort-tabs').innerHTML = sortOptions.map(s => `
+    <button class="filter-tab ${currentSort===s.key?'active':''}" onclick="setSort('${s.key}')">${s.label}</button>`).join('');
 
   const filtered = currentFilter==='all' ? proposals : proposals.filter(p=>p.status===currentFilter);
   const filteredValue = filtered.reduce((s,p)=>s+Number(p.total_cost||0),0);
@@ -705,7 +741,7 @@ function render() {
     <span>Proposal</span><span>Client / Project</span><span>Date</span><span>Value</span><span>Actions</span>
   </div>`;
 
-  document.getElementById('proposals-table').innerHTML = header + filtered.map(p => `
+  document.getElementById('proposals-table').innerHTML = header + sortProposals(filtered).map(p => `
     <div class="trow" onclick="openPrint('${p.id}')">
       <div><div class="p-title">${p.title||'Untitled'}</div>${p.bundle_id ? `<div style="margin-top:3px;"><span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;">📦 Em Proposta Combinada</span></div>` : ''}</div>
       <div><div class="p-title">${p.client_name||'—'}</div><div class="p-client">${p.project_name||''}</div></div>
