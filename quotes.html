@@ -254,6 +254,8 @@ textarea{resize:vertical;min-height:64px;}
       </div>
     </div>
 
+    <div id="sort-buttons" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px 0;"></div>
+
     <div class="table-wrap">
       <table>
         <thead>
@@ -617,6 +619,36 @@ const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let allQuotes=[], clients=[], editingId=null, matRowIds=[], otherRowIds=[];
+let currentSort = 'date';
+const sortOptionsQ = [
+  { key: 'date',       label: 'Data' },
+  { key: 'client',     label: 'Cliente' },
+  { key: 'title',      label: 'Título' },
+  { key: 'project',    label: 'Projeto' },
+  { key: 'value_desc', label: 'Maior valor' },
+  { key: 'value_asc',  label: 'Menor valor' },
+];
+function setSort(key) { currentSort = key; onFiltersChanged(); }
+function sortQuotes(list) {
+  const arr = list.slice();
+  const val = q => Number(q.total)||Number(q.sale_price)||0;
+  const cmps = {
+    date:       (a,b) => new Date(b.created_at||0) - new Date(a.created_at||0),
+    client:     (a,b) => (a.clients?.name||'').localeCompare(b.clients?.name||''),
+    title:      (a,b) => (a.quote_number||'').localeCompare(b.quote_number||''),
+    project:    (a,b) => (a.project_name||'').localeCompare(b.project_name||''),
+    value_desc: (a,b) => val(b) - val(a),
+    value_asc:  (a,b) => val(a) - val(b),
+  };
+  arr.sort(cmps[currentSort] || cmps.date);
+  return arr;
+}
+function renderSortButtons() {
+  const wrap = document.getElementById('sort-buttons');
+  if (!wrap) return;
+  wrap.innerHTML = sortOptionsQ.map(s => `
+    <button type="button" onclick="setSort('${s.key}')" style="padding:6px 14px;border-radius:20px;border:1.5px solid ${currentSort===s.key?'var(--navy,#102A4B)':'#E2E8F0'};background:${currentSort===s.key?'var(--navy,#102A4B)':'#fff'};color:${currentSort===s.key?'var(--gold,#C69E63)':'#475569'};font-size:12px;font-weight:700;cursor:pointer;">${s.label}</button>`).join('');
+}
 
 // ── AUTH ───────────────────────────────────────────────────
 async function init() {
@@ -724,19 +756,19 @@ function populateMonthFilter() {
   if (sorted.includes(prev)) sel.value = prev;
 }
 
-function onFiltersChanged() { renderKPIs(); renderTable(); }
+function onFiltersChanged() { renderSortButtons(); renderKPIs(); renderTable(); }
 
 function getFilteredQuotes() {
   const q=document.getElementById('search-input').value.toLowerCase();
   const st=document.getElementById('filter-status').value;
   const mo=document.getElementById('filter-month').value;
-  return allQuotes.filter(x=>{
+  return sortQuotes(allQuotes.filter(x=>{
     const nm=(x.clients?.name||x.project_name||'').toLowerCase();
     if(q&&!nm.includes(q)&&!(x.quote_number||'').toLowerCase().includes(q)&&!(x.project_name||'').toLowerCase().includes(q))return false;
     if(st&&x.status!==st)return false;
     if(mo&&(x.created_at||'').slice(0,7)!==mo)return false;
     return true;
-  });
+  }));
 }
 
 // ── KPIs ───────────────────────────────────────────────────
