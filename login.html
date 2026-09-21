@@ -152,8 +152,6 @@ const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const TELEGRAM_BOT = '8836394381:AAHxobG5fORZ_KX_EeheX0j9AriFc5bP-Ec';
-const TELEGRAM_CHAT = '7758479066'; // Admin chat ID
 
 let isRegister = false;
 
@@ -180,13 +178,12 @@ db.auth.onAuthStateChange(async (event, session) => {
   }
 });
 
-async function notifyTelegram(name, email) {
+async function notifyTelegram(session) {
+  if (!session?.access_token) return;
   try {
-    const msg = `🔔 *Novo usuário solicitando acesso ao Fine Touch ERP*\n\n👤 *Nome:* ${name}\n📧 *Email:* ${email}\n\n➡️ Acesse /users para aprovar ou rejeitar.`;
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT}/sendMessage`, {
+    await fetch('/api/notify-telegram', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: TELEGRAM_CHAT, text: msg, parse_mode: 'Markdown' })
+      headers: { Authorization: `Bearer ${session.access_token}` }
     });
   } catch(e) {}
 }
@@ -226,7 +223,7 @@ async function submitForm() {
       options: { data: { full_name: name } }
     });
     if (error) { showToast(error.message, 'error'); setLoading(false); return; }
-    await notifyTelegram(name, email);
+    await notifyTelegram(data.session);
     showToast('Solicitação enviada! Aguarde aprovação do administrador.', 'success');
     setTimeout(() => window.location.href = '/pending.html', 2000);
   } else {
