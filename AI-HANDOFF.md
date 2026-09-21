@@ -20,6 +20,11 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-09-21 10:58 EDT — ChatGPT
+Status: CONCLUIDO
+Arquivos/tabelas: login.html, proposals, user_profiles, quotes, quote_items, invoices, api_secrets, campaign_performance, funcoes SQL publicas, storage obra-photos, storage proposal-images
+Resumo: Auditoria somente leitura identificou riscos criticos: token do bot Telegram exposto no JavaScript publico; acesso anonimo total a proposals e user_profiles; leitura anonima de quotes, quote_items e invoices; e funcoes SECURITY DEFINER executaveis publicamente. Tambem foram encontrados acesso excessivo para usuarios autenticados, segredos acessiveis no schema publico, buckets de fotos publicos e protecao contra senhas vazadas desativada. Nenhuma configuracao ou dado do ERP foi alterado; correcoes aguardam aprovacao do Fabinho.
+
 ### 2026-09-21 — Claude
 Status: CONCLUIDO
 Arquivos/tabelas: manifest.json (novo), login.html, dashboard.html, pendencias (Supabase)
