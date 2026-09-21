@@ -20,6 +20,11 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-09-21 — Claude
+Status: CONCLUIDO
+Arquivos/tabelas: nenhum alterado (revisao apenas) — proposals, user_profiles, invoices, quotes, quote_items, api_secrets (Supabase, so leitura)
+Resumo: Conferi direto no banco os achados da auditoria do ChatGPT — confirmados: proposals e user_profiles tem policy "all_access" pra role public (ALL, qual true, sem restricao); invoices/quotes/quote_items liberam SELECT pra anon; api_secrets exige authenticated (nao e anon, mas vale checar se signup publico esta aberto). Fabinho decidiu que o ChatGPT fica responsavel por aplicar as correcoes de RLS nessas tabelas. Eu NAO vou mexer em policies/RLS dessas tabelas ate o ChatGPT concluir e registrar aqui como CONCLUIDO.
+
 ### 2026-09-21 11:05 EDT — ChatGPT
 Status: EM ANDAMENTO
 Arquivos/tabelas: login.html, api/notify-telegram.js (planejado), variavel secreta Vercel (planejada)
