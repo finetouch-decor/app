@@ -960,6 +960,34 @@ async function handleIntelligentQuery(chatId, text) {
 
 // ─── MAIN HANDLER ────────────────────────────────────────────
 export default async function handler(req, res) {
+  // Reconfiguracao segura do webhook apos troca do token: exige um usuario
+  // autenticado com papel administrativo no ERP.
+  if (req.method === 'POST' && req.query?.setup === '1') {
+    const authorization = req.headers.authorization || '';
+    if (!authorization.startsWith('Bearer ') || !BOT_TOKEN || !SUPABASE_KEY) {
+      res.status(401).json({ ok: false, error: 'Unauthorized' }); return;
+    }
+    const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: authorization }
+    });
+    if (!userRes.ok) { res.status(401).json({ ok: false, error: 'Unauthorized' }); return; }
+    const user = await userRes.json();
+    const profiles = await sbGet('user_profiles', `id=eq.${user.id}&select=role,status&limit=1`);
+    const profile = profiles[0];
+    if (!profile || profile.status !== 'approved' || !['admin','owner','superadmin'].includes(profile.role)) {
+      res.status(403).json({ ok: false, error: 'Forbidden' }); return;
+    }
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    const webhookUrl = `https://${host}/api/telegram`;
+    const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: webhookUrl, drop_pending_updates: false })
+    });
+    const result = await tgRes.json();
+    res.status(tgRes.ok && result.ok ? 200 : 502).json({ ok: !!result.ok, description: result.description || null });
+    return;
+  }
   if (req.method !== 'POST') { res.status(200).json({ ok: true }); return; }
 
   try {
