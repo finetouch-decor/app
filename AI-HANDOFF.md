@@ -20,6 +20,11 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-09-21 11:25 EDT — ChatGPT
+Status: CONCLUIDO
+Arquivos/tabelas: login.html, api/notify-telegram.js, variavel TELEGRAM_BOT_TOKEN na Vercel
+Resumo: Removidos o token e o chat ID do JavaScript publico do login. O aviso de novo usuario agora passa por uma funcao no servidor, usa o segredo da Vercel, valida a sessao do Supabase e aceita apenas contas criadas nos ultimos 10 minutos. A credencial antiga foi revogada no BotFather, a nova foi salva na Vercel e o projeto foi republicado.
+
 ### 2026-09-21 — Claude
 Status: CONCLUIDO
 Arquivos/tabelas: nenhum alterado (revisao apenas) — proposals, user_profiles, invoices, quotes, quote_items, api_secrets (Supabase, so leitura)
