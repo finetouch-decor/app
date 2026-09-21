@@ -20,6 +20,11 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-09-21 11:35 EDT — ChatGPT
+Status: CONCLUIDO
+Arquivos/tabelas: AI-TASKS.md
+Resumo: Criada uma fila compartilhada para Fabinho, Maia (ChatGPT) e Claude coordenarem pedidos, responsaveis, prioridades e andamento. O AI-HANDOFF.md continua sendo o registro obrigatorio das mudancas tecnicas concluidas; o conserto do bot do Telegram foi cadastrado como FT-001 em andamento.
+
 ### 2026-09-21 11:25 EDT — ChatGPT
 Status: CONCLUIDO
 Arquivos/tabelas: login.html, api/notify-telegram.js, variavel TELEGRAM_BOT_TOKEN na Vercel
