@@ -20,6 +20,11 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-09-21 11:05 EDT — ChatGPT
+Status: EM ANDAMENTO
+Arquivos/tabelas: login.html, api/notify-telegram.js (planejado), variavel secreta Vercel (planejada)
+Resumo: Correcao do token do Telegram exposto no login. O plano e remover o token e chat ID do navegador, mover o envio para uma funcao no servidor e usar segredo da Vercel; aguardando o Fabinho gerar a nova credencial do mesmo bot no BotFather.
+
 ### 2026-09-21 10:58 EDT — ChatGPT
 Status: CONCLUIDO
 Arquivos/tabelas: login.html, proposals, user_profiles, quotes, quote_items, invoices, api_secrets, campaign_performance, funcoes SQL publicas, storage obra-photos, storage proposal-images
