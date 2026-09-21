@@ -181,7 +181,7 @@ db.auth.onAuthStateChange(async (event, session) => {
 async function notifyTelegram(session) {
   if (!session?.access_token) return;
   try {
-    await fetch('/api/notify-telegram', {
+    await fetch('/api/telegram?notify=1', {
       method: 'POST',
       headers: { Authorization: `Bearer ${session.access_token}` }
     });

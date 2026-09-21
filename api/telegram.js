@@ -5,6 +5,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
 const OPENAI_KEY   = process.env.OPENAI_API_KEY;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const STORAGE_BUCKET = 'obra-photos';
+const NOTIFY_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '7758479066';
 
 // ─── TELEGRAM ────────────────────────────────────────────────
 async function send(chatId, text, opts = {}) {
@@ -960,6 +961,42 @@ async function handleIntelligentQuery(chatId, text) {
 
 // ─── MAIN HANDLER ────────────────────────────────────────────
 export default async function handler(req, res) {
+  // Alerta de novo cadastro pro dono via Telegram: exige sessao Supabase valida
+  // e conta criada nos ultimos 10 minutos, pra nao virar endpoint de spam aberto.
+  if (req.method === 'POST' && req.query?.notify === '1') {
+    const authorization = req.headers.authorization || '';
+    if (!BOT_TOKEN) { res.status(500).json({ error: 'Notification service unavailable' }); return; }
+    if (!authorization.startsWith('Bearer ')) { res.status(401).json({ error: 'Unauthorized' }); return; }
+
+    try {
+      const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: authorization }
+      });
+      if (!userRes.ok) { res.status(401).json({ error: 'Unauthorized' }); return; }
+
+      const user = await userRes.json();
+      const createdAt = Date.parse(user.created_at || '');
+      if (!createdAt || Date.now() - createdAt > 10 * 60 * 1000) {
+        res.status(403).json({ error: 'Notification window expired' }); return;
+      }
+
+      const name = user.user_metadata?.full_name || 'Não informado';
+      const email = user.email || 'Não informado';
+      const message = `🔔 *Novo usuário solicitando acesso ao Fine Touch ERP*\n\n👤 *Nome:* ${name}\n📧 *Email:* ${email}\n\n➡️ Acesse /users para aprovar ou rejeitar.`;
+
+      const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: NOTIFY_CHAT_ID, text: message, parse_mode: 'Markdown' })
+      });
+
+      if (!tgRes.ok) { res.status(502).json({ error: 'Notification failed' }); return; }
+      res.status(200).json({ ok: true }); return;
+    } catch {
+      res.status(500).json({ error: 'Notification failed' }); return;
+    }
+  }
+
   // Reconfiguracao segura do webhook apos troca do token: exige um usuario
   // autenticado com papel administrativo no ERP.
   if (req.method === 'POST' && req.query?.setup === '1') {
