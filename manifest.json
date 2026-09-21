@@ -1,0 +1,25 @@
+{
+  "name": "Fine Touch Decor & Design — ERP",
+  "short_name": "FT ERP",
+  "description": "Sistema interno da Fine Touch Decor & Design",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#102A4B",
+  "theme_color": "#102A4B",
+  "icons": [
+    {
+      "src": "/logo-icon-navy.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-icon-gold.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
