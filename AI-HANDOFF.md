@@ -20,6 +20,16 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-09-22 21:12 EDT — Claude
+Status: CONCLUIDO
+Arquivos/tabelas: invoices.html, funcao SQL fn_auto_create_project_on_invoice_paid (Supabase), projects/invoices (dados da cliente Kerry)
+Resumo: Fabinho marcou o 1o invoice de uma proposta nova da cliente Kerry como pago e a obra nao foi criada automaticamente. Causa raiz: invoices geradas pela aba Propostas nunca tem quote_id (a tabela proposals nao tem FK pra quotes), entao o trigger so criava obra automatica se o cliente nao tivesse NENHUMA obra ainda — cliente recorrente com obra anterior ficava sempre bloqueado, so com aviso pra vincular manualmente. Corrigido o trigger pra tambem confiar no proposal_id (parcelas da mesma proposta) como sinal valido de escopo novo, igual ja fazia com quote_id. Tambem corrigida a propagacao de obra em invoices.html (markPaid) que usava so client_id — agora usa proposal_id/quote_id primeiro, pra nao misturar duas propostas em aberto do mesmo cliente. Reprocessado manualmente o caso da Kerry: obra "Paint Loft + Stairs" criada e vinculada nas 2 parcelas (INV-6416-1 e INV-6416-2). Deploy em producao confirmado (commit 923f963).
+
+### 2026-09-22 (sessao anterior, mesmo dia) — Claude
+Status: CONCLUIDO
+Arquivos/tabelas: api/telegram.js, login.html, api/notify-telegram.js (removido)
+Resumo: Assumi a FT-001 (estava com a Maia/ChatGPT). Consolidei o endpoint de aviso de novo cadastro (antigo api/notify-telegram.js) dentro de api/telegram.js como rota POST autenticada ?notify=1, reaproveitando a mesma validacao de sessao Supabase e janela de 10 min. login.html atualizado pra chamar /api/telegram?notify=1. Isso reduziu as funcoes serverless de 13 pra 12 — e essa era a causa real de os ultimos 2 deploys (antes deste) terem falhado silenciosamente com "exceeded_serverless_functions_per_deployment" (limite do plano Hobby da Vercel): o site ficou rodando uma versao antiga em producao sem ninguem perceber, inclusive o fix anterior do token do Telegram nunca tinha ido ao ar. Commit 15cd143 deployado e confirmado em producao (app-one-amber-58.vercel.app), rotas notify=1 e setup=1 testadas (401 sem auth, como esperado) e /api/notify-telegram confirmado 404. Falta: religar o webhook do Telegram via POST /api/telegram?setup=1 (exige sessao de admin logado — pedi pro Fabinho rodar esse passo, nao consigo autenticar como ele) e validar o fluxo completo de foto de nota fiscal -> OCR -> escolha de obra -> gravacao em purchases/purchase_items com as 2 notas que ficaram pendentes no bot. Ver AI-TASKS.md FT-001.
+
 ### 2026-09-21 11:35 EDT — ChatGPT
 Status: CONCLUIDO
 Arquivos/tabelas: AI-TASKS.md
