@@ -668,11 +668,16 @@ async function markPaid(id) {
   });
 
   // 3. O trigger trg_auto_create_project_on_invoice_paid ja criou/vinculou a obra nesse
-  //    invoice se necessario. Aqui so propagamos esse project_id pros demais invoices
-  //    do mesmo cliente que ainda nao tem obra vinculada (parcelas seguintes).
+  //    invoice se necessario. Aqui so propagamos esse project_id pras OUTRAS PARCELAS
+  //    da MESMA proposta/orcamento (nao pro cliente inteiro — um cliente recorrente
+  //    pode ter mais de uma proposta em aberto ao mesmo tempo, com obras diferentes).
   const projectId = updated?.project_id || null;
   if (projectId) {
-    await db.from("invoices").update({ project_id: projectId }).eq("client_id", inv.client_id).is("project_id", null);
+    let propagate = db.from("invoices").update({ project_id: projectId }).is("project_id", null);
+    if (inv.proposal_id) propagate = propagate.eq("proposal_id", inv.proposal_id);
+    else if (inv.quote_id) propagate = propagate.eq("quote_id", inv.quote_id);
+    else propagate = propagate.eq("client_id", inv.client_id); // invoice manual sem proposta/orcamento vinculado
+    await propagate;
     showToast("✅ Recebido! Obra vinculada automaticamente em /projects 🏗️", "success");
   } else if (updated?.notes && updated.notes.includes("não vinculada automaticamente")) {
     showToast("✅ Pago! Não achei a obra certa automaticamente — confira em /projects.", "error");
