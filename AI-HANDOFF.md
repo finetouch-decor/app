@@ -20,6 +20,35 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-09-24 11:21 EDT — Claude
+Status: EM ANDAMENTO
+Arquivos/tabelas: api/telegram.js; Supabase (migration telegram_dedup_and_atomic_purchase: tabela telegram_processed_updates, funcao create_purchase_with_items); Vercel (env vars novas TELEGRAM_WEBHOOK_SECRET e TELEGRAM_AUTHORIZED_CHAT_IDS)
+Resumo: Implementados os pontos da revisao da Maia (entrada acima, commit 166fc1e). Commit ddeb0d0 deployado em producao (dpl_9P6XRtfBp94z3kALDdKkWrdLwozn, app-one-amber-58.vercel.app).
+
+O que foi feito e ja validado:
+- **Origem do webhook**: `?setup=1` agora registra um `secret_token` no Telegram; o handler principal rejeita (401) qualquer POST sem o header `X-Telegram-Bot-Api-Secret-Token` batendo. Testado: POST sem o header → 401 confirmado em producao.
+- **Remetente autorizado**: novo env `TELEGRAM_AUTHORIZED_CHAT_IDS` (chat_id real do Fabinho, confirmado em `marketing_data.owner_telegram_chat_id` = 5483720444 — **atencao**: e diferente do 7758479066 usado como destino do alerta de cadastro; os dois foram incluidos na lista pra nao travar nada). Mensagem de chat nao autorizado e ignorada (200, sem gravar nada) e logada. Testado com chat_id falso em producao: bloqueado e logado nos runtime logs da Vercel ("Telegram: chat nao autorizado tentou usar o bot: 999999999").
+- **Deduplicacao por update_id**: tabela nova `telegram_processed_updates` (PK update_id, RLS ligado sem policies — so service role acessa). Testado em producao: mandar o mesmo update_id duas vezes devolve `{"duplicate":true}` na segunda sem reprocessar.
+- **Fila persistente por nota**: substitui a chave unica `tg_session_{chatId}` (que uma 2a foto sobrescrevia, e expirava sozinha em 10min) por um estado `{active, pending[]}`. Uma nota/foto que chega com outra conversa em andamento entra na fila e e apresentada depois, sem apagar a que estava ativa. Sem expiracao destrutiva.
+- **Gravacao atomica + sem falso sucesso**: nova funcao Postgres `create_purchase_with_items` (SECURITY DEFINER, so `service_role` pode executar) grava purchase+purchase_items numa unica transacao. O bot so avisa "✅ lancado" depois de confirmar que a gravacao realmente aconteceu; se falhar, so os itens nao gravados ficam retidos pra retry (os que ja gravaram nunca sao regravados, entao retry nao duplica). Testado a funcao isoladamente no banco (dry-run com ROLLBACK) — grava purchase + item corretamente e reverte limpo.
+- **OCR**: agora extrai qty/unit_price por linha (antes gravava sempre quantidade 1); parou de remover "duplicatas" por descricao+valor (podia apagar itens repetidos legitimos — agora a instrucao pro modelo e nao juntar linhas repetidas de verdade, so uma leitura duplicada por erro). Extrai tax/discount da nota e reconcilia contra o total, avisando quando nao bate; taxa/desconto sao rateados proporcionalmente entre as obras quando a nota e dividida.
+- **`GET ?status=1`** (admin): consulta `getWebhookInfo` direto no Telegram sem alterar nada, pra verificar o estado real antes de presumir que falta reconectar.
+- Nao mexi em: filtro de obras so "active" no picker (ja estava correto, preservado), nem em invoices/pagamentos.
+
+Verificado ANTES de mexer: as 2 notas fiscais que ficavam pendentes ja tinham sido processadas hoje as 13:09 e 13:13 (antes desta correcao, pelo codigo antigo) — compras CMP-69907 (Sherwin Williams, $20, obra "Custom Door Frame Fabrication & Installation") e CMP-81778 (Lowe's, $220, mesma obra). Confirmado que nao havia sessao (`tg_session_*`/`tg_queue_*`) pendente no banco. Nao reprocessei essas duas.
+
+**Bloqueio / proximo passo obrigatorio**: o webhook que ja estava registrado no Telegram foi configurado ANTES desta correcao, ou seja, SEM o `secret_token`. Com o secret_token agora sendo exigido, o Telegram vai continuar mandando as atualizacoes reais sem esse header ate o webhook ser re-registrado — ou seja, **o bot vai rejeitar (401) mensagens reais do Fabinho ate ele rodar o `?setup=1` mais uma vez** (dessa vez pra registrar o secret_token, nao repeticao do pedido anterior). Pedido a ele no chat.
+
+Testes da lista da Maia — status:
+- ✅ Remetente nao autorizado rejeitado (testado em producao, sintetico)
+- ✅ Repeticao da mesma atualizacao nao duplica (testado em producao, sintetico)
+- ✅ Falha de gravacao sem falso sucesso + retomada (revisado no codigo; RPC testada isoladamente no banco)
+- ⏳ Nota unica com itens/totais corretos e escolha da obra — precisa de teste real (foto de nota) apos reconectar o webhook
+- ⏳ Duas notas consecutivas sem sobrescrita — idem
+- ⏳ Audio/texto pra escolha da obra — idem
+- ⏳ Compras e itens conferidos no ERP apos teste real — idem
+Nao marco FT-001 como CONCLUIDO ate esses ultimos 4 itens serem confirmados com uso real depois da reconexao do webhook. Botao administrativo de reconexao: nao implementado (webhook ja funcional via `?setup=1`, nao ha necessidade real identificada).
+
 ### 2026-09-24 — ChatGPT (Maia)
 Status: CONCLUIDO
 Arquivos/tabelas: AI-HANDOFF.md (registro); api/telegram.js e AI-TASKS.md revisados somente em leitura

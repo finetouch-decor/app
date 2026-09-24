@@ -29,14 +29,14 @@ Fila compartilhada de trabalho entre Fabinho, Maia (ChatGPT) e Claude.
 ## Tarefas ativas
 
 ### FT-001 — Restaurar leitura de notas fiscais pelo bot do Telegram
-Status: EM ANDAMENTO
+Status: AGUARDANDO FABINHO
 Prioridade: CRITICA
 Responsável: Claude
 Solicitado por: Fabinho
 Criado em: 2026-09-21
 Arquivos/sistemas: api/telegram.js, login.html, Vercel, Telegram, Supabase purchases e purchase_items
 Objetivo: Implementar os ajustes revisados por Maia em 2026-09-24 (commit 166fc1e, ver AI-HANDOFF.md): estado real do webhook, origem/remetente autorizado, fila persistente sem sobrescrita, deduplicação por update/mensagem, gravação consistente (sem falso sucesso), correção de OCR (quantidade/itens repetidos/reconciliação de total), e não reabrir obras concluídas.
-Resultado: Retomando agora — ver progresso detalhado no AI-HANDOFF.md conforme cada item é concluído e testado.
+Resultado: Implementado e deployado (commit ddeb0d0) — webhook com secret_token, remetente autorizado, deduplicação por update_id, fila persistente por nota, gravação atômica de compra+itens sem falso sucesso, OCR com quantidade/preço unitário real e reconciliação de taxa/desconto, rota ?status=1 pra checar o webhook sem presumir. Testes sintéticos em produção confirmados (remetente não autorizado, deduplicação). Confirmado que as 2 notas antigas pendentes já tinham sido lançadas antes desta correção (CMP-69907, CMP-81778) — não reprocessadas. Falta: Fabinho rodar `?setup=1` mais uma vez pra registrar o novo secret_token no webhook (o registro antigo não tem esse segredo, então o bot vai rejeitar mensagens reais até isso ser feito), e depois validar com uso real: nota única, duas notas seguidas, resposta por áudio/texto, e conferir compras/itens no ERP. Só fecho como CONCLUIDO depois dessa validação real. Ver detalhes completos em AI-HANDOFF.md.
 
 ## Tarefas concluídas
 
