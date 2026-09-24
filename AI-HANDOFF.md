@@ -20,6 +20,30 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-09-24 17:30 EDT — Claude
+Status: EM ANDAMENTO (implementado e testado, falta revisão da Maia)
+Arquivos/tabelas: Supabase RLS (clients, projects, purchases, transactions); função get_invoice_for_print (campos restritos)
+Resumo: Segunda rodada da FT-004, respondendo à revisão da Maia (que aprovou a 1ª parte direto no banco: RLS ok em quotes/quote_items/invoices/api_secrets, EXECUTE negado nas 3 funções de trigger).
+
+**Parte que faltava (acesso de pendente a módulos internos)**: `clients`, `projects`, `purchases`, `transactions` tinham policy `authenticated` sem checar aprovado — um usuário recém-cadastrado (pending) conseguiria ler/escrever essas tabelas via API direta. Corrigido com o mesmo padrão (`is_approved_user()`). Cuidados: preservei `site_insert_clients` (policy `anon`, `WITH CHECK source='website'`) **intacta** — é a captação de lead do site, integração legítima que não mexi; em `clients` recriei as 3 policies originais (select/insert/update) separadas em vez de uma `FOR ALL`, porque não existia policy de DELETE antes — não fui ampliar o que a equipe pode fazer, só corrigir o que faltava. Em projects/purchases/transactions a policy original já era `FOR ALL`, preservada como tal.
+
+**`get_invoice_for_print` corrigida**: a versão anterior fazia `to_jsonb(inv)`, devolvendo a linha inteira da invoice (`client_id`, `project_id`, `quote_id`, `proposal_id`, `proposal_bundle_id`, `contract_id`, `pdf_url`, `created_by`, `created_at`, `updated_at`, `paid_date`, `tax` — nenhum usado pela página). Reescrita pra devolver só os campos que `invoice-print.html` realmente lê (conferi linha a linha no arquivo): `id, invoice_number, issue_date, due_date, status, notes, total, subtotal, project_name, project_total` + os mesmos `clients`/`quotes` já restritos antes. Mantive `notes` porque a página exibe esse campo de verdade pro cliente (texto da parcela) — mas registro a ressalva que a Maia pediu: esse mesmo campo também recebe avisos internos do sistema em outro fluxo (o trigger de auto-criação de obra da FT-002 escreve `⚠️ Obra não vinculada automaticamente...` em `invoices.notes`), então se uma invoice compartilhada tiver esse aviso no momento, ele apareceria no link do cliente. Isso é sobre ONDE o trigger escreve, não sobre RLS/quem pode ler — fora do escopo desta tarefa, reportado pra decisão futura, não corrigido.
+
+**Nota de honestidade sobre o mecanismo do link** (pedida explicitamente): o acesso via `get_invoice_for_print` é por **posse do link** (quem tem a URL com o UUID acessa), não por verificação de identidade — não há autenticação de quem está pedindo nem expiração. É exatamente o mesmo nível de proteção que o link já tinha antes (a página nunca teve login); a mudança de hoje só impede que a tabela inteira seja listada via API, não adiciona verificação de identidade nem prazo de validade. Documentado no comentário da própria função no banco.
+
+Testes (tudo com BEGIN/ROLLBACK, usuários reais existentes — Tiele/Fabinho —, nada inventado, nada real alterado, conta de teste NÃO recriada nem re-excluída):
+- ✅ Visitante anônimo: 0 em clients/projects/purchases/transactions.
+- ✅ `site_insert_clients` (lead do site) continua funcionando — testei INSERT como anon com `source='website'`, confirmei que a linha foi gravada de verdade (lendo com `RESET ROLE` depois, já que anon não pode mais ler de volta — isso não é regressão, `clients` nunca teve SELECT pra anon).
+- ✅ Pendente (Tiele com status flipado só dentro da transação): 0 leitura e INSERT rejeitado com erro de RLS em transactions.
+- ✅ Aprovado (Tiele) e Admin (Fabinho): leitura e escrita normais nas 4 tabelas (92 clients, 17 projects, 43 purchases, 28 transactions).
+- ✅ `get_invoice_for_print`: testado com invoice real, payload agora só tem os campos listados acima.
+- ✅ Validado ao vivo no navegador com sessão real do Fabinho: `/projects` carrega os 17 projetos com lucro/margem calculados corretamente (confirma que os JOINs client/purchases/invoices por trás continuam funcionando).
+- Advisor de segurança rodado de novo: nenhum achado novo além dos mesmos avisos intencionais já explicados na entrada anterior.
+
+Nenhum dado financeiro, pagamento ou invoice antiga foi alterado — só políticas de acesso e o formato de retorno de uma função de leitura. Não toquei em FT-003 nem repeti a exclusão da conta de teste.
+
+Falta: revisão final da Maia antes de marcar FT-004 como CONCLUIDO.
+
 ### 2026-09-24 14:10 EDT — Claude
 Status: EM ANDAMENTO (implementado e testado, falta revisão da Maia)
 Arquivos/tabelas: Supabase RLS (quotes, quote_items, invoices, api_secrets); funções fn_auto_approve_quote_on_invoice_paid, fn_auto_create_followup_task_on_project_completed, fn_auto_create_project_on_invoice_paid (revoke), get_invoice_for_print (nova); invoice-print.html
