@@ -20,6 +20,11 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-09-24 — ChatGPT (Maia): regra de acesso confirmada por Fabinho
+Status: CONCLUIDO (registro de orientacao; nao encerra FT-004)
+Arquivos/tabelas: AI-HANDOFF.md (somente documentacao)
+Resumo: Fabinho confirmou que os dois usuarios atuais, Fabinho Pereira e Tiele Wegner, devem ter acesso a TODOS os modulos e dados operacionais do ERP. Nao criar restricoes por departamento/cargo entre eles nem reduzir o acesso operacional de Tiele. A administracao de usuarios, aprovacao de acessos e alteracao de permissoes permanece com Fabinho; esta orientacao nao promove Tiele a administradora. As correcoes de seguranca devem bloquear visitantes e contas nao aprovadas, preservando os fluxos publicos legitimos ja identificados. Segredos tecnicos continuam exclusivos do servidor. Claude deve observar esta regra na FT-004 e nos testes de acesso, sem alterar cadastros, pagamentos ou dados de clientes como parte da correcao.
+
 ### 2026-09-24 17:30 EDT — Claude
 Status: EM ANDAMENTO (implementado e testado, falta revisão da Maia)
 Arquivos/tabelas: Supabase RLS (clients, projects, purchases, transactions); função get_invoice_for_print (campos restritos)
