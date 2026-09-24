@@ -28,15 +28,15 @@ Fila compartilhada de trabalho entre Fabinho, Maia (ChatGPT) e Claude.
 
 ## Tarefas ativas
 
-### FT-003 — Corrigir permissões de acesso (RLS) — proposals e user_profiles
+### FT-004 — RLS de quotes/quote_items/invoices, api_secrets e funções privilegiadas
 Status: EM ANDAMENTO
 Prioridade: CRITICA
-Responsável: Claude (transferido de Maia/ChatGPT nesta tarefa — ver transferência explícita e escopo em AI-HANDOFF.md)
-Solicitado por: Fabinho
+Responsável: Claude
+Solicitado por: Fabinho (via Maia)
 Criado em: 2026-09-24
-Arquivos/sistemas: Supabase RLS (tabelas proposals, user_profiles; funções is_approved_user, is_approved_admin) — sem tocar invoices/quotes/quote_items/pagamentos
-Objetivo: Bloquear leitura/escrita anônima irrestrita em proposals e user_profiles, impedir autoaprovação/elevação de role por usuário comum, manter cadastro pendente + aprovação administrativa + acesso legítimo da equipe funcionando, sem quebrar nenhum fluxo dependente nem apagar dados.
-Resultado: Implementado, testado (visitante/pendente/comum/admin, todos com rollback, sem criar dados reais) e deployado via migration no Supabase. Ver evidências completas, achado crítico incidental (RPC create_purchase_with_items exposta a anon) e detalhes em AI-HANDOFF.md. Falta: Maia revisar o resultado antes de fechar como CONCLUIDO.
+Arquivos/sistemas: Supabase RLS (quotes, quote_items, invoices, api_secrets) e as funções SECURITY DEFINER privilegiadas já identificadas na auditoria (fn_auto_approve_quote_on_invoice_paid, fn_auto_create_followup_task_on_project_completed, fn_auto_create_project_on_invoice_paid) — sem alterar dados financeiros/pagamentos/notas antigas
+Objetivo: Bloquear leitura anônima irrestrita de quotes/quote_items/invoices, impedir que usuário não aprovado acesse módulos internos, corrigir api_secrets e as funções privilegiadas expostas a anon/authenticated sem necessidade. Preservar link legítimo de cliente/site com acesso limitado por documento (não listagem) e o acesso normal da equipe aprovada. Não inventar nova matriz de cargos.
+Resultado: Em andamento — ver progresso e evidências em AI-HANDOFF.md conforme cada item é concluído e testado.
 
 ### FT-001 — Restaurar leitura de notas fiscais pelo bot do Telegram
 Status: EM ANDAMENTO
@@ -49,6 +49,12 @@ Objetivo: Implementar os ajustes revisados por Maia em 2026-09-24 (commit 166fc1
 Resultado: Implementado, deployado (commit 6655703) e testado tecnicamente em produção sem criar despesa real (ver evidências completas em AI-HANDOFF.md): webhook reconectado via segredo operacional do servidor, secret_token confirmado, remetente autorizado restrito ao chat_id comprovado (7758479066 removido por falta de comprovação), checagem de from.id além de chat.id, deduplicação por update_id, liberação de reserva + retry em falha real (testado forçando um erro controlado — devolveu 500 e liberou a reserva), botão "Reconectar Telegram" + status ao vivo dentro do ERP (sem função serverless nova). As 2 notas antigas (CMP-69907, CMP-81778) ficam fora do escopo por decisão explícita do Fabinho — já registradas, preservadas, não reprocessadas. Falta apenas a validação com uso real (não simulável sem criar despesa real): nota única, duas seguidas, resposta por áudio/texto e conferência de compra+itens no ERP. Só fecho como CONCLUIDO depois disso.
 
 ## Tarefas concluídas
+
+### FT-003 — Corrigir permissões de acesso (RLS) — proposals e user_profiles
+Concluída em: 2026-09-24
+Responsável: Claude (transferido de Maia/ChatGPT nesta tarefa)
+Solicitado por: Fabinho
+Resultado: RLS corrigido em proposals e user_profiles (policy aberta removida, acesso restrito a equipe aprovada/admin, sem caminho de auto-aprovação). Achado crítico incidental corrigido: RPC create_purchase_with_items (FT-001) estava executável por anon/authenticated, agora restrita a service_role. Testado (visitante/pendente/comum/admin, tudo com rollback, sem dados reais criados) e validado ao vivo no navegador. Conta de teste test-invite-check@mailinator.com removida de auth.users e user_profiles (confirmado zero registros, não repetido). Revisado e aprovado pela Maia diretamente no banco. Ver detalhes completos em AI-HANDOFF.md.
 
 ### FT-002 — Obra não criada automaticamente ao pagar invoice de cliente recorrente
 Concluída em: 2026-09-22

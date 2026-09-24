@@ -20,6 +20,13 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-09-24 13:05 EDT — ChatGPT (Maia) + Claude
+Status: CONCLUIDO (FT-003) / EM ANDAMENTO (FT-004 aberta)
+Arquivos/tabelas: user_profiles, auth.users (limpeza); AI-TASKS.md (FT-003 fechada, FT-004 criada)
+Resumo: Maia revisou a FT-003 direto no banco e aprovou: RLS ativo, propostas só pra aprovados, perfis editáveis só por admin aprovado, cadastro continua pending/pending, RPC de compras sem execute pra anon/authenticated. Registro a aprovação aqui e fecho a FT-003 como CONCLUIDO (ver entrada completa abaixo com evidências).
+Limpeza solicitada por Fabinho (via Maia): conta de teste `test-invite-check@mailinator.com` removida de `auth.users` e `user_profiles`. Verifiquei diretamente no banco (não repeti a exclusão, já estava feita): zero linhas com esse email em `auth.users`, zero em `user_profiles`, total de usuários caiu de 3 pra 2. Confirmado.
+Próxima tarefa aberta como **FT-004** (ver AI-TASKS.md): revisar/corrigir leitura anônima irrestrita de `quotes`/`quote_items`/`invoices`, acesso de usuário não aprovado a módulos internos, `api_secrets`, e as funções privilegiadas já identificadas no advisor (`fn_auto_approve_quote_on_invoice_paid`, `fn_auto_create_followup_task_on_project_completed`, `fn_auto_create_project_on_invoice_paid`). Escopo explícito antes de alterar: preservar link legítimo de cliente/site com acesso limitado por documento (não listagem) e o acesso normal da equipe aprovada; não inventar nova matriz de cargos; não alterar dados financeiros/pagamentos/notas antigas; migrations reversíveis; testes sem dados permanentes nem mensagens externas.
+
 ### 2026-09-24 12:15 EDT — Claude
 Status: EM ANDAMENTO
 Arquivos/tabelas: Supabase RLS — tabelas `proposals` e `user_profiles`; funções novas `is_approved_user()`, `is_approved_admin()`; grants de `create_purchase_with_items` (correção incidental crítica, ver abaixo)
