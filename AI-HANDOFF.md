@@ -25,6 +25,38 @@ Status: CONCLUIDO (registro de orientacao; nao encerra FT-004)
 Arquivos/tabelas: AI-HANDOFF.md (somente documentacao)
 Resumo: Fabinho confirmou que os dois usuarios atuais, Fabinho Pereira e Tiele Wegner, devem ter acesso a TODOS os modulos e dados operacionais do ERP. Nao criar restricoes por departamento/cargo entre eles nem reduzir o acesso operacional de Tiele. A administracao de usuarios, aprovacao de acessos e alteracao de permissoes permanece com Fabinho; esta orientacao nao promove Tiele a administradora. As correcoes de seguranca devem bloquear visitantes e contas nao aprovadas, preservando os fluxos publicos legitimos ja identificados. Segredos tecnicos continuam exclusivos do servidor. Claude deve observar esta regra na FT-004 e nos testes de acesso, sem alterar cadastros, pagamentos ou dados de clientes como parte da correcao.
 
+### 2026-09-24 18:20 EDT — Claude
+Status: EM ANDAMENTO (implementado e testado, falta revisão final da Maia)
+Arquivos/tabelas: Supabase RLS — activity_log, catalog_portfolio, catalog_products, catalog_services, content_queue, contracts, fb_leads_processed, leads, marketing_campaigns, marketing_data, marketing_tasks, pendencias, project_stages, proposal_bundle_items, proposal_bundles, purchase_items, qr_scans, suppliers, tasks, profiles, invoice_items
+
+**Correção de registro pedida pela Maia**: a entrada anterior (18:10/17:30) disse "Maia aprovou a 1ª parte direto no banco". Impreciso — a Maia confirmou controles específicos (RLS ativo, policies is_approved_user, EXECUTE negado nas 3 funções de trigger), mas não aprovou a conclusão da FT-004. Registrando a correção aqui em vez de reescrever a entrada antiga.
+
+**Terceira rodada — varredura completa em vez de tabela por tabela**: a Maia apontou que `leads` e `purchase_items` continuavam com `authenticated ... USING/WITH CHECK (true)` (mesmo buraco de pendente-acessa-via-API das rodadas anteriores) e pediu uma conferência única de todas as tabelas internas relacionadas. Rodei `pg_policies` pra schema `public` inteiro e corrigi de uma vez todas as que tinham o mesmo padrão:
+
+**Corrigidas (authenticated → exige is_approved_user(), mesmo conjunto de comandos que já tinham antes, nada ampliado)**: activity_log, catalog_portfolio, catalog_products, catalog_services, content_queue, contracts, fb_leads_processed (só SELECT, não tinha insert/update), leads (select/insert/update — preservei `site_insert_leads` anon intacta), marketing_campaigns, marketing_data, marketing_tasks, pendencias, project_stages, proposal_bundle_items, proposal_bundles, purchase_items, qr_scans (só o SELECT — preservei `qr_scans_insert_anon` intacta, é leitura de QR físico escaneado por qualquer um, conteúdo público intencional), suppliers, tasks.
+
+**Travadas 100% (sem policy nenhuma pro cliente, só service_role)**: `profiles` e `invoice_items` — busquei no repo inteiro, nenhum código lê ou escreve nelas (parecem tabelas mortas/legadas; `profiles` é distinta de `user_profiles`, que é a usada de verdade).
+
+**Sinalizado, NÃO alterado (fora do padrão "pendente via authenticated", categoria diferente)**: `competitors` tem uma policy `competitors_public_read` pro role `public` (SELECT, true) — ou seja, hoje qualquer um sem sessão nenhuma pode ler dados de análise de concorrentes. É usada só em marketing.html (página interna). Isso não é sobre pendente-vs-aprovado (é exposição a anon mesmo), e o nome da policy sugere intenção deliberada de alguém — não mudei sem confirmação. Recomendo revisar depois se é realmente pra ser pública.
+
+**Pendência separada registrada (não corrigida agora, por pedido explícito — não mexer em notas antigas)**: o campo `invoices.notes` mistura texto legítimo pro cliente (descrição da parcela) com avisos internos do sistema (ex: o trigger da FT-002 escreve "⚠️ Obra não vinculada automaticamente..." nesse mesmo campo). Isso pode vazar um aviso interno pro link público de `get_invoice_for_print` se coincidir. Fica registrado como item futuro — separar os dois usos (ex: mover avisos internos pra outro campo/tabela) é uma mudança de modelagem, não de RLS, e não vou tocar em notas já gravadas.
+
+**Regra de acesso Fabinho/Tiele (registrada por ChatGPT/Fabinho logo acima, li antes de continuar)**: meu desenho já está alinhado — `is_approved_user()` dá acesso operacional igual pra qualquer usuário aprovado (Tiele e Fabinho incluídos), sem distinção de cargo/departamento; só a gestão de `user_profiles` (aprovar/rejeitar/mudar role) continua exclusiva de `is_approved_admin()`. Nenhuma matriz de cargos nova foi criada.
+
+**Testes** (BEGIN/ROLLBACK, usuários reais, nada inventado, nada real alterado, conta de teste não recriada):
+- ✅ Anônimo: 0 em TODAS as 21 tabelas corrigidas/travadas nesta rodada (consulta única com subquery por tabela).
+- ✅ Pendente (Tiele com status flipado só na transação): 0 leitura nas 21; INSERT rejeitado com erro de RLS em `leads` e em `purchase_items` (testados individualmente com client_id/purchase_id reais).
+- ✅ Aprovado (Tiele) e Admin (Fabinho): mesmos números em todas as tabelas (leads=92, purchase_items=74, suppliers=14, tasks=14, catalog_portfolio=17, etc.); INSERT funcionando em `leads` e `purchase_items`.
+- ✅ `site_insert_leads` (anon, source=website) e `qr_scans_insert_anon` (anon) continuam funcionando — testados e confirmados com leitura via `RESET ROLE` depois (anon não lê de volta, não é regressão).
+- ✅ Validado ao vivo no navegador (sessão real do Fabinho): `/tasks` carrega normal (obras no dropdown, 6 tarefas atrasadas).
+- Advisor de segurança: sem achados novos além dos avisos intencionais já conhecidos; `profiles`/`invoice_items` aparecem como "RLS sem policy" (esperado, é o mesmo padrão do `api_secrets`).
+
+Nenhum dado financeiro, cadastro ou nota antiga foi alterado — só políticas de acesso. Não toquei em FT-003 nem repeti a exclusão de conta.
+
+**Lista completa de tabelas conferidas nesta tarefa (FT-004, as 3 rodadas)**: proposals, user_profiles (FT-003) · quotes, quote_items, invoices, api_secrets, fn_auto_approve_quote_on_invoice_paid, fn_auto_create_followup_task_on_project_completed, fn_auto_create_project_on_invoice_paid (rodada 1) · clients, projects, purchases, transactions, get_invoice_for_print (rodada 2) · activity_log, catalog_portfolio, catalog_products, catalog_services, content_queue, contracts, fb_leads_processed, leads, marketing_campaigns, marketing_data, marketing_tasks, pendencias, project_stages, proposal_bundle_items, proposal_bundles, purchase_items, qr_scans, suppliers, tasks, profiles, invoice_items (rodada 3). **Exceções legítimas preservadas sem alteração**: site_insert_clients, site_insert_leads, qr_scans_insert_anon (conteúdo/captação pública intencional) e as integrações via service_role (Telegram bot, invite-user). **Sinalizado sem corrigir**: competitors_public_read.
+
+Falta: revisão final da Maia antes de marcar FT-004 como CONCLUIDO.
+
 ### 2026-09-24 17:30 EDT — Claude
 Status: EM ANDAMENTO (implementado e testado, falta revisão da Maia)
 Arquivos/tabelas: Supabase RLS (clients, projects, purchases, transactions); função get_invoice_for_print (campos restritos)
