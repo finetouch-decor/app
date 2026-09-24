@@ -29,14 +29,14 @@ Fila compartilhada de trabalho entre Fabinho, Maia (ChatGPT) e Claude.
 ## Tarefas ativas
 
 ### FT-001 — Restaurar leitura de notas fiscais pelo bot do Telegram
-Status: AGUARDANDO FABINHO
+Status: EM ANDAMENTO
 Prioridade: CRITICA
 Responsável: Claude
 Solicitado por: Fabinho
 Criado em: 2026-09-21
 Arquivos/sistemas: api/telegram.js, login.html, Vercel, Telegram, Supabase purchases e purchase_items
-Objetivo: Depois da troca do token, religar o webhook do bot e confirmar o fluxo completo: foto da nota, leitura dos itens, lista de obras ativas, separação dos valores, escolha da obra e gravação no ERP.
-Resultado: Assumi a tarefa (estava com a Maia). Consolidei api/notify-telegram.js dentro de api/telegram.js (rota ?notify=1), removi o arquivo antigo e reduzi as funções serverless de 13 para 12 — descobri que esse era o motivo real dos 2 últimos deploys terem falhado silenciosamente ("exceeded_serverless_functions_per_deployment", limite do plano Hobby da Vercel), deixando a produção presa numa versão antiga. Deploy do commit 15cd143 confirmado no ar (app-one-amber-58.vercel.app); rotas ?notify=1 e ?setup=1 testadas e corretas. Falta: Fabinho rodar a reconexão do webhook (POST /api/telegram?setup=1 — precisa de sessão de admin logado, não posso autenticar como ele) e confirmar que as 2 notas fiscais que ficaram pendentes no bot passam por OCR → escolha de obra → gravação em purchases/purchase_items sem duplicar. Passo a passo enviado ao Fabinho no chat.
+Objetivo: Implementar os ajustes revisados por Maia em 2026-09-24 (commit 166fc1e, ver AI-HANDOFF.md): estado real do webhook, origem/remetente autorizado, fila persistente sem sobrescrita, deduplicação por update/mensagem, gravação consistente (sem falso sucesso), correção de OCR (quantidade/itens repetidos/reconciliação de total), e não reabrir obras concluídas.
+Resultado: Retomando agora — ver progresso detalhado no AI-HANDOFF.md conforme cada item é concluído e testado.
 
 ## Tarefas concluídas
 
