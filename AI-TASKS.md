@@ -29,14 +29,14 @@ Fila compartilhada de trabalho entre Fabinho, Maia (ChatGPT) e Claude.
 ## Tarefas ativas
 
 ### FT-001 — Restaurar leitura de notas fiscais pelo bot do Telegram
-Status: AGUARDANDO FABINHO
+Status: EM ANDAMENTO
 Prioridade: CRITICA
 Responsável: Claude
 Solicitado por: Fabinho
 Criado em: 2026-09-21
-Arquivos/sistemas: api/telegram.js, login.html, Vercel, Telegram, Supabase purchases e purchase_items
-Objetivo: Implementar os ajustes revisados por Maia em 2026-09-24 (commit 166fc1e, ver AI-HANDOFF.md): estado real do webhook, origem/remetente autorizado, fila persistente sem sobrescrita, deduplicação por update/mensagem, gravação consistente (sem falso sucesso), correção de OCR (quantidade/itens repetidos/reconciliação de total), e não reabrir obras concluídas.
-Resultado: Implementado e deployado (commit ddeb0d0) — webhook com secret_token, remetente autorizado, deduplicação por update_id, fila persistente por nota, gravação atômica de compra+itens sem falso sucesso, OCR com quantidade/preço unitário real e reconciliação de taxa/desconto, rota ?status=1 pra checar o webhook sem presumir. Testes sintéticos em produção confirmados (remetente não autorizado, deduplicação). Confirmado que as 2 notas antigas pendentes já tinham sido lançadas antes desta correção (CMP-69907, CMP-81778) — não reprocessadas. Falta: Fabinho rodar `?setup=1` mais uma vez pra registrar o novo secret_token no webhook (o registro antigo não tem esse segredo, então o bot vai rejeitar mensagens reais até isso ser feito), e depois validar com uso real: nota única, duas notas seguidas, resposta por áudio/texto, e conferir compras/itens no ERP. Só fecho como CONCLUIDO depois dessa validação real. Ver detalhes completos em AI-HANDOFF.md.
+Arquivos/sistemas: api/telegram.js, users.html, Vercel, Telegram, Supabase purchases e purchase_items
+Objetivo: Implementar os ajustes revisados por Maia em 2026-09-24 (commit 166fc1e, ver AI-HANDOFF.md), incluindo a segunda rodada de correções pedida por ela (segredo operacional server-side em vez de sessão do navegador, botão de reconexão no ERP, lista de remetentes restrita a valor comprovado, checagem de from.id, e correção da janela de perda de update em falha real).
+Resultado: Implementado, deployado (commit 6655703) e testado tecnicamente em produção sem criar despesa real (ver evidências completas em AI-HANDOFF.md): webhook reconectado via segredo operacional do servidor, secret_token confirmado, remetente autorizado restrito ao chat_id comprovado (7758479066 removido por falta de comprovação), checagem de from.id além de chat.id, deduplicação por update_id, liberação de reserva + retry em falha real (testado forçando um erro controlado — devolveu 500 e liberou a reserva), botão "Reconectar Telegram" + status ao vivo dentro do ERP (sem função serverless nova). As 2 notas antigas (CMP-69907, CMP-81778) ficam fora do escopo por decisão explícita do Fabinho — já registradas, preservadas, não reprocessadas. Falta apenas a validação com uso real (não simulável sem criar despesa real): nota única, duas seguidas, resposta por áudio/texto e conferência de compra+itens no ERP. Só fecho como CONCLUIDO depois disso.
 
 ## Tarefas concluídas
 

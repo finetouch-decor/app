@@ -20,8 +20,35 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
-### 2026-09-24 11:21 EDT — Claude
+### 2026-09-24 11:41 EDT — Claude
 Status: EM ANDAMENTO
+Arquivos/tabelas: api/telegram.js; users.html (novo botão "Reconectar Telegram" + status); Vercel (env var nova TELEGRAM_OPS_SECRET; TELEGRAM_AUTHORIZED_CHAT_IDS corrigida)
+Resumo: Segunda rodada, respondendo à revisão da Maia sobre a entrada anterior (abaixo). Commit 6655703 deployado (dpl_EqHVXELZJV8XSReZaQJdptiYWLKb).
+
+Correções desta rodada:
+- **Reconexão sem sessão do navegador**: `?setup=1`/`?status=1` agora também aceitam um segredo operacional (`TELEGRAM_OPS_SECRET`, header `X-Ops-Secret`) só conhecido pelo ambiente do servidor — usei esse caminho pra terminar de registrar o `secret_token` no Telegram sem extrair nem depender da sessão do Fabinho. Nunca enfraqueceu a proteção existente (sessão de admin continua funcionando igual).
+- **Botão "Reconectar Telegram" + status real, dentro do ERP**: adicionado em `/users` (página já admin-only), com status ao vivo (`getWebhookInfo`) e botão de reconexão — usa a própria sessão do navegador já logado (mesmo padrão que `notifyTelegram()` em login.html), nunca extraída por mim. Não precisa mais de console/código manual daqui pra frente. Não criou função serverless nova (reaproveita api/telegram.js) — continua em 12 funções.
+- **Removido o 7758479066 da lista autorizada**: a Maia estava certa — eu tinha incluído "por segurança" um valor que eu mesmo já tinha dito não ter comprovação de ser do Fabinho pra fins de RECEBER comandos (é só o destino de envio do alerta de cadastro, papel diferente). `TELEGRAM_AUTHORIZED_CHAT_IDS` agora tem só o `5483720444`, o único confirmado em `marketing_data.owner_telegram_chat_id` a partir de mensagens reais já recebidas.
+- **Checagem de remetente, não só de chat**: agora valida `message.from.id` além de `chat.id`. Hoje é redundante (chat privado = mesma pessoa), mas evita que, se o bot um dia entrar num grupo, o chat_id do grupo sozinho autorize qualquer membro dele.
+- **Corrigida janela real de perda de update numa falha**: eu reservava o `update_id` (marcando como processado) ANTES de processar, mas sempre devolvia 200 mesmo numa falha genuína — resultado: se o processamento quebrasse de verdade no meio (bug, banco fora do ar), a atualização ficava marcada "processada" pra sempre e o Telegram nunca reentregava (200 = entregue), perdendo a nota. Agora uma falha real (não os erros esperados de input, que os handlers já tratam e devolvem 200 normalmente) libera a reserva do update_id e devolve status não-200, deixando o retry nativo do Telegram reprocessar de verdade.
+
+Testes controlados (sem criar despesa real, todos limpos depois):
+- ✅ Webhook reconectado via segredo operacional do servidor — confirmado `getWebhookInfo` sem backlog (`pending_update_count:0`) antes e depois.
+- ✅ Remetente com chat autorizado mas `from.id` diferente → bloqueado e logado ("remetente nao autorizado... from: 111111111").
+- ✅ Remetente com chat E from.id autorizados → processado normalmente (comando `ajuda`, sem gravação financeira).
+- ✅ POST sem secret_token, mesmo remetente autorizado → 401 (proteção de origem independente da autorização de remetente).
+- ✅ Falha real forçada de propósito (payload sem `chat`, erro não tratado) → devolveu 500 (não 200) e a reserva do update_id foi liberada (conferido no banco: linha não ficou presa) — exatamente o comportamento que evita perder a atualização.
+- Todos os `update_id` sintéticos usados nos testes foram apagados da tabela `telegram_processed_updates` depois (não são dados reais, só marcadores de deduplicação).
+
+**Atualização explícita do Fabinho**: as 2 notas antigas (CMP-69907, CMP-81778) ficam fora do escopo de lançamento/reprocessamento — já registradas, preservadas sem alteração, não usadas pra validar esta implementação. A validação funcional completa do fluxo (foto → OCR → escolha de obra → gravação) com uma nota real fica para quando o Fabinho usar o bot normalmente; vou acompanhar quando isso acontecer.
+
+Diferenciando o que está CONCLUÍDO tecnicamente do que falta validar com uso real:
+- ✅ Concluído e testado: origem do webhook (secret_token), remetente autorizado (chat+from, lista restrita a valor comprovado), deduplicação por update_id, liberação de reserva + retry em falha real, botão de reconexão no ERP, função atômica de gravação (testada isolada no banco com rollback).
+- ⏳ Falta validar com uso real do Fabinho (não simulável sem criar despesa real): nota única com itens/totais corretos, duas notas consecutivas sem sobrescrita, resposta por áudio/texto, conferência de compra+itens gravados no ERP.
+Não marco FT-001 como CONCLUÍDO até esses itens serem validados com uso real.
+
+### 2026-09-24 11:21 EDT — Claude
+Status: EM ANDAMENTO (revisado — ver entrada acima; o item "botão administrativo" e a lista de chat_id autorizado desta entrada foram corrigidos na rodada seguinte)
 Arquivos/tabelas: api/telegram.js; Supabase (migration telegram_dedup_and_atomic_purchase: tabela telegram_processed_updates, funcao create_purchase_with_items); Vercel (env vars novas TELEGRAM_WEBHOOK_SECRET e TELEGRAM_AUTHORIZED_CHAT_IDS)
 Resumo: Implementados os pontos da revisao da Maia (entrada acima, commit 166fc1e). Commit ddeb0d0 deployado em producao (dpl_9P6XRtfBp94z3kALDdKkWrdLwozn, app-one-amber-58.vercel.app).
 
