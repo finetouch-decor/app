@@ -158,6 +158,17 @@
     <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value" id="count-total">—</div></div>
   </div>
 
+  <div class="section-title">Integrações</div>
+  <div class="user-table" style="padding:18px 20px;margin-bottom:28px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-weight:700;color:var(--navy);font-size:14px;">🤖 Bot do Telegram</div>
+        <div id="tg-status-text" style="font-size:12px;color:var(--muted);margin-top:4px;">Verificando status...</div>
+      </div>
+      <button class="btn-approve" style="padding:9px 18px;font-size:13px;" id="tg-reconnect-btn" onclick="reconnectTelegram()">🔄 Reconectar Telegram</button>
+    </div>
+  </div>
+
   <div class="section-title">Pendentes de Aprovação</div>
   <div id="table-pending" class="user-table"><div class="empty">Carregando...</div></div>
 
@@ -192,9 +203,55 @@ async function init() {
   document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
 
   await loadUsers();
+  await loadTelegramStatus();
 }
 
 db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
+
+// ─── INTEGRAÇÃO TELEGRAM ──────────────────────────────────────
+// Usa a própria sessão do admin já logado nesta página (igual ao restante do
+// sistema) pra chamar as rotas administrativas do bot — nunca guarda nem expõe
+// o token do bot em lugar nenhum do navegador, só o access_token do Supabase
+// que o app já usa pra tudo mais.
+async function tgAuthHeader() {
+  const { data: { session } } = await db.auth.getSession();
+  return session ? `Bearer ${session.access_token}` : null;
+}
+
+async function loadTelegramStatus() {
+  const el = document.getElementById('tg-status-text');
+  try {
+    const auth = await tgAuthHeader();
+    if (!auth) { el.textContent = '⚠️ Sessão expirada — recarregue a página.'; return; }
+    const res = await fetch('/api/telegram?status=1', { headers: { Authorization: auth } });
+    const info = await res.json();
+    if (!res.ok) { el.textContent = `⚠️ ${info.error || 'Não foi possível verificar o status.'}`; return; }
+    const r = info.result || info;
+    if (!r || !r.url) { el.textContent = '⚠️ Nenhum webhook configurado no Telegram no momento.'; return; }
+    const pending = r.pending_update_count || 0;
+    const lastErr = r.last_error_message ? ` · ⚠️ último erro: ${r.last_error_message}` : '';
+    el.textContent = `✅ Conectado${pending ? ` · ${pending} atualização(ões) na fila do Telegram` : ''}${lastErr}`;
+  } catch (e) {
+    el.textContent = '⚠️ Erro ao verificar status do webhook.';
+  }
+}
+
+async function reconnectTelegram() {
+  const btn = document.getElementById('tg-reconnect-btn');
+  btn.disabled = true; btn.textContent = 'Reconectando...';
+  try {
+    const auth = await tgAuthHeader();
+    if (!auth) { showToast('Sessão expirada — recarregue a página.', 'error'); return; }
+    const res = await fetch('/api/telegram?setup=1', { method: 'POST', headers: { Authorization: auth } });
+    const data = await res.json();
+    if (res.ok && data.ok) showToast('✅ Webhook do Telegram reconectado!', 'success');
+    else showToast('Erro ao reconectar: ' + (data.error || data.description || 'desconhecido'), 'error');
+  } catch (e) {
+    showToast('Erro ao reconectar.', 'error');
+  }
+  btn.disabled = false; btn.textContent = '🔄 Reconectar Telegram';
+  await loadTelegramStatus();
+}
 
 async function loadUsers() {
   const { data, error } = await db.from('user_profiles').select('*').order('created_at', {ascending:false});

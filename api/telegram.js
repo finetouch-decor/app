@@ -10,10 +10,19 @@ const NOTIFY_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '7758479066';
 // chamada do webhook (configurado via setWebhook). Confirma que a requisicao veio
 // mesmo do Telegram, nao de qualquer POST publico batendo no endpoint.
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || '';
-// So estes chat_id podem operar o bot (ele roda com service role, sem RLS). Sem a
-// env var configurada, cai no chat_id do dono conhecido pra nao quebrar em producao.
+// Segredo operacional pra concluir a configuracao (?setup=1 / ?status=1) direto do
+// servidor logo apos o deploy, sem depender de sessao de navegador nem imprimir o
+// token do bot em lugar nenhum. So quem publica o deploy (o proprio Vercel env) tem
+// esse valor. O botao "Reconectar Telegram" dentro do ERP (users.html) continua
+// funcionando via sessao de admin normalmente -- este e so um segundo caminho.
+const OPS_SECRET = process.env.TELEGRAM_OPS_SECRET || '';
+// So estes remetentes podem operar o bot (ele roda com service role, sem RLS).
+// Restrito ao chat_id realmente confirmado em uso (marketing_data.owner_telegram_chat_id,
+// populado por mensagens reais ja recebidas) -- NAO usa o TELEGRAM_CHAT_ID de envio de
+// alertas como fallback, porque esse valor nunca foi comprovado como pertencente ao
+// Fabinho pra fins de RECEBER comandos (e um destino de notificacao, papel diferente).
 const AUTHORIZED_CHAT_IDS = new Set(
-  (process.env.TELEGRAM_AUTHORIZED_CHAT_IDS || NOTIFY_CHAT_ID).split(',').map(s => s.trim()).filter(Boolean)
+  (process.env.TELEGRAM_AUTHORIZED_CHAT_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
 );
 
 // ─── TELEGRAM ────────────────────────────────────────────────
@@ -1174,6 +1183,15 @@ async function requireAdmin(authorization) {
   return { ok: true, user };
 }
 
+// Segunda forma de autorizar ?setup=1/?status=1, alem da sessao de admin: um
+// segredo operacional (TELEGRAM_OPS_SECRET) conhecido so pelo ambiente do servidor.
+// Existe pra concluir a configuracao logo apos um deploy sem depender de ninguem
+// estar logado no navegador -- nunca aparece no cliente, nunca e impresso em log.
+function requireOpsSecret(req) {
+  if (!OPS_SECRET) return false;
+  return req.headers['x-ops-secret'] === OPS_SECRET;
+}
+
 // ─── MAIN HANDLER ────────────────────────────────────────────
 export default async function handler(req, res) {
   // Alerta de novo cadastro pro dono via Telegram: exige sessao Supabase valida
@@ -1213,10 +1231,13 @@ export default async function handler(req, res) {
   }
 
   // Reconfiguracao segura do webhook apos troca do token: exige um usuario
-  // autenticado com papel administrativo no ERP.
+  // autenticado com papel administrativo no ERP (botao "Reconectar Telegram" em
+  // /users), OU o segredo operacional do servidor (uso direto logo apos um deploy).
   if (req.method === 'POST' && req.query?.setup === '1') {
-    const admin = await requireAdmin(req.headers.authorization || '');
-    if (!admin.ok) { res.status(admin.code).json({ ok: false, error: admin.error }); return; }
+    if (!requireOpsSecret(req)) {
+      const admin = await requireAdmin(req.headers.authorization || '');
+      if (!admin.ok) { res.status(admin.code).json({ ok: false, error: admin.error }); return; }
+    }
     if (!BOT_TOKEN || !SUPABASE_KEY) { res.status(500).json({ ok: false, error: 'Missing config' }); return; }
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     const webhookUrl = `https://${host}/api/telegram`;
@@ -1235,8 +1256,10 @@ export default async function handler(req, res) {
   // Consulta o estado real do webhook no Telegram (sem alterar nada) -- pra
   // verificar antes de presumir que uma reconexao e necessaria.
   if (req.method === 'GET' && req.query?.status === '1') {
-    const admin = await requireAdmin(req.headers.authorization || '');
-    if (!admin.ok) { res.status(admin.code).json({ ok: false, error: admin.error }); return; }
+    if (!requireOpsSecret(req)) {
+      const admin = await requireAdmin(req.headers.authorization || '');
+      if (!admin.ok) { res.status(admin.code).json({ ok: false, error: admin.error }); return; }
+    }
     if (!BOT_TOKEN) { res.status(500).json({ ok: false, error: 'Missing config' }); return; }
     const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo`);
     const info = await tgRes.json();
@@ -1271,13 +1294,18 @@ export default async function handler(req, res) {
     if (!message) { res.status(200).json({ ok: true }); return; }
 
     chatId = message.chat.id;
+    const fromId = message.from?.id;
     const text = (message.text || '').trim();
 
     // So processa remetentes autorizados -- o handler roda com service role (sem
     // RLS), entao qualquer pessoa que descubra o bot nao pode disparar leitura de
     // notas, gravacao no ERP nem sobrescrever o chat_id do dono usado por automacoes.
-    if (!AUTHORIZED_CHAT_IDS.has(String(chatId))) {
-      console.warn('Telegram: chat nao autorizado tentou usar o bot:', chatId);
+    // Confere chat_id E from_id: num chat privado os dois sao a mesma pessoa, mas se
+    // o bot algum dia entrar num GRUPO, o chat_id do grupo sozinho nao autorizaria
+    // qualquer membro dele a mandar comando -- precisa ser o remetente autorizado
+    // especificamente.
+    if (!AUTHORIZED_CHAT_IDS.has(String(chatId)) || (fromId != null && !AUTHORIZED_CHAT_IDS.has(String(fromId)))) {
+      console.warn('Telegram: remetente nao autorizado tentou usar o bot. chat:', chatId, 'from:', fromId);
       res.status(200).json({ ok: true }); return;
     }
 
@@ -1335,10 +1363,25 @@ export default async function handler(req, res) {
     res.status(200).json({ ok: true });
   } catch (err) {
     console.error(err);
-    // Avisa o usuario que algo quebrou em vez de deixar silencio (que parece sucesso).
-    // Responde 200 pro Telegram de qualquer forma pra nao entrar em loop de retry --
-    // a deduplicacao por update_id ja evita reprocessamento se ele reentregar mesmo assim.
-    if (chatId) { try { await send(chatId, '❌ Erro inesperado ao processar sua mensagem. Nada foi gravado — tente novamente.'); } catch {} }
-    res.status(200).json({ ok: true });
+    // Libera a reserva do update_id: a falha pode ter acontecido antes de qualquer
+    // gravacao real ter sido feita, entao NAO fica marcado como "processado" pra
+    // sempre -- se nao liberarmos, o retry do Telegram (habilitado pelo status
+    // nao-200 abaixo) seria descartado pela deduplicacao e a atualizacao se perderia
+    // de vez, que era exatamente o risco que essa checagem devia evitar.
+    if (updateId != null) {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/telegram_processed_updates?update_id=eq.${updateId}`, {
+          method: 'DELETE',
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+        });
+      } catch {}
+    }
+    if (chatId) { try { await send(chatId, '⚠️ Tive um problema técnico processando sua mensagem. O Telegram deve tentar reentregar automaticamente — se não vier resposta em alguns minutos, reenvie.'); } catch {} }
+    // Devolve erro de verdade (nao 200): um 200 aqui diria ao Telegram que a
+    // atualizacao foi entregue com sucesso e ele NUNCA mais reenviaria, perdendo a
+    // nota/mensagem de vez numa falha real de infraestrutura (nao confundir com os
+    // erros "esperados" de input do usuario, que os handlers ja tratam e respondem
+    // 200 normalmente sem chegar aqui).
+    res.status(500).json({ ok: false });
   }
 }
