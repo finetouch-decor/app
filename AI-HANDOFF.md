@@ -20,6 +20,16 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-09-24 14:10 EDT — Claude
+Status: EM ANDAMENTO (implementado e testado, falta revisão da Maia)
+Arquivos/tabelas: Supabase RLS (quotes, quote_items, invoices, api_secrets); funções fn_auto_approve_quote_on_invoice_paid, fn_auto_create_followup_task_on_project_completed, fn_auto_create_project_on_invoice_paid (revoke), get_invoice_for_print (nova); invoice-print.html
+Resumo: FT-004 (1ª parte). `quotes`/`quote_items`: policy aberta a anon+authenticated (sem checar aprovado) trocada por acesso só de equipe aprovada — não existe página pública de orçamento. `invoices`: mesmo problema (mais grave, dado financeiro) — mas `invoice-print.html` É um link público legítimo real (confirmei no código, sem sessão, lê por `?id=`). Preservei o link: criei `get_invoice_for_print(uuid)` (SECURITY DEFINER, retorna só a invoice pedida com cliente/orçamento/itens) e atualizei a página pra chamar essa função em vez da tabela direto — mesmo link, sem listagem possível via API. `api_secrets`: nenhum código cliente usa (busquei no repo todo) — travado 100% pro cliente, só service_role. As 3 funções privilegiadas da auditoria: `EXECUTE` revogado de anon/authenticated/PUBLIC; confirmei com teste (rollback) que o trigger de invoice paga continua funcionando normalmente.
+Testes (tudo com BEGIN/ROLLBACK, usuários reais existentes, nada inventado, nada real alterado): anônimo e pendente = 0 linhas e 0 escrita nas 4 tabelas; aprovado e admin = acesso total a quotes/quote_items/invoices, 0 em api_secrets pra todo mundo (nenhum cargo novo inventado, só travado igual pra todos via API). `get_invoice_for_print` testado com invoice real (retornou dados completos corretos) e com id falso (retornou nulo, sem erro, sem vazar nada). Validado AO VIVO no navegador (sessão isolada, sem login) que o link do invoice continua funcionando normal. Advisor de segurança rodado no final: nenhum achado novo além dos avisos esperados/intencionais (as próprias `get_invoice_for_print`/`is_approved_admin`/`is_approved_user` aparecerem como "chamável por authenticated" é necessário pro RLS funcionar, não é falha).
+Não alterei nenhum dado financeiro, pagamento ou invoice antiga — só políticas de acesso.
+Observação (não corrigida, fora de escopo): a página `invoice-print.html` mostra botões "Edit"/"Delete" pra qualquer visitante (não checa sessão pra exibir a UI) — mas cliques nesses botões já são bloqueados de verdade pelo RLS agora (testado, 0 linhas afetadas), então não é um risco real, só um detalhe de UI que pode ser limpo depois se quiserem.
+Ficou de fora desta rodada (pré-existente, não pedido, não é dependência indispensável): `campaign_performance` (view SECURITY DEFINER), `fn_auto_approve_quote_on_invoice_paid`/`fn_auto_create_followup_task_on_project_completed` sem `search_path` fixo, proteção de senha vazada desativada no Auth.
+Falta: Maia revisar antes de marcar FT-004 como CONCLUIDO.
+
 ### 2026-09-24 13:05 EDT — ChatGPT (Maia) + Claude
 Status: CONCLUIDO (FT-003) / EM ANDAMENTO (FT-004 aberta)
 Arquivos/tabelas: user_profiles, auth.users (limpeza); AI-TASKS.md (FT-003 fechada, FT-004 criada)

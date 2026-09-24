@@ -36,7 +36,7 @@ Solicitado por: Fabinho (via Maia)
 Criado em: 2026-09-24
 Arquivos/sistemas: Supabase RLS (quotes, quote_items, invoices, api_secrets) e as funções SECURITY DEFINER privilegiadas já identificadas na auditoria (fn_auto_approve_quote_on_invoice_paid, fn_auto_create_followup_task_on_project_completed, fn_auto_create_project_on_invoice_paid) — sem alterar dados financeiros/pagamentos/notas antigas
 Objetivo: Bloquear leitura anônima irrestrita de quotes/quote_items/invoices, impedir que usuário não aprovado acesse módulos internos, corrigir api_secrets e as funções privilegiadas expostas a anon/authenticated sem necessidade. Preservar link legítimo de cliente/site com acesso limitado por documento (não listagem) e o acesso normal da equipe aprovada. Não inventar nova matriz de cargos.
-Resultado: Em andamento — ver progresso e evidências em AI-HANDOFF.md conforme cada item é concluído e testado.
+Resultado: 1ª parte implementada, deployada (commit 8d6d911) e testada: quotes/quote_items/invoices restritos a equipe aprovada (sem checar approved antes); api_secrets travada 100% (sem uso client-side, service_role only); link público de invoice-print.html preservado via nova função get_invoice_for_print (mesmo ?id=, sem listagem); EXECUTE revogado das 3 funções privilegiadas da auditoria (trigger testado, continua funcionando). Testes visitante/pendente/aprovado/admin ok, validado ao vivo no navegador sem sessão. Ver evidências completas em AI-HANDOFF.md. Falta: revisão da Maia.
 
 ### FT-001 — Restaurar leitura de notas fiscais pelo bot do Telegram
 Status: EM ANDAMENTO
