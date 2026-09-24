@@ -28,6 +28,16 @@ Fila compartilhada de trabalho entre Fabinho, Maia (ChatGPT) e Claude.
 
 ## Tarefas ativas
 
+### FT-003 — Corrigir permissões de acesso (RLS) — proposals e user_profiles
+Status: EM ANDAMENTO
+Prioridade: CRITICA
+Responsável: Claude (transferido de Maia/ChatGPT nesta tarefa — ver transferência explícita e escopo em AI-HANDOFF.md)
+Solicitado por: Fabinho
+Criado em: 2026-09-24
+Arquivos/sistemas: Supabase RLS (tabelas proposals, user_profiles; funções is_approved_user, is_approved_admin) — sem tocar invoices/quotes/quote_items/pagamentos
+Objetivo: Bloquear leitura/escrita anônima irrestrita em proposals e user_profiles, impedir autoaprovação/elevação de role por usuário comum, manter cadastro pendente + aprovação administrativa + acesso legítimo da equipe funcionando, sem quebrar nenhum fluxo dependente nem apagar dados.
+Resultado: Implementado, testado (visitante/pendente/comum/admin, todos com rollback, sem criar dados reais) e deployado via migration no Supabase. Ver evidências completas, achado crítico incidental (RPC create_purchase_with_items exposta a anon) e detalhes em AI-HANDOFF.md. Falta: Maia revisar o resultado antes de fechar como CONCLUIDO.
+
 ### FT-001 — Restaurar leitura de notas fiscais pelo bot do Telegram
 Status: EM ANDAMENTO
 Prioridade: CRITICA

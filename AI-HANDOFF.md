@@ -20,6 +20,38 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-09-24 12:15 EDT — Claude
+Status: EM ANDAMENTO
+Arquivos/tabelas: Supabase RLS — tabelas `proposals` e `user_profiles`; funções novas `is_approved_user()`, `is_approved_admin()`; grants de `create_purchase_with_items` (correção incidental crítica, ver abaixo)
+
+**Transferência explícita de responsabilidade (registrada antes de iniciar qualquer mudança, por pedido direto do Fabinho)**: a entrada de 2026-09-21 abaixo ("Log RLS audit review — ChatGPT owns the fix") atribuía a correção de RLS de `proposals`, `user_profiles`, `invoices`, `quotes`, `quote_items`, `api_secrets` à Maia/ChatGPT, e eu registrei explicitamente que não mexeria nessas tabelas até ela concluir. Fabinho agora autorizou e pediu que EU execute, **especificamente e apenas** `proposals` e `user_profiles` — as demais tabelas (`invoices`, `quotes`, `quote_items`, `api_secrets`, pagamentos) continuam fora do meu escopo e não foram tocadas nesta tarefa; a atribuição delas a quem for corrigi-las permanece como estava. Maia coordena/revisa este trabalho, não duplica a implementação.
+
+**Estado real confirmado antes de mudar** (não presumi nada da auditoria antiga): reconfirmei via `pg_policies` que ambas as tabelas tinham uma única policy `all_access`, role `public`, `USING (true) WITH CHECK (true)` — leitura E escrita totalmente livres pra qualquer um com a chave anon pública, exatamente como a auditoria original apontou.
+
+**Fluxos dependentes mapeados antes de mudar** (pra não quebrar nada):
+- Cadastro: a linha em `user_profiles` é criada por um trigger `on_auth_user_created` → função `handle_new_user()`, que é `SECURITY DEFINER` — roda com privilégio do dono, não passa por RLS. Confirmado que não quebra com a correção.
+- Convite (`api/invite-user.js`) e o gate administrativo do bot do Telegram (`api/telegram.js`) usam a `SUPABASE_SERVICE_ROLE_KEY` — bypassam RLS, não afetados.
+- Todo "estou logado e aprovado?" (login.html, dashboard.html, users.html, proposals.html, quotes.html, etc. — mapeado ~17 arquivos) faz `select('status,role,...').eq('id', session.user.id)` — precisa continuar podendo ler a PRÓPRIA linha.
+- Aprovar/rejeitar/revogar em `users.html` faz `UPDATE user_profiles SET status,role,... .eq('id', outroUsuario)` — só chamado por quem já é admin (checagem hoje só no cliente; agora also reforçada no banco).
+- **Propostas para clientes**: procurei ativamente por uma página pública de visualização/aceite de proposta por link (era a premissa do pedido) e **não existe nenhuma** — `proposals.html` e `proposal-bundles.html` exigem sessão autenticada 100% do tempo; o que é enviado ao cliente é um PDF exportado (botão "Salvar PDF" / `window.print()`), não um link vivo no app. Ou seja, não havia nenhum "link já enviado" a preservar tecnicamente — reporto isso explicitamente pra Maia/Fabinho confirmarem que não existe outro mecanismo que eu não tenha encontrado.
+
+**Migration aplicada** (reversível — SQL de rollback completo no comentário da própria migration, nenhuma linha de dado apagada):
+- `user_profiles`: removida `all_access`; criadas `self_select` (autenticado lê só a própria linha), `admin_select_all` e `admin_update_any` (só admin aprovado lê/atualiza qualquer linha — via função `is_approved_admin()`). Nenhuma policy de UPDATE existe pra usuário comum — ele não tem NENHUM caminho de escrita liberado pra `role`/`status`, então autoaprovação/autopromoção fica impossível, não só bloqueada por regra de negócio.
+- `proposals`: removida `all_access`; criada `team_full_access` (qualquer membro da equipe aprovado, via `is_approved_user()`, mantém acesso total — não restringi a admin porque o app atual não restringe proposals a admin especificamente).
+- Precisei mover a checagem "sou admin/aprovado?" pra funções `SECURITY DEFINER` (`is_approved_admin`, `is_approved_user`) porque uma policy que consulta a própria tabela via subquery direta causa recursão infinita no Postgres (testado, decisão baseada em erro real, não suposição).
+
+**Achado crítico incidental (fora do escopo desta tarefa, corrigido na hora por ser risco financeiro ativo)**: rodando o advisor de segurança do Supabase depois da migration, descobri que a função `create_purchase_with_items` (criada por mim mesmo na FT-001, usada pelo bot do Telegram) estava com `EXECUTE` concedido a `anon` e `authenticated` — ou seja, **qualquer pessoa com a chave pública anon podia chamar `/rest/v1/rpc/create_purchase_with_items` direto e criar compras/despesas falsas no banco real**, sem passar pelo bot nem por nenhuma autorização. Causa: `REVOKE ALL ... FROM PUBLIC` não remove grants que o Supabase concede DIRETO às roles `anon`/`authenticated` (fora de `PUBLIC`) em funções novas por padrão — eu não sabia disso na hora de implementar a FT-001. Corrigido imediatamente: `REVOKE EXECUTE ... FROM anon, authenticated`, deixando só `postgres`/`service_role`. Confirmado no advisor que o achado sumiu da lista. Também revoguei `anon` (mantendo `authenticated`, necessário pras policies novas) de `is_approved_admin`/`is_approved_user` por precaução, embora o risco ali fosse baixo (a função só responde true/false sobre o próprio `auth.uid()`, que é nulo pra anon).
+
+**Testes controlados** (todos dentro de `BEGIN...ROLLBACK`, simulando `auth.uid()` de usuários REAIS já existentes — não inventei usuário nenhum, não mandei mensagem/convite a ninguém, nenhum dado real foi alterado):
+- ✅ Visitante anônimo: 0 linhas visíveis em `user_profiles` e `proposals`; tentativa de INSERT em `proposals` rejeitada (erro de RLS); tentativa de UPDATE em `user_profiles` afeta 0 linhas.
+- ✅ Usuário pendente (Test User): vê só a própria linha em `user_profiles` (1, não as 3), 0 propostas; tentativa de se auto-aprovar/virar admin afeta 0 linhas.
+- ✅ Usuário aprovado comum (Tiele): vê só a própria linha em `user_profiles` (não a lista toda), vê as 83 propostas (acesso de equipe preservado); tentativa de se auto-promover a admin afeta 0 linhas.
+- ✅ Admin (Fabinho): vê as 3 linhas de `user_profiles`, aprova/rejeita outro usuário com sucesso (1 linha afetada), lê e insere em `proposals` normalmente.
+- ✅ `create_purchase_with_items`: confirmado nos grants reais que `anon`/`authenticated` não conseguem mais chamar (só `service_role`).
+- Não testei o gate administrativo do bot do Telegram nem os links de cliente porque ambos usam a service role key (bypassam RLS) e/ou não existem (proposta = PDF, não link) — nada a testar nesses dois pontos especificamente para RLS.
+
+Não marco como CONCLUIDO até a Maia revisar. Nenhuma tabela além de `proposals`/`user_profiles` foi alterada (as pré-existentes `fn_auto_approve_quote_on_invoice_paid`, `fn_auto_create_followup_task_on_project_completed`, `fn_auto_create_project_on_invoice_paid` também aparecem no advisor como `SECURITY DEFINER` chamáveis por anon/authenticated — são anteriores a hoje, tocam invoices/quotes, e ficam de fora por decisão explícita de escopo desta tarefa; reporto pra registro, não corrigi).
+
 ### 2026-09-24 11:41 EDT — Claude
 Status: EM ANDAMENTO
 Arquivos/tabelas: api/telegram.js; users.html (novo botão "Reconectar Telegram" + status); Vercel (env var nova TELEGRAM_OPS_SECRET; TELEGRAM_AUTHORIZED_CHAT_IDS corrigida)
