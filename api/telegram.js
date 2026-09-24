@@ -6,6 +6,15 @@ const OPENAI_KEY   = process.env.OPENAI_API_KEY;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const STORAGE_BUCKET = 'obra-photos';
 const NOTIFY_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '7758479066';
+// Segredo que o Telegram devolve no header X-Telegram-Bot-Api-Secret-Token em toda
+// chamada do webhook (configurado via setWebhook). Confirma que a requisicao veio
+// mesmo do Telegram, nao de qualquer POST publico batendo no endpoint.
+const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || '';
+// So estes chat_id podem operar o bot (ele roda com service role, sem RLS). Sem a
+// env var configurada, cai no chat_id do dono conhecido pra nao quebrar em producao.
+const AUTHORIZED_CHAT_IDS = new Set(
+  (process.env.TELEGRAM_AUTHORIZED_CHAT_IDS || NOTIFY_CHAT_ID).split(',').map(s => s.trim()).filter(Boolean)
+);
 
 // ─── TELEGRAM ────────────────────────────────────────────────
 async function send(chatId, text, opts = {}) {
@@ -103,15 +112,18 @@ async function extractReceiptItems(imageUrl) {
         role: 'user',
         content: [
           { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
-          { type: 'text', text: `Analise esta nota fiscal/recibo e extraia cada item de linha com sua descrição e valor.
+          { type: 'text', text: `Analise esta nota fiscal/recibo e extraia cada item de linha com descrição, quantidade, preço unitário e valor total da linha.
 Ignore QR codes, barcodes e cabeçalhos. Foque apenas no texto impresso com descrições de produtos e valores.
 Retorne SOMENTE um JSON válido neste formato (sem markdown):
-{"store":"nome da loja","total":99.99,"items":[{"desc":"descrição do produto","value":9.99},{"desc":"outro produto","value":5.00}]}
-Se a nota tiver itens com quantidade x preço unitário, calcule o valor total de cada linha.
-Se não conseguir identificar itens individuais, retorne o total como um único item com desc "Compra geral".` }
+{"store":"nome da loja","total":99.99,"tax":0,"discount":0,"items":[{"desc":"descrição do produto","qty":1,"unit_price":9.99,"value":9.99}]}
+Regras importantes:
+- Se a linha tiver quantidade x preço unitário impressos, preencha qty e unit_price corretamente e value = qty * unit_price.
+- Se a nota tiver duas ou mais linhas do MESMO produto impressas separadamente (compras repetidas), mantenha cada uma como uma linha distinta — não junte nem remova linhas repetidas legítimas. Só elimine uma linha se for claramente o mesmo texto lido duas vezes por erro (ex: OCR duplicou a mesma linha física).
+- Se a nota mostrar imposto (tax) ou desconto (discount) separados do valor dos itens, preencha esses campos; senão retorne 0 para ambos.
+- Se não conseguir identificar itens individuais, retorne o total como um único item com desc "Compra geral", qty 1 e unit_price igual ao total.` }
         ]
       }],
-      max_tokens: 500
+      max_tokens: 600
     })
   });
   const data = await res.json();
@@ -119,13 +131,16 @@ Se não conseguir identificar itens individuais, retorne o total como um único 
   if (data.error) return { _raw: `ERRO OpenAI: ${data.error.message}`, _error: 'api error' };
   try {
     const parsed = JSON.parse(content.replace(/```json|```/g, '').trim());
-    // Remove itens duplicados (mesma desc + value)
-    const seen = new Set();
-    parsed.items = (parsed.items || []).filter(it => {
-      const key = `${it.desc}|${it.value}`;
-      if (seen.has(key)) return false;
-      seen.add(key); return true;
+    // Normaliza qty/unit_price/value (nao remove itens repetidos -- podem ser legitimos,
+    // ver instrucao no prompt acima; a IA ja foi orientada a nao duplicar por erro de leitura).
+    parsed.items = (parsed.items || []).map(it => {
+      const qty = Number(it.qty) || 1;
+      const unitPrice = it.unit_price != null ? Number(it.unit_price) : (Number(it.value) || 0) / qty;
+      const value = it.value != null ? Number(it.value) : qty * unitPrice;
+      return { desc: it.desc, qty, unit_price: Math.round(unitPrice * 100) / 100, value: Math.round(value * 100) / 100 };
     });
+    parsed.tax = Number(parsed.tax) || 0;
+    parsed.discount = Number(parsed.discount) || 0;
     return parsed;
   }
   catch { return { _raw: `Parse falhou. Resposta: ${content.slice(0, 400)}`, _error: 'parse failed' }; }
@@ -267,28 +282,80 @@ async function transcribeAudio(audioUrl) {
   return data.text || '';
 }
 
-// ─── SESSÃO TEMPORÁRIA (Supabase marketing_data como KV) ─────
-async function saveSession(chatId, data) {
-  await fetch(`${SUPABASE_URL}/rest/v1/marketing_data`, {
-    method: 'POST',
-    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
-    body: JSON.stringify({ key: `tg_session_${chatId}`, value: data, updated_at: new Date().toISOString() })
-  });
+// ─── FILA PERSISTENTE POR NOTA (Supabase marketing_data como KV) ─────
+// Cada chat tem UM estado { active, pending[] }. "active" e a nota/conversa em
+// andamento agora; "pending" sao notas/fotos que chegaram enquanto uma outra
+// conversa ja estava em andamento -- antes elas SOBRESCREVIAM a sessao ativa e
+// se perdiam. Agora entram na fila e sao apresentadas em ordem, sem perder nada.
+// Nao ha expiracao destrutiva: cada nota carrega os proprios dados (itens, obras
+// disponiveis no momento da leitura), entao retomar depois de muito tempo continua
+// seguro -- so o usuario decide quando responder.
+async function getQueueState(chatId) {
+  const rows = await sbGet('marketing_data', `key=eq.tg_queue_${chatId}&select=value`);
+  const v = rows[0]?.value || {};
+  return { active: v.active || null, pending: Array.isArray(v.pending) ? v.pending : [] };
 }
 
-async function getSession(chatId) {
-  const rows = await sbGet('marketing_data', `key=eq.tg_session_${chatId}&select=value,updated_at`);
-  if (!rows.length) return null;
-  const age = Date.now() - new Date(rows[0].updated_at).getTime();
-  if (age > 10 * 60 * 1000) return null; // expira em 10 min
-  return rows[0].value;
+async function saveQueueState(chatId, state) {
+  await sbUpsert('marketing_data', { key: `tg_queue_${chatId}`, value: state, updated_at: new Date().toISOString() }, 'key');
 }
 
-async function clearSession(chatId) {
-  await fetch(`${SUPABASE_URL}/rest/v1/marketing_data?key=eq.tg_session_${chatId}`, {
+async function clearQueueState(chatId) {
+  await fetch(`${SUPABASE_URL}/rest/v1/marketing_data?key=eq.tg_queue_${chatId}`, {
     method: 'DELETE',
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
   });
+}
+
+// Coloca uma nota nova pra tramitar: se nao ha nada em andamento, ela vira a ativa
+// (started:true, chame presentNote pra mostrar); senao entra na fila (started:false).
+async function enqueueNote(chatId, note) {
+  const state = await getQueueState(chatId);
+  note.id = note.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
+  note.createdAt = new Date().toISOString();
+  if (!state.active) {
+    state.active = note;
+    await saveQueueState(chatId, state);
+    return { started: true, note };
+  }
+  state.pending.push(note);
+  await saveQueueState(chatId, state);
+  return { started: false, position: state.pending.length, note };
+}
+
+// Atualiza a nota ativa em andamento (ex: usuario escolheu a obra, aguardando audio).
+async function updateActive(chatId, data) {
+  const state = await getQueueState(chatId);
+  state.active = data;
+  await saveQueueState(chatId, state);
+}
+
+// Encerra a nota ativa (concluida) e promove a proxima da fila, se houver.
+// Retorna a nova nota ativa (pra ser apresentada) ou null se a fila esvaziou.
+async function advanceQueue(chatId) {
+  const state = await getQueueState(chatId);
+  if (state.pending.length) {
+    state.active = state.pending.shift();
+    await saveQueueState(chatId, state);
+    return state.active;
+  }
+  await clearQueueState(chatId);
+  return null;
+}
+
+async function getSession(chatId) {
+  const state = await getQueueState(chatId);
+  return state.active;
+}
+
+// Mantido pelo nome por compatibilidade com o restante do arquivo: "limpar a sessao"
+// agora significa "concluir a nota ativa e avancar a fila".
+async function clearSession(chatId) {
+  return advanceQueue(chatId);
+}
+
+async function saveSession(chatId, data) {
+  return updateActive(chatId, data);
 }
 
 // ─── GPT INTERPRETA RESPOSTA DO USUÁRIO ──────────────────────
@@ -463,23 +530,77 @@ async function handlePhoto(chatId, fileId) {
   filteredProjects.forEach(p => { p.client_name = p.clients?.name || ''; });
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-  // Salvar sessão com itens E projetos mapeados por letra
+  // Monta a nota (itens + obras mapeadas por letra) e entra na fila: se nao ha
+  // nenhuma conversa em andamento nesse chat ela vira a ativa na hora; se ja tem
+  // uma nota sendo respondida, esta entra na fila e e apresentada depois -- sem
+  // apagar a que estava em andamento (era o bug antigo: a 2a foto sobrescrevia a 1a).
   const projectsByLetter = {};
   filteredProjects.forEach((p, i) => { if (i < 26) projectsByLetter[letters[i]] = p; });
-  await saveSession(chatId, { kind: 'invoice', items: data.items, store: data.store, total: data.total, projectsByLetter });
+  const note = {
+    kind: 'invoice',
+    items: data.items,
+    store: data.store,
+    total: data.total,
+    tax: data.tax || 0,
+    discount: data.discount || 0,
+    // fixado na criacao: se uma resposta parcial falhar e sobrar so alguns itens
+    // pra retry, o rateio de taxa/desconto continua usando a base ORIGINAL da nota
+    // (nao a soma dos itens restantes), senao o retry herdaria 100% da taxa/desconto
+    // que deveria ter sido dividida entre todos os grupos.
+    baseSubtotal: data.items.reduce((s, it) => s + Number(it.value || 0), 0),
+    projectsByLetter,
+  };
+  const { started, position } = await enqueueNote(chatId, note);
+  if (started) {
+    await presentInvoiceNote(chatId, note);
+  } else {
+    await send(chatId, `📥 Nota de *${data.store || 'fornecedor'}* ($${Number(data.total || 0).toFixed(2)}) recebida e guardada na fila (posição ${position}). Termine a conversa atual que eu pergunto sobre essa em seguida — nada foi perdido.`);
+  }
+}
 
-  const itemList    = data.items.map((it, i) => `*${i+1}.* ${it.desc} — $${Number(it.value).toFixed(2)}`).join('\n');
-  const projectList = filteredProjects.map((p, i) => i < 26 ? `*${letters[i]}.* ${p.name}${p.client_name ? ' — '+p.client_name : ''}` : '').filter(Boolean).join('\n') || '_Nenhuma obra em andamento no momento._';
+// Monta e envia a mensagem com itens + obras de uma nota fiscal. Usada tanto pra
+// apresentar uma nota nova quanto pra retomar uma nota que estava na fila.
+async function presentInvoiceNote(chatId, note, opts = {}) {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const itemList = note.items.map((it, i) => `*${i+1}.* ${it.desc}${it.qty && Number(it.qty) !== 1 ? ' (x' + it.qty + ')' : ''} — $${Number(it.value).toFixed(2)}`).join('\n');
+  const entries = Object.entries(note.projectsByLetter || {});
+  const projectList = entries.map(([letter, p]) => `*${letter}.* ${p.name}${p.client_name ? ' — ' + p.client_name : ''}`).join('\n') || '_Nenhuma obra em andamento no momento._';
+
+  // Reconciliação: soma dos itens + imposto - desconto deve bater com o total impresso
+  // na nota. Se nao bater, avisa em vez de considerar os valores validados sem checagem.
+  // Pulado num retry parcial: "note.items" ali é só o que falhou, não a nota inteira,
+  // então comparar com o total da nota completa daria um alerta falso.
+  const sumItems = note.items.reduce((s, it) => s + Number(it.value || 0), 0);
+  const expectedTotal = sumItems + Number(note.tax || 0) - Number(note.discount || 0);
+  const noteTotal = Number(note.total || 0);
+  const diff = Math.abs(expectedTotal - noteTotal);
+  const reconcileWarning = (!opts.retry && diff > 0.5)
+    ? `\n\n⚠️ *Confira antes de responder:* itens${note.tax ? ` + taxa $${Number(note.tax).toFixed(2)}` : ''}${note.discount ? ` - desconto $${Number(note.discount).toFixed(2)}` : ''} = $${expectedTotal.toFixed(2)}, mas a nota mostra $${noteTotal.toFixed(2)}.`
+    : '';
+
+  const header = opts.retry
+    ? `🧾 *Itens pendentes${note.store ? ' de ' + note.store : ''}*`
+    : `🧾 *${note.store || 'Nota Fiscal'}* — Total: $${noteTotal.toFixed(2)}`;
 
   await send(chatId,
-    `🧾 *${data.store || 'Nota Fiscal'}* — Total: $${Number(data.total||0).toFixed(2)}\n\n` +
+    `${header}\n\n` +
     `*Itens:*\n${itemList}\n\n` +
-    `*Obras em andamento:*\n${projectList}\n\n` +
+    `*Obras em andamento:*\n${projectList}${reconcileWarning}\n\n` +
     `Responda com itens e obras:\n` +
     `Ex: \`itens 1 e 3 obra A, item 2 obra B, resto ignorar\`\n` +
     `_(Pode responder por áudio!)_\n` +
     `_Obra já concluída não aparece aqui — reabra o status dela em /projects se precisar lançar algo nela._`
   );
+}
+
+// Ao concluir a nota/foto ativa, se havia outra na fila ela vira a ativa e precisa
+// ser apresentada ao usuario (prompt de itens+obras, ou retomada do batch de fotos).
+async function presentNote(chatId, note) {
+  if (!note) return;
+  if (note.kind === 'invoice') { await presentInvoiceNote(chatId, note); return; }
+  if (note.kind === 'photos') {
+    await send(chatId, `📸 Retomando ${note.photoUrls?.length || 0} foto(s) pendente(s) de obra.\nManda mais fotos ou responda *pronto* quando terminar.`);
+  }
 }
 
 async function handleProjectPhoto(chatId, telegramUrl) {
@@ -492,11 +613,22 @@ async function handleProjectPhoto(chatId, telegramUrl) {
     return;
   }
 
-  const existing = (await getSession(chatId)) || {};
-  const photoUrls = existing.kind === 'photos' ? [...(existing.photoUrls || []), publicUrl] : [publicUrl];
-  await saveSession(chatId, { kind: 'photos', photoUrls });
+  // So acumula na MESMA sessao ativa se ela ja for um batch de fotos em andamento;
+  // caso contrario entra na fila (nao sobrescreve o que estiver em andamento).
+  const state = await getQueueState(chatId);
+  if (state.active?.kind === 'photos') {
+    const photoUrls = [...(state.active.photoUrls || []), publicUrl];
+    await updateActive(chatId, { ...state.active, photoUrls });
+    await send(chatId, `📸 Foto recebida (${photoUrls.length} até agora).\nManda mais fotos dessa obra ou responda *pronto* quando terminar.`);
+    return;
+  }
 
-  await send(chatId, `📸 Foto recebida (${photoUrls.length} até agora).\nManda mais fotos dessa obra ou responda *pronto* quando terminar.`);
+  const { started, position } = await enqueueNote(chatId, { kind: 'photos', photoUrls: [publicUrl] });
+  if (started) {
+    await send(chatId, `📸 Foto recebida (1 até agora).\nManda mais fotos dessa obra ou responda *pronto* quando terminar.`);
+  } else {
+    await send(chatId, `📸 Foto guardada na fila (posição ${position}) — tem outra conversa em andamento. Termine a atual que eu aviso quando for a vez dessa foto.`);
+  }
 }
 
 async function showProjectPickerForPhotos(chatId, session) {
@@ -578,8 +710,9 @@ async function handlePhotoSessionReply(chatId, text, session) {
 async function handleAudioNoteReply(chatId, text, session) {
   const t = text.trim().toLowerCase();
   if (t === 'pular' || t === 'nao' || t === 'não' || t === 'skip' || t === 'não quero' || t === 'nao quero') {
-    await clearSession(chatId);
+    const nextNote = await clearSession(chatId);
     await send(chatId, `Tranquilo! 👍\n\n🔗 [Ver no Marketing](https://app-one-amber-58.vercel.app/marketing)`);
+    await presentNote(chatId, nextNote);
     return true;
   }
 
@@ -589,8 +722,9 @@ async function handleAudioNoteReply(chatId, text, session) {
     body: JSON.stringify({ owner_notes: text, owner_notes_updated_at: new Date().toISOString() }),
   });
 
-  await clearSession(chatId);
+  const nextNote = await clearSession(chatId);
   await send(chatId, `📝 Anotado! Isso vai ajudar bastante na hora de gerar o texto de *${session.portfolioName}*.\n\n🔗 [Ver no Marketing](https://app-one-amber-58.vercel.app/marketing)`);
+  await presentNote(chatId, nextNote);
   return true;
 }
 
@@ -627,44 +761,105 @@ async function handleSessionReply(chatId, text) {
   const date = new Date().toISOString().slice(0,10);
   const supplier = await getOrCreateSupplier(session.store);
   const results = [];
+  const failedIdx = []; // itens cujo grupo falhou ao gravar -- ficam retidos pra retry, sem duplicar o que ja gravou
 
   // Agrupa itens por destino para criar uma compra por destino
-  const groups = {}; // dest → [{ item, amount }]
+  const groups = {}; // dest → [{ idx, item, amount }]
   for (const [idxStr, dest] of Object.entries(assignments)) {
     const idx  = parseInt(idxStr);
     const item = items[idx];
     if (!item) continue;
     if (dest === 'ignorar') { results.push(`⏭️ ${item.desc} — ignorado`); continue; }
     if (!groups[dest]) groups[dest] = [];
-    groups[dest].push({ item, amount: Number(item.value) });
+    groups[dest].push({ idx, item, amount: Number(item.value) });
   }
+
+  // Reconciliação: taxa/desconto da nota (se houver) sao rateados proporcionalmente
+  // entre as obras/destinos, pra o total gravado bater com o total real pago por cada uma,
+  // em vez de simplesmente somar os valores de linha e ignorar taxa/desconto.
+  const noteSubtotal = Number(session.baseSubtotal) || items.reduce((s, it) => s + Number(it.value || 0), 0);
+  const adjustment = Number(session.tax || 0) - Number(session.discount || 0);
 
   for (const [dest, itens] of Object.entries(groups)) {
     const subtotal = itens.reduce((s, x) => s + x.amount, 0);
-    const num = 'CMP-' + Date.now().toString().slice(-5);
+    const share = noteSubtotal > 0 ? subtotal / noteSubtotal : 0;
+    const total = Math.round((subtotal + adjustment * share) * 100) / 100;
+    const num = 'CMP-' + Date.now().toString().slice(-5) + '-' + Math.random().toString(36).slice(2, 4);
 
-    let purchRes;
-    if (dest === 'geral') {
-      purchRes = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', supplier_id: supplier?.id || null, status: 'received', order_date: date, subtotal, total: subtotal });
-    } else {
+    let projectId = null;
+    let destLabel = dest === 'geral' ? 'custo geral' : dest;
+    if (dest !== 'geral') {
       const proj = projectMap[dest] || projectMap[dest.toUpperCase()] || Object.values(projectMap).find(p => p.name && (p.name.toLowerCase().includes(dest) || dest.includes(p.name.toLowerCase())));
-      if (!proj) { itens.forEach(x => results.push(`❌ ${x.item.desc} — obra "${dest}" não encontrada`)); continue; }
-      purchRes = await sbInsert('purchases', { purchase_number: num, supplier_name: session.store || 'Telegram', supplier_id: supplier?.id || null, project_id: proj.id, status: 'received', order_date: date, subtotal, total: subtotal });
-      groups[dest]._projName = proj.name;
+      if (!proj) {
+        itens.forEach(x => { results.push(`❌ ${x.item.desc} — obra "${dest}" não encontrada`); });
+        continue; // erro de digitação do usuario, nao de gravacao -- nao entra em failedIdx (nao ha pra onde gravar)
+      }
+      projectId = proj.id;
+      destLabel = proj.name;
     }
 
-    const purch = Array.isArray(purchRes) ? purchRes[0] : purchRes;
-    if (purch?.id) {
-      await sbInsert('purchase_items', itens.map(x => ({ purchase_id: purch.id, description: x.item.desc, quantity: 1, unit_price: x.amount, total: x.amount })));
+    const purchasePayload = {
+      purchase_number: num,
+      supplier_name: session.store || 'Telegram',
+      supplier_id: supplier?.id || null,
+      project_id: projectId,
+      status: 'received',
+      order_date: date,
+      subtotal,
+      total,
+    };
+    const itemsPayload = itens.map(x => ({
+      description: x.item.desc,
+      quantity: Number(x.item.qty) || 1,
+      unit_price: Number(x.item.unit_price) || x.amount,
+      total: x.amount,
+    }));
+
+    // Grava compra + itens numa unica transacao (RPC create_purchase_with_items) --
+    // ou os dois entram, ou nenhum entra. So confirma sucesso pro usuario depois de
+    // confirmar que a gravacao realmente aconteceu (nunca antes, como acontecia antes
+    // quando o insert falhava em silencio e a mensagem de sucesso saia igual).
+    try {
+      const purch = await createPurchaseWithItems(purchasePayload, itemsPayload);
+      if (!purch?.id) throw new Error('RPC nao retornou id da compra');
+      results.push(`✅ ${itens.length} item(s) ($${total.toFixed(2)}) → ${destLabel}`);
+    } catch (e) {
+      console.error('Falha ao gravar compra do Telegram:', dest, e);
+      itens.forEach(x => failedIdx.push(x.idx));
+      results.push(`❌ Falha ao gravar ${itens.length} item(s) de "${destLabel}" — mantive pendente, tenta responder de novo.`);
     }
-    const destLabel = dest === 'geral' ? 'custo geral' : (groups[dest]._projName || dest);
-    results.push(`✅ ${itens.length} item(s) ($${subtotal.toFixed(2)}) → ${destLabel}`);
   }
 
-  await clearSession(chatId);
   const supplierNote = supplier?.isNew ? `\n\n🏢 *Novo fornecedor cadastrado:* ${session.store}` : '';
+
+  if (failedIdx.length) {
+    // Mantem so os itens que falharam na sessao ativa (os que ja gravaram nao voltam
+    // a aparecer, pra nao duplicar compra se o usuario responder de novo).
+    const remainingItems = failedIdx.map(i => items[i]);
+    const updatedNote = { ...session, items: remainingItems };
+    await updateActive(chatId, updatedNote);
+    await send(chatId, `📋 *Resultado parcial:*\n\n${results.join('\n')}${supplierNote}`);
+    await presentInvoiceNote(chatId, updatedNote, { retry: true });
+    return true;
+  }
+
+  const nextNote = await clearSession(chatId);
   await send(chatId, `📋 *Lançamentos realizados:*\n\n${results.join('\n')}${supplierNote}\n\n🔗 [Ver financeiro](https://app-one-amber-58.vercel.app/financial)`);
+  await presentNote(chatId, nextNote);
   return true;
+}
+
+// Grava purchase + purchase_items atomicamente via funcao no banco (RPC) --
+// ou os dois entram, ou nenhum entra (evita compra orfa sem itens no meio de uma falha).
+async function createPurchaseWithItems(purchase, items) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/create_purchase_with_items`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_purchase: purchase, p_items: items }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.message || data?.hint || `HTTP ${res.status}`);
+  return Array.isArray(data) ? data[0] : data;
 }
 
 async function handleHelp(chatId) {
@@ -959,6 +1154,26 @@ async function handleIntelligentQuery(chatId, text) {
   return true;
 }
 
+// Exige sessao Supabase valida de um usuario aprovado com papel administrativo.
+// Usado pelas rotas operacionais (?setup=1, ?status=1) -- nunca pelo webhook do
+// Telegram em si, que e autenticado pelo secret_token, nao por sessao de usuario.
+async function requireAdmin(authorization) {
+  if (!authorization.startsWith('Bearer ') || !SUPABASE_KEY) {
+    return { ok: false, code: 401, error: 'Unauthorized' };
+  }
+  const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: authorization }
+  });
+  if (!userRes.ok) return { ok: false, code: 401, error: 'Unauthorized' };
+  const user = await userRes.json();
+  const profiles = await sbGet('user_profiles', `id=eq.${user.id}&select=role,status&limit=1`);
+  const profile = profiles[0];
+  if (!profile || profile.status !== 'approved' || !['admin', 'owner', 'superadmin'].includes(profile.role)) {
+    return { ok: false, code: 403, error: 'Forbidden' };
+  }
+  return { ok: true, user };
+}
+
 // ─── MAIN HANDLER ────────────────────────────────────────────
 export default async function handler(req, res) {
   // Alerta de novo cadastro pro dono via Telegram: exige sessao Supabase valida
@@ -1000,43 +1215,77 @@ export default async function handler(req, res) {
   // Reconfiguracao segura do webhook apos troca do token: exige um usuario
   // autenticado com papel administrativo no ERP.
   if (req.method === 'POST' && req.query?.setup === '1') {
-    const authorization = req.headers.authorization || '';
-    if (!authorization.startsWith('Bearer ') || !BOT_TOKEN || !SUPABASE_KEY) {
-      res.status(401).json({ ok: false, error: 'Unauthorized' }); return;
-    }
-    const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { apikey: SUPABASE_ANON_KEY, Authorization: authorization }
-    });
-    if (!userRes.ok) { res.status(401).json({ ok: false, error: 'Unauthorized' }); return; }
-    const user = await userRes.json();
-    const profiles = await sbGet('user_profiles', `id=eq.${user.id}&select=role,status&limit=1`);
-    const profile = profiles[0];
-    if (!profile || profile.status !== 'approved' || !['admin','owner','superadmin'].includes(profile.role)) {
-      res.status(403).json({ ok: false, error: 'Forbidden' }); return;
-    }
+    const admin = await requireAdmin(req.headers.authorization || '');
+    if (!admin.ok) { res.status(admin.code).json({ ok: false, error: admin.error }); return; }
+    if (!BOT_TOKEN || !SUPABASE_KEY) { res.status(500).json({ ok: false, error: 'Missing config' }); return; }
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     const webhookUrl = `https://${host}/api/telegram`;
+    const body = { url: webhookUrl, drop_pending_updates: false };
+    if (WEBHOOK_SECRET) body.secret_token = WEBHOOK_SECRET;
     const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: webhookUrl, drop_pending_updates: false })
+      body: JSON.stringify(body)
     });
     const result = await tgRes.json();
     res.status(tgRes.ok && result.ok ? 200 : 502).json({ ok: !!result.ok, description: result.description || null });
     return;
   }
+
+  // Consulta o estado real do webhook no Telegram (sem alterar nada) -- pra
+  // verificar antes de presumir que uma reconexao e necessaria.
+  if (req.method === 'GET' && req.query?.status === '1') {
+    const admin = await requireAdmin(req.headers.authorization || '');
+    if (!admin.ok) { res.status(admin.code).json({ ok: false, error: admin.error }); return; }
+    if (!BOT_TOKEN) { res.status(500).json({ ok: false, error: 'Missing config' }); return; }
+    const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo`);
+    const info = await tgRes.json();
+    res.status(200).json(info);
+    return;
+  }
+
   if (req.method !== 'POST') { res.status(200).json({ ok: true }); return; }
 
+  // Confirma que a chamada veio mesmo do Telegram (nao de qualquer POST publico
+  // batendo neste endpoint) antes de processar com service role.
+  if (WEBHOOK_SECRET && req.headers['x-telegram-bot-api-secret-token'] !== WEBHOOK_SECRET) {
+    res.status(401).json({ ok: false }); return;
+  }
+
+  // Deduplicacao: o Telegram pode reentregar a MESMA atualizacao (timeout, retry de
+  // rede) -- um INSERT que colide na PK detecta duplicata sem race condition. So
+  // processa update_id uma vez; reentregas devolvem 200 sem reprocessar nada.
+  const updateId = req.body?.update_id;
+  if (updateId != null) {
+    const dedupRes = await fetch(`${SUPABASE_URL}/rest/v1/telegram_processed_updates`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ update_id: updateId, chat_id: (req.body?.message || req.body?.edited_message)?.chat?.id || null }),
+    });
+    if (dedupRes.status === 409) { res.status(200).json({ ok: true, duplicate: true }); return; }
+  }
+
+  let chatId;
   try {
     const message = req.body.message || req.body.edited_message;
     if (!message) { res.status(200).json({ ok: true }); return; }
 
-    const chatId = message.chat.id;
-    const text   = (message.text || '').trim();
+    chatId = message.chat.id;
+    const text = (message.text || '').trim();
+
+    // So processa remetentes autorizados -- o handler roda com service role (sem
+    // RLS), entao qualquer pessoa que descubra o bot nao pode disparar leitura de
+    // notas, gravacao no ERP nem sobrescrever o chat_id do dono usado por automacoes.
+    if (!AUTHORIZED_CHAT_IDS.has(String(chatId))) {
+      console.warn('Telegram: chat nao autorizado tentou usar o bot:', chatId);
+      res.status(200).json({ ok: true }); return;
+    }
 
     // Guarda o chat_id do dono pra automacoes externas (n8n) poderem mandar
     // lembretes (ex: proximo post de blog a publicar) sem precisar de uma mensagem
-    // de entrada. Fire-and-forget, nao bloqueia a resposta do bot.
+    // de entrada. Fire-and-forget, nao bloqueia a resposta do bot. So chega aqui
+    // remetente ja autorizado (checagem acima), entao nao ha mais risco de qualquer
+    // mensagem de estranho sequestrar esse ponteiro.
     sbUpsert('marketing_data', { key: 'owner_telegram_chat_id', value: { chatId } }, 'key').catch(()=>{});
 
     // Foto → OCR
@@ -1086,6 +1335,10 @@ export default async function handler(req, res) {
     res.status(200).json({ ok: true });
   } catch (err) {
     console.error(err);
+    // Avisa o usuario que algo quebrou em vez de deixar silencio (que parece sucesso).
+    // Responde 200 pro Telegram de qualquer forma pra nao entrar em loop de retry --
+    // a deduplicacao por update_id ja evita reprocessamento se ele reentregar mesmo assim.
+    if (chatId) { try { await send(chatId, '❌ Erro inesperado ao processar sua mensagem. Nada foi gravado — tente novamente.'); } catch {} }
     res.status(200).json({ ok: true });
   }
 }
