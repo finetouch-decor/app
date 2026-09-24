@@ -156,11 +156,11 @@ async function load() {
   const id = params.get('id');
   if (!id) { document.getElementById('invoice-wrap').innerHTML = '<div class="loading">Invoice not found.</div>'; return; }
 
-  const { data: inv, error } = await db
-    .from('invoices')
-    .select('*, clients(name,email,phone,address,city,state), quotes(quote_number,project_name,total,sale_price,quote_items(description,quantity,unit_price,total))')
-    .eq('id', id)
-    .single();
+  // Le por uma funcao restrita a esta invoice especifica (get_invoice_for_print),
+  // em vez de acesso direto a tabela -- a tabela nao aceita mais leitura anonima
+  // (listaria todas as invoices pra qualquer um com a chave publica). O link
+  // continua igual (?id=), so o mecanismo de busca mudou.
+  const { data: inv, error } = await db.rpc('get_invoice_for_print', { p_id: id });
 
   if (error || !inv) { document.getElementById('invoice-wrap').innerHTML = '<div class="loading">Error loading invoice.</div>'; return; }
 
