@@ -20,6 +20,21 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-09-24 — ChatGPT (Maia)
+Status: CONCLUIDO
+Arquivos/tabelas: AI-HANDOFF.md (registro); api/telegram.js e AI-TASKS.md revisados somente em leitura
+Resumo: Revisao da FT-001 concluida, implementacao e validacao operacional ainda pendentes com Claude; Maia coordena e revisa, sem duplicar codigo. Handoff usado para customizacoes e coordenacao tecnica, nao para registrar pagamentos rotineiros. Evidencia na captura de Fabinho: ele informou ao Claude retorno "{ok: true, description: null}" do comando; portanto reconexao pode ja ter sido feita, verificar estado real antes de pedir repeticao. Sem acesso nesta revisao ao estado atual do webhook ou dados das compras.
+
+Pendencias tecnicas verificadas no codigo atual:
+- saveSession usa uma unica chave tg_session_CHAT e handlePhoto a substitui a cada nota; segunda nota/foto pode apagar a primeira pendente. getSession ignora sessoes apos 10 minutos. Implementar fila persistente por nota/mensagem e retomada.
+- Handler nao verifica segredo de origem do webhook nem remetente/chat autorizado antes de operar com service role; inclusive sobrescreve owner_telegram_chat_id a partir de qualquer mensagem. Proteger origem e permissoes, sem confiar apenas no chat_id informado no corpo.
+- Nao ha deduplicacao por update_id/message_id nem gravacao atomica de purchase + purchase_items. sbInsert nao verifica HTTP; handleSessionReply pode anunciar sucesso e apagar sessao mesmo com falha. Persistir estado, impedir repeticoes e so confirmar sucesso apos gravacao completa.
+- OCR elimina linhas iguais por descricao/valor, podendo remover itens legitimos repetidos; grava quantidade 1 e total por linha, nao preserva quantidade/preco unitario real. Nao reconcilia soma de itens com total da nota/impostos/descontos. Corrigir antes de considerar valores validados.
+- Obras oferecidas sao apenas active. Nao reabrir automaticamente obra encerrada para recuperar nota antiga. Conferir primeiro se notas antigas ja foram lancadas; caso necessario definir fluxo explicito para custo tardio sem mudar status da obra.
+- Testes de aceite: nota unica com itens/totais corretos e escolha da obra; duas notas consecutivas sem sobrescrita; repeticao da mesma atualizacao sem duplicar; falha de OCR/banco sem falso sucesso e com retomada; remetente nao autorizado rejeitado; audio/texto para escolha; compras e itens conferidos no ERP.
+- Botao administrativo de reconexao e melhoria de usabilidade, nao prova de funcionamento nem pre-requisito se webhook ja estiver ativo. Verificar conexao/configuracao e processamento real antes de implementar por suposicao.
+Proximo passo: Claude corrigir os pontos acima e registrar evidencias de publicacao/testes; Maia revisar resultado. Esta entrada conclui somente a revisao, nao a FT-001.
+
 ### 2026-09-22 21:12 EDT — Claude
 Status: CONCLUIDO
 Arquivos/tabelas: invoices.html, funcao SQL fn_auto_create_project_on_invoice_paid (Supabase), projects/invoices (dados da cliente Kerry)
