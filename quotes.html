@@ -301,6 +301,16 @@ textarea{resize:vertical;min-height:64px;}
           </div>
           <div><label>Nº Orçamento</label><input type="text" id="f-number" readonly placeholder="Automático"></div>
         </div>
+        <div class="form-grid col-2" style="margin-top:10px">
+          <div><label>Modelo de Execução</label>
+            <select id="f-execution-model">
+              <option value="">Não definido</option>
+              <option value="self_performed">Self-performed (eu mesmo)</option>
+              <option value="subcontracted">Subcontracted (100% terceirizado)</option>
+              <option value="hybrid">Hybrid (os dois)</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <!-- MATERIAIS -->
@@ -877,6 +887,7 @@ function openModal(id) {
     document.getElementById('f-date').value=q.created_at?.slice(0,10)||'';
     document.getElementById('f-status').value=q.status||'draft';
     document.getElementById('f-number').value=q.quote_number||'';
+    document.getElementById('f-execution-model').value=q.execution_model||'';
     document.getElementById('f-labor-hours').value=q.labor_hours||'';
     document.getElementById('f-labor-rate').value=q.labor_rate||'';
     document.getElementById('f-travel-km').value=q.travel_km||'';
@@ -894,6 +905,7 @@ function openModal(id) {
     ['f-client','f-project','f-labor-hours','f-labor-rate','f-travel-km','f-travel-rate',
      'f-daily-count','f-daily-rate','f-notes','f-number'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('f-status').value='draft';
+    document.getElementById('f-execution-model').value='';
     document.getElementById('f-markup').value='30';
     document.getElementById('f-discount-pct').value='0';
     document.getElementById('f-discount-val').value='0';
@@ -1066,6 +1078,7 @@ async function saveQuote(andProposal=false) {
     client_id: document.getElementById('f-client').value||null,
     project_name: document.getElementById('f-project').value.trim(),
     status: document.getElementById('f-status').value,
+    execution_model: document.getElementById('f-execution-model').value || null,
     labor_hours:lh, labor_rate:lr,
     travel_km:tk, travel_rate:tr2,
     daily_count:dc, daily_rate_val:dr,

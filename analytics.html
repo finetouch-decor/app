@@ -262,19 +262,34 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
       <div id="by-category"><div class="empty-state">Carregando...</div></div>
     </div>
 
-    <!-- OBRAS DO PERÍODO: atribuir categoria e tempo manual -->
+    <!-- LUCRO POR MODELO DE EXECUÇÃO -->
+    <div class="section-title">Lucro por Modelo de Execução <span class="hint">— self-performed × subcontracted × hybrid</span></div>
+    <div class="card">
+      <div class="tbl-row head" style="grid-template-columns:1.6fr .7fr 1fr 1fr 1fr .8fr;">
+        <span>Modelo</span>
+        <span>Obras</span>
+        <span style="text-align:right;">Receita</span>
+        <span style="text-align:right;">Custo</span>
+        <span style="text-align:right;">Lucro Bruto</span>
+        <span style="text-align:right;">Margem</span>
+      </div>
+      <div id="by-execution-model"><div class="empty-state">Carregando...</div></div>
+    </div>
+
+    <!-- OBRAS DO PERÍODO: atribuir categoria, modelo e tempo manual -->
     <div class="section-title">
       Obras do Período
-      <span class="hint">— atribua a categoria de serviço e, se faltar, o tempo de execução manualmente</span>
+      <span class="hint">— atribua categoria, modelo de execução e/ou corrija o tempo de execução manualmente</span>
     </div>
     <div class="card">
       <div class="card-header">
         <p id="projects-count-label"></p>
         <span class="toggle-link" id="toggle-all-projects" onclick="toggleShowAll()">Mostrar só sem categoria</span>
       </div>
-      <div class="tbl-row head" style="grid-template-columns:1.6fr 1fr 1fr .9fr 1fr 1fr 1fr;">
+      <div class="tbl-row head" style="grid-template-columns:1.4fr .9fr 1fr .9fr .8fr 1fr 1fr 1fr;">
         <span>Obra / Cliente</span>
         <span>Categoria</span>
+        <span>Modelo</span>
         <span>Início → Fim</span>
         <span>Dias execução</span>
         <span style="text-align:right;">Receita</span>
@@ -464,7 +479,7 @@ function executionDays(p) {
 async function loadProjectsAndKpis() {
   const [{ data: projects }, { data: expenses }, { count: clientesNovosCount }, { data: spend }] = await Promise.all([
     db.from('projects')
-      .select('id,name,client_id,status,start_date,end_date,closed_at,actual_revenue,actual_cost,profit_real,service_category_id,execution_days_manual,clients(name)')
+      .select('id,name,client_id,status,start_date,end_date,closed_at,actual_revenue,actual_cost,profit_real,service_category_id,execution_days_manual,execution_model,clients(name)')
       .gte('closed_at', periodSince).lte('closed_at', periodUntil)
       .order('closed_at', { ascending: false }),
     db.from('transactions').select('amount').eq('type','expense').is('project_id', null).gte('date', periodSince).lte('date', periodUntil),
@@ -479,6 +494,7 @@ async function loadProjectsAndKpis() {
 
   renderKpis(despesasGerais, gastoMarketing, clientesNovos);
   renderByCategory();
+  renderByExecutionModel();
   renderProjectsList();
 }
 
@@ -554,6 +570,55 @@ function renderByCategory() {
   }).join('');
 }
 
+const EXEC_MODEL_LABELS = { self_performed: 'Self-performed', subcontracted: 'Subcontracted', hybrid: 'Hybrid' };
+
+function renderByExecutionModel() {
+  const groups = {};
+  allProjectsInPeriod.forEach(p => {
+    const key = p.execution_model || '__none__';
+    if (!groups[key]) groups[key] = { name: EXEC_MODEL_LABELS[p.execution_model] || 'Não definido', projects: [] };
+    groups[key].projects.push(p);
+  });
+
+  const wrap = document.getElementById('by-execution-model');
+  const keys = Object.keys(groups).sort((a,b) => groups[b].projects.length - groups[a].projects.length);
+  if (!keys.length) { wrap.innerHTML = '<div class="empty-state">Nenhuma obra concluída nesse período.</div>'; return; }
+
+  wrap.innerHTML = keys.map(k => {
+    const g = groups[k];
+    const receita = g.projects.reduce((s,p) => s + Number(p.actual_revenue||0), 0);
+    const custo = g.projects.reduce((s,p) => s + Number(p.actual_cost||0), 0);
+    const lucro = receita - custo;
+    const margem = receita > 0 ? (lucro/receita*100) : 0;
+    return `<div class="tbl-row" style="grid-template-columns:1.6fr .7fr 1fr 1fr 1fr .8fr;">
+      <span class="tbl-name">${g.name}</span>
+      <span>${g.projects.length}</span>
+      <span class="tbl-val">${fmt(receita)}</span>
+      <span class="tbl-val">${fmt(custo)}</span>
+      <span class="tbl-val">${fmt(lucro)}</span>
+      <span class="tbl-val">${margem.toFixed(0)}%</span>
+    </div>`;
+  }).join('');
+}
+
+async function setProjectExecutionModel(projectId, model) {
+  const { error } = await db.from('projects').update({ execution_model: model || null }).eq('id', projectId);
+  if (error) { showToast('Erro: ' + error.message, 'error'); return; }
+  const p = allProjectsInPeriod.find(x => x.id === projectId);
+  if (p) p.execution_model = model || null;
+  renderByExecutionModel();
+  showToast('Modelo de execução atualizado.', 'success');
+}
+
+function executionModelSelectHtml(p) {
+  const opts = Object.entries(EXEC_MODEL_LABELS).map(([val, label]) =>
+    `<option value="${val}" ${p.execution_model === val ? 'selected' : ''}>${label}</option>`).join('');
+  return `<select class="category-select" onchange="setProjectExecutionModel('${p.id}', this.value)">
+    <option value="" ${!p.execution_model ? 'selected' : ''}>Não definido</option>
+    ${opts}
+  </select>`;
+}
+
 function toggleShowAll() {
   showOnlyUncategorized = !showOnlyUncategorized;
   document.getElementById('toggle-all-projects').textContent = showOnlyUncategorized ? 'Mostrar todas' : 'Mostrar só sem categoria';
@@ -575,20 +640,18 @@ function renderProjectsList() {
   if (!list.length) { wrap.innerHTML = '<div class="empty-state">Nenhuma obra pra mostrar.</div>'; return; }
 
   wrap.innerHTML = list.map(p => {
-    const { days, manual } = executionDays(p);
+    const { days } = executionDays(p);
     const lucro = Number(p.actual_revenue||0) - Number(p.actual_cost||0);
     const period = `${p.start_date || '—'} → ${p.closed_at || '—'}`;
-    return `<div class="tbl-row" style="grid-template-columns:1.6fr 1fr 1fr .9fr 1fr 1fr 1fr;">
+    return `<div class="tbl-row" style="grid-template-columns:1.4fr .9fr 1fr .9fr .8fr 1fr 1fr 1fr;">
       <div>
         <div class="tbl-name">${p.name || 'Obra'}</div>
         <div class="tbl-sub">${p.clients?.name || ''}</div>
       </div>
       ${categorySelectHtml(p)}
+      ${executionModelSelectHtml(p)}
       <span class="tbl-sub">${period}</span>
-      ${days != null && !manual
-        ? `<span class="tbl-val" style="text-align:left;">${days}d</span>`
-        : `<input type="number" class="manual-days" placeholder="?" value="${days != null ? days : ''}" onchange="setProjectManualDays('${p.id}', this.value)">`
-      }
+      <input type="number" class="manual-days" title="Dias de execução — sempre editável, corrige valor calculado errado ou preenche o que falta" placeholder="?" value="${days != null ? days : ''}" onchange="setProjectManualDays('${p.id}', this.value)">
       <span class="tbl-val">${fmt(p.actual_revenue)}</span>
       <span class="tbl-val">${fmt(p.actual_cost)}</span>
       <span class="tbl-val">${fmt(lucro)}</span>
