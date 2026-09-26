@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fine Touch — Análise</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+:root {
+  --navy:#102A4B; --navy2:#1a3d6e; --gold:#C69E63; --gold2:#C7B090;
+  --cream:#EAE6DA; --white:#FFFFFF; --bg:#F7F8FA;
+  --border:rgba(15,23,42,0.08); --text:#0F172A; --muted:#64748B;
+  --green:#16a34a; --green-bg:#f0fdf4;
+  --red:#dc2626; --red-bg:#fef2f2;
+  --amber:#d97706; --amber-bg:#fffbeb;
+  --shadow:0 1px 3px rgba(0,0,0,0.06); --shadow-md:0 4px 6px rgba(0,0,0,0.05);
+  --sidebar:240px; --radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar);background:var(--navy);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto;}
+.sidebar-logo{padding:22px 18px 18px;border-bottom:1px solid rgba(255,255,255,0.1);}
+.sidebar-logo img{width:100%;max-width:190px;height:auto;max-height:88px;display:block;object-fit:contain;}
+.sidebar-nav{flex:1;padding:12px 0;}
+.nav-section{padding:16px 20px 6px;font-size:9px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:2px;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;color:rgba(255,255,255,0.55);font-size:13px;font-weight:500;text-decoration:none;transition:all .15s;}
+.nav-item:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.9);}
+.nav-item.active{background:rgba(198,158,99,0.15);color:var(--gold);border-right:3px solid var(--gold);}
+.nav-item.dim{opacity:0.3;pointer-events:none;}
+.nav-item .icon{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+.sidebar-user{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px;}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--navy);flex-shrink:0;}
+.user-info{flex:1;min-width:0;}
+.user-name{font-size:12px;font-weight:600;color:rgba(255,255,255,0.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-role{font-size:10px;color:var(--gold2);text-transform:uppercase;letter-spacing:1px;}
+.btn-logout{background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:15px;padding:4px;}
+.btn-logout:hover{color:rgba(255,255,255,0.8);}
+
+/* MAIN */
+.main{margin-left:var(--sidebar);flex:1;}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:18px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:64px;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
+.topbar h1{font-size:22px;font-weight:700;color:var(--navy);white-space:nowrap;}
+.topbar p{font-size:12px;color:var(--muted);margin-top:1px;}
+
+/* PERIOD SELECTOR */
+.period-bar{background:var(--white);border-bottom:1px solid var(--border);padding:10px 32px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.period-btn{padding:6px 14px;border-radius:8px;border:1.5px solid var(--border);background:transparent;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .15s;}
+.period-btn.active{background:var(--navy);color:var(--gold);border-color:var(--navy);}
+.period-bar input[type=date]{padding:5px 8px;border-radius:8px;border:1.5px solid var(--border);font-family:'Inter',sans-serif;font-size:12px;color:var(--text);}
+.period-label{font-size:12px;color:var(--muted);margin-left:auto;white-space:nowrap;}
+
+/* CONTENT */
+.content{padding:28px 32px;}
+.section-title{font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin:32px 0 14px;display:flex;align-items:center;gap:8px;}
+.section-title .hint{font-size:11px;font-weight:500;color:var(--muted);text-transform:none;letter-spacing:0;}
+
+/* KPI ROW */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;}
+.kpi{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:var(--gold);}
+.kpi.accent-green::before{background:var(--green);}
+.kpi.accent-red::before{background:var(--red);}
+.kpi-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px;}
+.kpi-value{font-size:24px;font-weight:800;color:var(--navy);line-height:1;}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:5px;}
+
+/* CARD */
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+.card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.card-header h3{font-size:13px;font-weight:700;color:var(--navy);}
+.card-header p{font-size:11px;color:var(--muted);margin-top:2px;}
+.card-body{padding:16px 20px;}
+
+/* TABLE */
+.tbl-row{display:grid;align-items:center;padding:11px 20px;border-bottom:1px solid var(--border);gap:12px;}
+.tbl-row:last-child{border-bottom:none;}
+.tbl-row.head{background:#f8f9fb;padding:8px 20px;}
+.tbl-row.head span{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.tbl-name{font-size:13px;font-weight:600;color:var(--navy);}
+.tbl-sub{font-size:11px;color:var(--muted);margin-top:1px;}
+.tbl-val{font-size:13px;font-weight:700;color:var(--navy);text-align:right;}
+.empty-state{padding:28px;text-align:center;color:var(--muted);font-size:13px;}
+
+/* FORMS */
+.inline-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.inline-form input, .inline-form select{padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);font-family:'Inter',sans-serif;font-size:12px;color:var(--text);}
+.btn{padding:7px 16px;border-radius:8px;border:none;background:var(--navy);color:var(--gold);font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;}
+.btn:hover{background:var(--navy2);}
+.btn-sm{padding:5px 10px;font-size:11px;}
+.btn-ghost{background:transparent;border:1.5px solid var(--border);color:var(--muted);}
+.btn-ghost:hover{border-color:var(--red);color:var(--red);}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--cream);color:var(--navy);font-size:12px;font-weight:600;padding:5px 10px 5px 12px;border-radius:20px;}
+.chip button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:0;}
+.chip button:hover{color:var(--red);}
+.category-select{padding:5px 8px;border-radius:6px;border:1.5px solid var(--border);font-family:'Inter',sans-serif;font-size:12px;background:var(--white);}
+.manual-days{width:64px;padding:4px 6px;border-radius:6px;border:1.5px solid var(--amber);font-family:'Inter',sans-serif;font-size:12px;background:var(--amber-bg);}
+.toggle-link{font-size:12px;color:var(--navy2);cursor:pointer;text-decoration:underline;font-weight:600;}
+
+.toast{position:fixed;top:20px;right:20px;background:var(--navy);color:var(--cream);padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:all .3s;transform:translateY(-10px);}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.success{background:var(--green);color:#fff;}
+.toast.error{background:var(--red);color:#fff;}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <img src="/logo-dark-bg.png" alt="Fine Touch">
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Principal</div>
+    <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
+    <div class="nav-section">Captação</div>
+    <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
+    <div class="nav-section">Venda</div>
+    <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
+    <a class="nav-item" href="/proposals"><span class="icon">📄</span>Propostas</a><a class="nav-item" href="/proposal-bundles"><span class="icon">🧩</span>Propostas Combinadas</a>
+    <a class="nav-item dim"><span class="icon">📝</span>Contratos</a>
+    <a class="nav-item" href="/invoices"><span class="icon">🧾</span>Invoices</a>
+    <div class="nav-section">Execução</div>
+    <a class="nav-item" href="/projects"><span class="icon">🏗️</span>Obras</a>
+    <a class="nav-item" href="/purchases"><span class="icon">🛒</span>Compras</a>
+    <div class="nav-section">Gestão</div>
+    <a class="nav-item" href="/financial"><span class="icon">💰</span>Financeiro</a>
+      <a class="nav-item" href="/financial2"><span class="icon">💹</span>Financeiro 2</a>
+    <a class="nav-item" href="/reports"><span class="icon">📈</span>Relatórios</a>
+    <a class="nav-item active" href="/analytics"><span class="icon">📐</span>Análise</a>
+    <a class="nav-item" href="/catalog"><span class="icon">🖼️</span>Catálogo Cliente</a>
+    <a class="nav-item" href="/services"><span class="icon">📚</span>Serviços</a>
+    <a class="nav-item" href="/marketing"><span class="icon">📣</span>Marketing</a>
+    <a class="nav-item" href="/tasks"><span class="icon">✅</span>Tarefas</a>
+      <a class="nav-item" href="/pendencias"><span class="icon">🧩</span>Pendências/Melhorias</a>
+    <div class="nav-section">Admin</div>
+    <a class="nav-item" id="nav-users" href="/users" style="display:none"><span class="icon">👥</span>Usuários</a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-avatar" id="user-avatar">F</div>
+    <div class="user-info">
+      <div class="user-name" id="user-name">...</div>
+      <div class="user-role">Fine Touch</div>
+    </div>
+    <button class="btn-logout" onclick="logout()">⏻</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div>
+      <h1>Análise de Negócio</h1>
+      <p>CAC, lucro por serviço e indicadores pra decisão — obras concluídas no período</p>
+    </div>
+  </div>
+
+  <!-- PERIOD SELECTOR -->
+  <div class="period-bar">
+    <button class="period-btn" onclick="setPeriod('month',this)">Este mês</button>
+    <button class="period-btn active" onclick="setPeriod(3,this)">3 meses</button>
+    <button class="period-btn" onclick="setPeriod(6,this)">6 meses</button>
+    <button class="period-btn" onclick="setPeriod(12,this)">12 meses</button>
+    <button class="period-btn" onclick="setPeriod('year',this)">Este ano</button>
+    <button class="period-btn" onclick="setPeriod('all',this)">Tudo</button>
+    <span style="width:1px;height:20px;background:var(--border);margin:0 4px;"></span>
+    <input type="date" id="custom-since" onchange="setCustomPeriod()">
+    <span style="color:var(--muted);font-size:12px;">até</span>
+    <input type="date" id="custom-until" onchange="setCustomPeriod()">
+    <span class="period-label" id="period-label"></span>
+  </div>
+
+  <div class="content">
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-label">Obras Concluídas</div>
+        <div class="kpi-value" id="kpi-obras">—</div>
+        <div class="kpi-sub" id="kpi-obras-sub"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Receita no Período</div>
+        <div class="kpi-value" id="kpi-receita">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Custo Direto</div>
+        <div class="kpi-value" id="kpi-custo">—</div>
+        <div class="kpi-sub">material + mão de obra da obra</div>
+      </div>
+      <div class="kpi accent-green">
+        <div class="kpi-label">Lucro Bruto</div>
+        <div class="kpi-value" id="kpi-lucro-bruto">—</div>
+        <div class="kpi-sub" id="kpi-margem-bruta"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Despesas Gerais</div>
+        <div class="kpi-value" id="kpi-despesas">—</div>
+        <div class="kpi-sub">lançadas no financeiro, sem obra vinculada</div>
+      </div>
+      <div class="kpi accent-green">
+        <div class="kpi-label">Lucro Líquido</div>
+        <div class="kpi-value" id="kpi-lucro-liquido">—</div>
+        <div class="kpi-sub">bruto − despesas gerais</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Clientes Novos</div>
+        <div class="kpi-value" id="kpi-clientes-novos">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">CAC</div>
+        <div class="kpi-value" id="kpi-cac">—</div>
+        <div class="kpi-sub" id="kpi-cac-sub">gasto marketing ÷ clientes novos</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Tempo Médio de Execução</div>
+        <div class="kpi-value" id="kpi-tempo">—</div>
+        <div class="kpi-sub" id="kpi-tempo-sub"></div>
+      </div>
+    </div>
+
+    <!-- GASTO DE MARKETING MANUAL -->
+    <div class="section-title">Gasto de Marketing <span class="hint">— usado pra calcular o CAC do período</span></div>
+    <div class="card">
+      <div class="card-body">
+        <div class="inline-form" style="margin-bottom:14px;">
+          <input type="month" id="spend-month">
+          <input type="number" step="0.01" placeholder="Valor gasto ($)" id="spend-amount" style="width:150px;">
+          <input type="text" placeholder="Observação (opcional)" id="spend-notes" style="width:220px;">
+          <button class="btn" onclick="saveSpend()">Salvar mês</button>
+        </div>
+        <div id="spend-list"><div class="empty-state">Carregando...</div></div>
+      </div>
+    </div>
+
+    <!-- CATEGORIAS DE SERVIÇO -->
+    <div class="section-title">Categorias de Serviço <span class="hint">— crie as categorias e depois atribua a cada obra na tabela abaixo</span></div>
+    <div class="card">
+      <div class="card-body">
+        <div class="inline-form" style="margin-bottom:14px;">
+          <input type="text" placeholder="Nome da categoria (ex: Slat Panel)" id="cat-name" style="width:260px;">
+          <button class="btn" onclick="addCategory()">+ Adicionar categoria</button>
+        </div>
+        <div id="cat-chips" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+      </div>
+    </div>
+
+    <!-- LUCRO POR SERVIÇO -->
+    <div class="section-title">Lucro por Serviço <span class="hint">— só obras concluídas no período selecionado</span></div>
+    <div class="card">
+      <div class="tbl-row head" style="grid-template-columns:1.6fr .7fr 1fr 1fr 1fr .8fr 1fr;">
+        <span>Categoria</span>
+        <span>Obras</span>
+        <span style="text-align:right;">Receita</span>
+        <span style="text-align:right;">Custo</span>
+        <span style="text-align:right;">Lucro Bruto</span>
+        <span style="text-align:right;">Margem</span>
+        <span style="text-align:right;">Tempo médio</span>
+      </div>
+      <div id="by-category"><div class="empty-state">Carregando...</div></div>
+    </div>
+
+    <!-- OBRAS DO PERÍODO: atribuir categoria e tempo manual -->
+    <div class="section-title">
+      Obras do Período
+      <span class="hint">— atribua a categoria de serviço e, se faltar, o tempo de execução manualmente</span>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <p id="projects-count-label"></p>
+        <span class="toggle-link" id="toggle-all-projects" onclick="toggleShowAll()">Mostrar só sem categoria</span>
+      </div>
+      <div class="tbl-row head" style="grid-template-columns:1.6fr 1fr 1fr .9fr 1fr 1fr 1fr;">
+        <span>Obra / Cliente</span>
+        <span>Categoria</span>
+        <span>Início → Fim</span>
+        <span>Dias execução</span>
+        <span style="text-align:right;">Receita</span>
+        <span style="text-align:right;">Custo</span>
+        <span style="text-align:right;">Lucro</span>
+      </div>
+      <div id="projects-list"><div class="empty-state">Carregando...</div></div>
+    </div>
+
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let periodSince = null, periodUntil = null;
+let categories = [];
+let allProjectsInPeriod = [];
+let showOnlyUncategorized = false;
+
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { window.location.href = '/login.html'; return; }
+  const { data: prof } = await db.from('user_profiles').select('status,role').eq('id', session.user.id).single();
+  if (!prof || (prof.status !== 'approved' && prof.role !== 'admin')) { window.location.href = '/pending.html'; return; }
+  if (prof.role === 'admin') { const ul = document.getElementById('nav-users'); if(ul) ul.style.display='flex'; }
+  const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User';
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+  setPeriod(3, document.querySelector('.period-btn.active'));
+}
+
+db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
+async function logout() { await db.auth.signOut(); }
+
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 2500);
+}
+
+function fmt(v) { return '$' + Number(v||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function todayStr() { return new Date().toISOString().slice(0,10); }
+
+function setPeriod(mode, btn) {
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('custom-since').value = '';
+  document.getElementById('custom-until').value = '';
+
+  const now = new Date();
+  let since, until = todayStr();
+  if (mode === 'month') {
+    since = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+  } else if (mode === 'year') {
+    since = new Date(now.getFullYear(), 0, 1).toISOString().slice(0,10);
+  } else if (mode === 'all') {
+    since = '2000-01-01';
+  } else {
+    const d = new Date(now.getFullYear(), now.getMonth() - mode + 1, 1);
+    since = d.toISOString().slice(0,10);
+  }
+  periodSince = since; periodUntil = until;
+  document.getElementById('period-label').textContent = `${since} até ${until}`;
+  loadAll();
+}
+
+function setCustomPeriod() {
+  const s = document.getElementById('custom-since').value;
+  const u = document.getElementById('custom-until').value;
+  if (!s || !u) return;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  periodSince = s; periodUntil = u;
+  document.getElementById('period-label').textContent = `${s} até ${u}`;
+  loadAll();
+}
+
+async function loadAll() {
+  await Promise.all([loadCategories(), loadSpend()]);
+  await loadProjectsAndKpis();
+}
+
+// ─── CATEGORIAS ────────────────────────────────────────────────
+async function loadCategories() {
+  const { data } = await db.from('service_categories').select('*').order('sort_order').order('name');
+  categories = data || [];
+  const wrap = document.getElementById('cat-chips');
+  wrap.innerHTML = categories.length
+    ? categories.map(c => `<span class="chip">${c.name}<button onclick="deleteCategory('${c.id}','${c.name.replace(/'/g,"\\'")}')" title="Excluir">✕</button></span>`).join('')
+    : '<span style="color:var(--muted);font-size:12px;">Nenhuma categoria ainda — crie a primeira acima.</span>';
+}
+
+async function addCategory() {
+  const input = document.getElementById('cat-name');
+  const name = input.value.trim();
+  if (!name) return;
+  const { error } = await db.from('service_categories').insert({ name });
+  if (error) { showToast('Erro: ' + error.message, 'error'); return; }
+  input.value = '';
+  showToast('Categoria criada!', 'success');
+  await loadCategories();
+  await loadProjectsAndKpis();
+}
+
+async function deleteCategory(id, name) {
+  if (!confirm(`Excluir a categoria "${name}"? As obras que estavam nela ficam sem categoria (nada é apagado).`)) return;
+  const { error } = await db.from('service_categories').delete().eq('id', id);
+  if (error) { showToast('Erro: ' + error.message, 'error'); return; }
+  showToast('Categoria removida.', 'success');
+  await loadCategories();
+  await loadProjectsAndKpis();
+}
+
+async function setProjectCategory(projectId, categoryId) {
+  const { error } = await db.from('projects').update({ service_category_id: categoryId || null }).eq('id', projectId);
+  if (error) { showToast('Erro: ' + error.message, 'error'); return; }
+  const p = allProjectsInPeriod.find(x => x.id === projectId);
+  if (p) p.service_category_id = categoryId || null;
+  renderByCategory();
+  showToast('Categoria atualizada.', 'success');
+}
+
+async function setProjectManualDays(projectId, value) {
+  const days = value === '' ? null : parseInt(value, 10);
+  if (value !== '' && (isNaN(days) || days < 0)) { showToast('Valor inválido.', 'error'); return; }
+  const { error } = await db.from('projects').update({ execution_days_manual: days }).eq('id', projectId);
+  if (error) { showToast('Erro: ' + error.message, 'error'); return; }
+  const p = allProjectsInPeriod.find(x => x.id === projectId);
+  if (p) p.execution_days_manual = days;
+  renderByCategory();
+  renderKpis();
+  showToast('Tempo de execução salvo.', 'success');
+}
+
+// ─── GASTO DE MARKETING ────────────────────────────────────────
+async function loadSpend() {
+  const { data } = await db.from('marketing_spend_manual').select('*').order('month', { ascending: false }).limit(12);
+  const rows = data || [];
+  const wrap = document.getElementById('spend-list');
+  if (!rows.length) { wrap.innerHTML = '<div class="empty-state">Nenhum gasto de marketing lançado ainda.</div>'; return; }
+  wrap.innerHTML = rows.map(r => `
+    <div class="tbl-row" style="grid-template-columns:1fr 1fr 2fr auto;">
+      <span class="tbl-name">${new Date(r.month + 'T00:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</span>
+      <span class="tbl-val" style="text-align:left;">${fmt(r.amount)}</span>
+      <span class="tbl-sub">${r.notes || ''}</span>
+      <button class="btn btn-sm btn-ghost" onclick="deleteSpend('${r.id}')">Excluir</button>
+    </div>`).join('');
+}
+
+async function saveSpend() {
+  const monthInput = document.getElementById('spend-month').value; // YYYY-MM
+  const amount = parseFloat(document.getElementById('spend-amount').value);
+  const notes = document.getElementById('spend-notes').value.trim();
+  if (!monthInput || isNaN(amount)) { showToast('Preencha mês e valor.', 'error'); return; }
+  const month = monthInput + '-01';
+  const { error } = await db.from('marketing_spend_manual')
+    .upsert({ month, amount, notes: notes || null, updated_at: new Date().toISOString() }, { onConflict: 'month' });
+  if (error) { showToast('Erro: ' + error.message, 'error'); return; }
+  document.getElementById('spend-amount').value = '';
+  document.getElementById('spend-notes').value = '';
+  showToast('Gasto de marketing salvo!', 'success');
+  await loadSpend();
+  await loadProjectsAndKpis();
+}
+
+async function deleteSpend(id) {
+  if (!confirm('Excluir esse lançamento de gasto de marketing?')) return;
+  await db.from('marketing_spend_manual').delete().eq('id', id);
+  await loadSpend();
+  await loadProjectsAndKpis();
+}
+
+// ─── OBRAS, KPIs E QUEBRA POR CATEGORIA ────────────────────────
+function executionDays(p) {
+  if (p.execution_days_manual != null) return { days: p.execution_days_manual, manual: true };
+  if (p.start_date && p.closed_at) {
+    const d = Math.round((new Date(p.closed_at) - new Date(p.start_date)) / 86400000);
+    if (d >= 0) return { days: d, manual: false };
+  }
+  return { days: null, manual: false };
+}
+
+async function loadProjectsAndKpis() {
+  const [{ data: projects }, { data: expenses }, { count: clientesNovosCount }, { data: spend }] = await Promise.all([
+    db.from('projects')
+      .select('id,name,client_id,status,start_date,end_date,closed_at,actual_revenue,actual_cost,profit_real,service_category_id,execution_days_manual,clients(name)')
+      .gte('closed_at', periodSince).lte('closed_at', periodUntil)
+      .order('closed_at', { ascending: false }),
+    db.from('transactions').select('amount').eq('type','expense').is('project_id', null).gte('date', periodSince).lte('date', periodUntil),
+    db.from('clients').select('id', { count: 'exact', head: true }).gte('created_at', periodSince).lte('created_at', periodUntil + 'T23:59:59'),
+    db.from('marketing_spend_manual').select('amount').gte('month', periodSince.slice(0,8) + '01').lte('month', periodUntil),
+  ]);
+
+  allProjectsInPeriod = projects || [];
+  const despesasGerais = (expenses || []).reduce((s, e) => s + Number(e.amount || 0), 0);
+  const gastoMarketing = (spend || []).reduce((s, e) => s + Number(e.amount || 0), 0);
+  const clientesNovos = clientesNovosCount || 0;
+
+  renderKpis(despesasGerais, gastoMarketing, clientesNovos);
+  renderByCategory();
+  renderProjectsList();
+}
+
+function renderKpis(despesasGerais, gastoMarketing, clientesNovos) {
+  const projects = allProjectsInPeriod;
+  const receita = projects.reduce((s,p) => s + Number(p.actual_revenue || 0), 0);
+  const custo = projects.reduce((s,p) => s + Number(p.actual_cost || 0), 0);
+  const lucroBruto = receita - custo;
+  const margem = receita > 0 ? (lucroBruto / receita * 100) : 0;
+  const lucroLiquido = lucroBruto - (despesasGerais || 0);
+
+  document.getElementById('kpi-obras').textContent = projects.length;
+  document.getElementById('kpi-receita').textContent = fmt(receita);
+  document.getElementById('kpi-custo').textContent = fmt(custo);
+  document.getElementById('kpi-lucro-bruto').textContent = fmt(lucroBruto);
+  document.getElementById('kpi-margem-bruta').textContent = receita > 0 ? `${margem.toFixed(1)}% de margem` : '';
+  document.getElementById('kpi-despesas').textContent = fmt(despesasGerais || 0);
+  document.getElementById('kpi-lucro-liquido').textContent = fmt(lucroLiquido);
+
+  if (clientesNovos !== undefined) {
+    document.getElementById('kpi-clientes-novos').textContent = clientesNovos;
+    const cac = clientesNovos > 0 ? (gastoMarketing || 0) / clientesNovos : null;
+    document.getElementById('kpi-cac').textContent = cac != null ? fmt(cac) : '—';
+    document.getElementById('kpi-cac-sub').textContent = clientesNovos > 0
+      ? `${fmt(gastoMarketing||0)} ÷ ${clientesNovos} cliente(s)`
+      : 'sem clientes novos no período';
+  }
+
+  const withDays = projects.map(executionDays).filter(x => x.days != null);
+  if (withDays.length) {
+    const avg = withDays.reduce((s,x) => s + x.days, 0) / withDays.length;
+    document.getElementById('kpi-tempo').textContent = `${avg.toFixed(0)} dias`;
+    const manualCount = withDays.filter(x => x.manual).length;
+    const missing = projects.length - withDays.length;
+    document.getElementById('kpi-tempo-sub').textContent =
+      (manualCount ? `${manualCount} manual · ` : '') + (missing ? `${missing} sem dado` : `${withDays.length} obra(s)`);
+  } else {
+    document.getElementById('kpi-tempo').textContent = '—';
+    document.getElementById('kpi-tempo-sub').textContent = projects.length ? 'preencha manualmente abaixo' : '';
+  }
+}
+
+function renderByCategory() {
+  const groups = {};
+  const catName = id => id ? (categories.find(c => c.id === id)?.name || '—') : 'Sem categoria';
+  allProjectsInPeriod.forEach(p => {
+    const key = p.service_category_id || '__none__';
+    if (!groups[key]) groups[key] = { name: catName(p.service_category_id), projects: [] };
+    groups[key].projects.push(p);
+  });
+
+  const wrap = document.getElementById('by-category');
+  const keys = Object.keys(groups).sort((a,b) => groups[b].projects.length - groups[a].projects.length);
+  if (!keys.length) { wrap.innerHTML = '<div class="empty-state">Nenhuma obra concluída nesse período.</div>'; return; }
+
+  wrap.innerHTML = keys.map(k => {
+    const g = groups[k];
+    const receita = g.projects.reduce((s,p) => s + Number(p.actual_revenue||0), 0);
+    const custo = g.projects.reduce((s,p) => s + Number(p.actual_cost||0), 0);
+    const lucro = receita - custo;
+    const margem = receita > 0 ? (lucro/receita*100) : 0;
+    const withDays = g.projects.map(executionDays).filter(x => x.days != null);
+    const avgDays = withDays.length ? (withDays.reduce((s,x)=>s+x.days,0)/withDays.length).toFixed(0)+'d' : '—';
+    return `<div class="tbl-row" style="grid-template-columns:1.6fr .7fr 1fr 1fr 1fr .8fr 1fr;">
+      <span class="tbl-name">${g.name}</span>
+      <span>${g.projects.length}</span>
+      <span class="tbl-val">${fmt(receita)}</span>
+      <span class="tbl-val">${fmt(custo)}</span>
+      <span class="tbl-val">${fmt(lucro)}</span>
+      <span class="tbl-val">${margem.toFixed(0)}%</span>
+      <span class="tbl-val">${avgDays}</span>
+    </div>`;
+  }).join('');
+}
+
+function toggleShowAll() {
+  showOnlyUncategorized = !showOnlyUncategorized;
+  document.getElementById('toggle-all-projects').textContent = showOnlyUncategorized ? 'Mostrar todas' : 'Mostrar só sem categoria';
+  renderProjectsList();
+}
+
+function categorySelectHtml(p) {
+  const opts = categories.map(c => `<option value="${c.id}" ${p.service_category_id === c.id ? 'selected' : ''}>${c.name}</option>`).join('');
+  return `<select class="category-select" onchange="setProjectCategory('${p.id}', this.value)">
+    <option value="" ${!p.service_category_id ? 'selected' : ''}>Sem categoria</option>
+    ${opts}
+  </select>`;
+}
+
+function renderProjectsList() {
+  const list = showOnlyUncategorized ? allProjectsInPeriod.filter(p => !p.service_category_id) : allProjectsInPeriod;
+  document.getElementById('projects-count-label').textContent = `${list.length} de ${allProjectsInPeriod.length} obra(s) no período`;
+  const wrap = document.getElementById('projects-list');
+  if (!list.length) { wrap.innerHTML = '<div class="empty-state">Nenhuma obra pra mostrar.</div>'; return; }
+
+  wrap.innerHTML = list.map(p => {
+    const { days, manual } = executionDays(p);
+    const lucro = Number(p.actual_revenue||0) - Number(p.actual_cost||0);
+    const period = `${p.start_date || '—'} → ${p.closed_at || '—'}`;
+    return `<div class="tbl-row" style="grid-template-columns:1.6fr 1fr 1fr .9fr 1fr 1fr 1fr;">
+      <div>
+        <div class="tbl-name">${p.name || 'Obra'}</div>
+        <div class="tbl-sub">${p.clients?.name || ''}</div>
+      </div>
+      ${categorySelectHtml(p)}
+      <span class="tbl-sub">${period}</span>
+      ${days != null && !manual
+        ? `<span class="tbl-val" style="text-align:left;">${days}d</span>`
+        : `<input type="number" class="manual-days" placeholder="?" value="${days != null ? days : ''}" onchange="setProjectManualDays('${p.id}', this.value)">`
+      }
+      <span class="tbl-val">${fmt(p.actual_revenue)}</span>
+      <span class="tbl-val">${fmt(p.actual_cost)}</span>
+      <span class="tbl-val">${fmt(lucro)}</span>
+    </div>`;
+  }).join('');
+}
+
+init();
+</script>
+</body>
+</html>

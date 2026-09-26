@@ -13,6 +13,7 @@
     { "source": "/financial", "destination": "/financial.html" },
     { "source": "/financial2", "destination": "/financial2.html" },
     { "source": "/reports",   "destination": "/reports.html" },
+    { "source": "/analytics", "destination": "/analytics.html" },
     { "source": "/marketing", "destination": "/marketing.html" },
     { "source": "/services",  "destination": "/services.html" },
     { "source": "/tasks",     "destination": "/tasks.html" },
