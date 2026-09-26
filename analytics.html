@@ -477,7 +477,7 @@ function executionDays(p) {
 }
 
 async function loadProjectsAndKpis() {
-  const [{ data: projects }, { data: expenses }, { count: clientesNovosCount }, { data: spend }] = await Promise.all([
+  const [{ data: projects }, { data: expenses }, { count: clientesNovosCount }, { data: spend }, { data: invAll }, { data: purAll }] = await Promise.all([
     db.from('projects')
       .select('id,name,client_id,status,start_date,end_date,closed_at,actual_revenue,actual_cost,profit_real,service_category_id,execution_days_manual,execution_model,clients(name)')
       .gte('closed_at', periodSince).lte('closed_at', periodUntil)
@@ -485,9 +485,30 @@ async function loadProjectsAndKpis() {
     db.from('transactions').select('amount').eq('type','expense').is('project_id', null).gte('date', periodSince).lte('date', periodUntil),
     db.from('clients').select('id', { count: 'exact', head: true }).gte('created_at', periodSince).lte('created_at', periodUntil + 'T23:59:59'),
     db.from('marketing_spend_manual').select('amount').gte('month', periodSince.slice(0,8) + '01').lte('month', periodUntil),
+    // Receita/custo reais por obra: mesma logica de /projects (soma de invoices
+    // pagas e de compras por project_id) -- as colunas actual_revenue/actual_cost
+    // da tabela projects sao so um snapshot do fechamento e podem ficar zeradas/
+    // desatualizadas (ex: obra fechada sem passar pelo fluxo que as preenche).
+    // Calcular ao vivo evita mostrar $0 numa obra que na verdade tem receita.
+    db.from('invoices').select('project_id,total,subtotal,status'),
+    db.from('purchases').select('project_id,total'),
   ]);
 
-  allProjectsInPeriod = projects || [];
+  const invMap = {}, purMap = {};
+  (invAll || []).forEach(i => {
+    if (i.status !== 'paid' || !i.project_id) return;
+    invMap[i.project_id] = (invMap[i.project_id] || 0) + Number(i.total || i.subtotal || 0);
+  });
+  (purAll || []).forEach(p => {
+    if (!p.project_id) return;
+    purMap[p.project_id] = (purMap[p.project_id] || 0) + Number(p.total || 0);
+  });
+
+  allProjectsInPeriod = (projects || []).map(p => {
+    const revenue = invMap[p.id] || Number(p.actual_revenue) || 0;
+    const cost = purMap[p.id] || Number(p.actual_cost) || 0;
+    return { ...p, _revenue: revenue, _cost: cost };
+  });
   const despesasGerais = (expenses || []).reduce((s, e) => s + Number(e.amount || 0), 0);
   const gastoMarketing = (spend || []).reduce((s, e) => s + Number(e.amount || 0), 0);
   const clientesNovos = clientesNovosCount || 0;
@@ -500,8 +521,8 @@ async function loadProjectsAndKpis() {
 
 function renderKpis(despesasGerais, gastoMarketing, clientesNovos) {
   const projects = allProjectsInPeriod;
-  const receita = projects.reduce((s,p) => s + Number(p.actual_revenue || 0), 0);
-  const custo = projects.reduce((s,p) => s + Number(p.actual_cost || 0), 0);
+  const receita = projects.reduce((s,p) => s + Number(p._revenue || 0), 0);
+  const custo = projects.reduce((s,p) => s + Number(p._cost || 0), 0);
   const lucroBruto = receita - custo;
   const margem = receita > 0 ? (lucroBruto / receita * 100) : 0;
   const lucroLiquido = lucroBruto - (despesasGerais || 0);
@@ -552,8 +573,8 @@ function renderByCategory() {
 
   wrap.innerHTML = keys.map(k => {
     const g = groups[k];
-    const receita = g.projects.reduce((s,p) => s + Number(p.actual_revenue||0), 0);
-    const custo = g.projects.reduce((s,p) => s + Number(p.actual_cost||0), 0);
+    const receita = g.projects.reduce((s,p) => s + Number(p._revenue||0), 0);
+    const custo = g.projects.reduce((s,p) => s + Number(p._cost||0), 0);
     const lucro = receita - custo;
     const margem = receita > 0 ? (lucro/receita*100) : 0;
     const withDays = g.projects.map(executionDays).filter(x => x.days != null);
@@ -586,8 +607,8 @@ function renderByExecutionModel() {
 
   wrap.innerHTML = keys.map(k => {
     const g = groups[k];
-    const receita = g.projects.reduce((s,p) => s + Number(p.actual_revenue||0), 0);
-    const custo = g.projects.reduce((s,p) => s + Number(p.actual_cost||0), 0);
+    const receita = g.projects.reduce((s,p) => s + Number(p._revenue||0), 0);
+    const custo = g.projects.reduce((s,p) => s + Number(p._cost||0), 0);
     const lucro = receita - custo;
     const margem = receita > 0 ? (lucro/receita*100) : 0;
     return `<div class="tbl-row" style="grid-template-columns:1.6fr .7fr 1fr 1fr 1fr .8fr;">
@@ -641,7 +662,7 @@ function renderProjectsList() {
 
   wrap.innerHTML = list.map(p => {
     const { days } = executionDays(p);
-    const lucro = Number(p.actual_revenue||0) - Number(p.actual_cost||0);
+    const lucro = Number(p._revenue||0) - Number(p._cost||0);
     const period = `${p.start_date || '—'} → ${p.closed_at || '—'}`;
     return `<div class="tbl-row" style="grid-template-columns:1.4fr .9fr 1fr .9fr .8fr 1fr 1fr 1fr;">
       <div>
@@ -652,8 +673,8 @@ function renderProjectsList() {
       ${executionModelSelectHtml(p)}
       <span class="tbl-sub">${period}</span>
       <input type="number" class="manual-days" title="Dias de execução — sempre editável, corrige valor calculado errado ou preenche o que falta" placeholder="?" value="${days != null ? days : ''}" onchange="setProjectManualDays('${p.id}', this.value)">
-      <span class="tbl-val">${fmt(p.actual_revenue)}</span>
-      <span class="tbl-val">${fmt(p.actual_cost)}</span>
+      <span class="tbl-val">${fmt(p._revenue)}</span>
+      <span class="tbl-val">${fmt(p._cost)}</span>
       <span class="tbl-val">${fmt(lucro)}</span>
     </div>`;
   }).join('');
