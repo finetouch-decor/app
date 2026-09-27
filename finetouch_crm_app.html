@@ -87,6 +87,8 @@
   .card-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
   .card-valor { font-size:16px; font-weight:800; color:var(--navy); }
   .card-retorno { font-size:12px; }
+  .card-orc-prop { display:flex; flex-wrap:wrap; gap:5px; margin-top:4px; }
+  .orc-chip { font-size:10px; font-weight:700; color:var(--navy); background:var(--cream2); border:1px solid var(--border); border-radius:20px; padding:2px 8px; white-space:nowrap; }
 
   .status-badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; }
   .s-lead     { background:#102A4B18; color:var(--navy); border:1px solid #102A4B33; }
@@ -422,23 +424,55 @@ function updateSyncUI(state) {
 // LOAD DATA
 async function loadData() {
   updateSyncUI('syncing');
-  const { data, error } = await db
-    .from('leads')
-    .select(`id, status, project_type, scope, estimated_value, first_contact_date, follow_up_date, notes, source, campaign_name, clients ( id, name, phone, city )`)
-    .order('created_at', { ascending: false });
+  const [{ data, error }, { data: quotesData }, { data: proposalsData }] = await Promise.all([
+    db.from('leads')
+      .select(`id, status, project_type, scope, estimated_value, first_contact_date, follow_up_date, notes, source, campaign_name, clients ( id, name, phone, city )`)
+      .order('created_at', { ascending: false }),
+    // orcamentos e propostas de TODOS os clientes, buscados uma vez so (nao um
+    // request por card) pra mostrar o valor de cada um no card do CRM.
+    db.from('quotes').select('client_id,total,sale_price,status,project_name').order('created_at',{ascending:false}),
+    db.from('proposals').select('client_name,total_cost,status,project_name').order('created_at',{ascending:false}),
+  ]);
 
   if (error) { updateSyncUI('error'); showToast('Erro ao carregar dados', 'error'); return; }
+
+  // orcamentos tem client_id de verdade; propostas so tem o nome do cliente em
+  // texto (sem FK) -- mesmo criterio de match ja usado no historico do card
+  // (ilike client_name), so que aqui feito uma vez em memoria pra todos.
+  const quotesByClient = {};
+  (quotesData||[]).forEach(q => {
+    if (!q.client_id) return;
+    (quotesByClient[q.client_id] ||= []).push(q);
+  });
+  const proposalsByClientName = {};
+  (proposalsData||[]).forEach(p => {
+    const key = (p.client_name||'').trim().toLowerCase();
+    if (!key) return;
+    (proposalsByClientName[key] ||= []).push(p);
+  });
 
   records = (data||[]).map(l => ({
     id: l.id, client_id: l.clients?.id,
     nome: l.clients?.name||'', tel: l.clients?.phone||'', local: l.clients?.city||'',
     tipo: l.project_type||'', interesse: l.scope||'', valor: l.estimated_value||'',
     status: l.status||'lead', dtcontato: l.first_contact_date||'',
-    retorno: l.follow_up_date||'', obs: l.notes||'', source: l.source||'', campanha: l.campaign_name||''
+    retorno: l.follow_up_date||'', obs: l.notes||'', source: l.source||'', campanha: l.campaign_name||'',
+    orcamentos: l.clients?.id ? (quotesByClient[l.clients.id]||[]) : [],
+    propostas: proposalsByClientName[(l.clients?.name||'').trim().toLowerCase()] || [],
   }));
 
   updateSyncUI('ok');
   render();
+}
+
+// Monta a lista compacta "$X (status) · $Y (status)" de orcamentos/propostas
+// de um cliente, pra mostrar no card sem abrir o modal.
+function orcamentosPropostasHtml(c) {
+  const chips = [];
+  (c.orcamentos||[]).forEach(q => chips.push({ label: fmtValor(q.total ?? q.sale_price), title: `Orçamento — ${q.project_name||''} (${q.status||''})`, icon: '📋' }));
+  (c.propostas||[]).forEach(p => chips.push({ label: fmtValor(p.total_cost), title: `Proposta — ${p.project_name||''} (${p.status||''})`, icon: '📄' }));
+  if (!chips.length) return '';
+  return `<div class="card-orc-prop">${chips.map(x => `<span class="orc-chip" title="${x.title.replace(/"/g,'&quot;')}">${x.icon} ${x.label}</span>`).join('')}</div>`;
 }
 
 // UTILS
@@ -505,6 +539,7 @@ function renderLista() {
         ${c.tel?`<div class="card-meta">${fmtPhone(c.tel)}</div>`:''}
 
         ${c.interesse?`<div class="card-interesse">${c.interesse}</div>`:''}
+        ${orcamentosPropostasHtml(c)}
       </div>
       <div class="card-right">
         <span class="status-badge s-${c.status}">${c.status}</span>
@@ -535,6 +570,7 @@ function renderKanban() {
         ${c.campanha?`<div style="font-size:10px;color:var(--gold);margin-top:2px;">📣 ${c.campanha}</div>`:''}
 
         ${c.valor?`<div class="valor">${fmtValor(c.valor)}</div>`:''}
+        ${orcamentosPropostasHtml(c)}
         ${c.retorno?`<div style="font-size:11px;margin-top:4px" class="${retornoClass(c.retorno)}">${retornoLabel(c.retorno)}</div>`:''}
         <div style="font-size:10px;color:var(--muted);margin-top:6px;opacity:.5">⠿ arrastar</div>
       </div>`).join('')
