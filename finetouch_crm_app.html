@@ -106,6 +106,7 @@
   .kanban-col-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; padding-bottom:10px; border-bottom:2px solid; flex-shrink:0; }
   .kanban-col-header h3 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; }
   .kanban-count { border-radius:20px; padding:2px 7px; font-size:11px; font-weight:700; }
+  .kanban-col-sum { font-size:12px; font-weight:700; color:var(--navy); margin:-6px 0 10px; flex-shrink:0; }
   .kanban-cards { overflow-y:auto; flex:1; }
   .col-lead .kanban-col-header { border-color:var(--navy); }
   .col-lead h3 { color:var(--navy); } .col-lead .kanban-count { background:#102A4B18; color:var(--navy); }
@@ -304,11 +305,11 @@
   <div class="content">
     <div id="view-lista" style="display:none"></div>
     <div id="view-kanban" class="kanban-view">
-      <div class="kanban-col col-lead"><div class="kanban-col-header"><h3>Lead</h3><span class="kanban-count" id="kc-lead">0</span></div><div class="kanban-cards" id="kl-lead" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'lead')"></div></div>
-      <div class="kanban-col col-visita"><div class="kanban-col-header"><h3>Visita</h3><span class="kanban-count" id="kc-visita">0</span></div><div class="kanban-cards" id="kl-visita" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'visita')"></div></div>
-      <div class="kanban-col col-proposta"><div class="kanban-col-header"><h3>Proposta</h3><span class="kanban-count" id="kc-proposta">0</span></div><div class="kanban-cards" id="kl-proposta" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'proposta')"></div></div>
-      <div class="kanban-col col-fechado"><div class="kanban-col-header"><h3>Fechado</h3><span class="kanban-count" id="kc-fechado">0</span></div><div class="kanban-cards" id="kl-fechado" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'fechado')"></div></div>
-      <div class="kanban-col col-perdido"><div class="kanban-col-header"><h3>Perdido</h3><span class="kanban-count" id="kc-perdido">0</span></div><div class="kanban-cards" id="kl-perdido" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'perdido')"></div></div>
+      <div class="kanban-col col-lead"><div class="kanban-col-header"><h3>Lead</h3><span class="kanban-count" id="kc-lead">0</span></div><div class="kanban-col-sum" id="ks-lead"></div><div class="kanban-cards" id="kl-lead" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'lead')"></div></div>
+      <div class="kanban-col col-visita"><div class="kanban-col-header"><h3>Visita</h3><span class="kanban-count" id="kc-visita">0</span></div><div class="kanban-col-sum" id="ks-visita"></div><div class="kanban-cards" id="kl-visita" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'visita')"></div></div>
+      <div class="kanban-col col-proposta"><div class="kanban-col-header"><h3>Proposta</h3><span class="kanban-count" id="kc-proposta">0</span></div><div class="kanban-col-sum" id="ks-proposta"></div><div class="kanban-cards" id="kl-proposta" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'proposta')"></div></div>
+      <div class="kanban-col col-fechado"><div class="kanban-col-header"><h3>Fechado</h3><span class="kanban-count" id="kc-fechado">0</span></div><div class="kanban-col-sum" id="ks-fechado"></div><div class="kanban-cards" id="kl-fechado" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'fechado')"></div></div>
+      <div class="kanban-col col-perdido"><div class="kanban-col-header"><h3>Perdido</h3><span class="kanban-count" id="kc-perdido">0</span></div><div class="kanban-col-sum" id="ks-perdido"></div><div class="kanban-cards" id="kl-perdido" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'perdido')"></div></div>
     </div>
     <div id="view-retornos" style="display:none"></div>
   </div>
@@ -465,14 +466,16 @@ async function loadData() {
   render();
 }
 
-// Monta a lista compacta "$X (status) · $Y (status)" de orcamentos/propostas
-// de um cliente, pra mostrar no card sem abrir o modal.
+// Monta a lista compacta "$X · $Y" com o valor de cada proposta do cliente,
+// pra mostrar no card sem abrir o modal.
 function orcamentosPropostasHtml(c) {
-  const chips = [];
-  (c.orcamentos||[]).forEach(q => chips.push({ label: fmtValor(q.total ?? q.sale_price), title: `Orçamento — ${q.project_name||''} (${q.status||''})`, icon: '📋' }));
-  (c.propostas||[]).forEach(p => chips.push({ label: fmtValor(p.total_cost), title: `Proposta — ${p.project_name||''} (${p.status||''})`, icon: '📄' }));
+  const chips = (c.propostas||[]).map(p => ({ label: fmtValor(p.total_cost), title: `Proposta — ${p.project_name||''} (${p.status||''})`, icon: '📄' }));
   if (!chips.length) return '';
   return `<div class="card-orc-prop">${chips.map(x => `<span class="orc-chip" title="${x.title.replace(/"/g,'&quot;')}">${x.icon} ${x.label}</span>`).join('')}</div>`;
+}
+
+function somaPropostas(list) {
+  return list.reduce((s,c) => s + (c.propostas||[]).reduce((s2,p) => s2 + (Number(p.total_cost)||0), 0), 0);
 }
 
 // UTILS
@@ -553,6 +556,7 @@ function renderKanban() {
   ['lead','visita','proposta','fechado','perdido'].forEach(s=>{
     const list=filtered().filter(c=>c.status===s);
     const kc=document.getElementById('kc-'+s); if(kc) kc.textContent=list.length;
+    const ks=document.getElementById('ks-'+s); if(ks) { const soma=somaPropostas(list); ks.textContent = soma>0 ? fmtValor(soma)+' em propostas' : ''; }
     const kl=document.getElementById('kl-'+s); if(!kl)return;
     kl.innerHTML=list.length?list.map(c=>`
       <div class="kanban-card"
