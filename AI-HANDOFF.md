@@ -25,6 +25,21 @@ Status: CONCLUIDO (registro de orientacao; nao encerra FT-004)
 Arquivos/tabelas: AI-HANDOFF.md (somente documentacao)
 Resumo: Fabinho confirmou que os dois usuarios atuais, Fabinho Pereira e Tiele Wegner, devem ter acesso a TODOS os modulos e dados operacionais do ERP. Nao criar restricoes por departamento/cargo entre eles nem reduzir o acesso operacional de Tiele. A administracao de usuarios, aprovacao de acessos e alteracao de permissoes permanece com Fabinho; esta orientacao nao promove Tiele a administradora. As correcoes de seguranca devem bloquear visitantes e contas nao aprovadas, preservando os fluxos publicos legitimos ja identificados. Segredos tecnicos continuam exclusivos do servidor. Claude deve observar esta regra na FT-004 e nos testes de acesso, sem alterar cadastros, pagamentos ou dados de clientes como parte da correcao.
 
+### 2026-09-29 — Claude
+Status: EM ANDAMENTO (revalidado, nada novo pra implementar — ver detalhes)
+Arquivos/tabelas: nenhum código alterado nesta entrada; limpeza de 1 linha órfã em marketing_data
+Resumo: Retomei a FT-001 a pedido da Maia. Antes de mexer, li o Handoff e a fila completos: os três itens pedidos (botão "Reconectar Telegram" visível só a admin, fila por chat pra não sobrescrever nota concorrente, e confirmação de OCR/itens/valores antes de gravar) **já estavam implementados e deployados** desde 24/09 (commits ddeb0d0 e 6655703, ver entradas de 24/09 11:21 e 11:41 abaixo) — não reescrevi nada, só revalidei que continua tudo no ar:
+- Botão em `/users`, seção "Integrações": confirmado no código-fonte atual (`reconnectTelegram()`, `loadTelegramStatus()`) e no deploy em produção (commit `c7b63d8`, o mesmo HEAD de hoje — nenhum deploy quebrou isso desde então).
+- Fila por chat (`getQueueState`/`enqueueNote`/`advanceQueue`/`presentNote`) confirmada presente no `api/telegram.js` atual.
+- Confirmação antes de gravar: o fluxo já pede escolha de obra/itens por texto ou áudio antes de qualquer INSERT (função `create_purchase_with_items`, atômica, só roda depois da resposta do usuário).
+- Webhook real conferido agora (`?status=1` com o segredo operacional do servidor, sem sessão de ninguém): conectado, sem backlog (`pending_update_count:0`).
+- `telegram_processed_updates` está com 0 linhas desde 24/09 — ou seja, **nenhuma mensagem real chegou no bot desde a reconexão**, não é falha silenciosa (webhook sem erro reportado pelo Telegram, condizente com "nenhuma tentativa de entrega ainda"). Limpei também 1 chave órfã (`tg_session_876981306`, de 28/08, formato antigo pré-fila) que não é lida pelo código atual — não afetava nada, só higiene.
+
+**Sobre as 2 notas antigas (CMP-69907, CMP-81778, obra "Custom Door Frame Fabrication & Installation")**: o pedido desta rodada cita essas duas como contexto de qual obra elas pertencem, mas Fabinho já tinha decidido explicitamente (registrado abaixo, 24/09) que elas ficam **fora do escopo de lançamento/reprocessamento** — já gravadas, preservadas, não usadas pra validar a implementação. Não reprocessei. Se a intenção desta vez for diferente (reprocessar essas duas especificamente pelo fluxo novo, com OCR/confirmação), preciso de confirmação explícita antes, já que contradiria a decisão anterior registrada.
+
+**O que falta de verdade** (não é implementação, é uso real — não dá pra simular sem criar despesa/nota falsa, o que foi explicitamente proibido antes): Fabinho mandar uma foto de nota fiscal real pro bot no Telegram. Só isso valida de ponta a ponta (OCR, fila com 2 fotos em sequência, escolha de obra por texto/áudio, gravação). Vou acompanhar assim que isso acontecer.
+Não marco FT-001 como CONCLUÍDO ainda — falta só essa validação de uso real, não depende de mim.
+
 ### 2026-09-24 18:20 EDT — Claude
 Status: EM ANDAMENTO (implementado e testado, falta revisão final da Maia)
 Arquivos/tabelas: Supabase RLS — activity_log, catalog_portfolio, catalog_products, catalog_services, content_queue, contracts, fb_leads_processed, leads, marketing_campaigns, marketing_data, marketing_tasks, pendencias, project_stages, proposal_bundle_items, proposal_bundles, purchase_items, qr_scans, suppliers, tasks, profiles, invoice_items
