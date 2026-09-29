@@ -48,6 +48,48 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ ok: false, error: 'Nenhuma propriedade verificada encontrada nessa conta Google.', allSites: entries, rawResponse: sitesJson, httpStatus: sitesRes.status });
     }
 
+    // 3b. Checagem pontual de indexação (?indexcheck=1): usa a URL Inspection API
+    // pra saber, por URL, se o Google indexou ou não (SEO — página /areas/lake-nona etc).
+    if (req.query.indexcheck === '1') {
+      const urlsToCheck = [
+        '/', '/projects', '/blog', '/catalog', '/privacy-policy',
+        '/areas/winter-garden', '/areas/ocoee', '/areas/dr-phillips', '/areas/windermere',
+        '/areas/clermont', '/areas/winter-park', '/areas/lake-nona', '/areas/kissimmee-davenport',
+        '/projects/slat-wood-kitchen-island', '/projects/tv-fireplace-feature-wall',
+        '/projects/marbled-pvc-tv-panel', '/projects/boiserie-living-room',
+        '/projects/geometric-accent-wall', '/projects/wall-paneling-fireplace-windermere-2026',
+        '/blog/tv-panel-wall-vs-media-wall', '/blog/accent-wall-winter-garden',
+        '/blog/wood-slat-wall-panels-orlando', '/blog/accent-wall-cost-orlando-fl',
+      ];
+      const results = [];
+      for (const path of urlsToCheck) {
+        const inspectionUrl = `https://ftdecordesign.com${path}`;
+        try {
+          const inspRes = await fetch('https://searchconsole.googleapis.com/v1/urlInspection/index:inspect', {
+            method: 'POST',
+            headers: { ...authHeader, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ inspectionUrl, siteUrl: site.siteUrl }),
+          });
+          const inspJson = await inspRes.json();
+          const r = inspJson.inspectionResult?.indexStatusResult || {};
+          results.push({
+            path,
+            verdict: r.verdict || null,
+            coverageState: r.coverageState || null,
+            indexingState: r.indexingState || null,
+            robotsTxtState: r.robotsTxtState || null,
+            lastCrawlTime: r.lastCrawlTime || null,
+            googleCanonical: r.googleCanonical || null,
+            userCanonical: r.userCanonical || null,
+            error: inspJson.error ? inspJson.error.message : null,
+          });
+        } catch (e) {
+          results.push({ path, error: e.message });
+        }
+      }
+      return res.status(200).json({ ok: true, site: site.siteUrl, checkedAt: new Date().toISOString(), results });
+    }
+
     // 4. Consulta os dados reais dos últimos 90 dias, agrupados por keyword (query)
     const end = new Date();
     end.setDate(end.getDate() - 3); // GSC tem defasagem de ~2-3 dias
