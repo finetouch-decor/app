@@ -61,8 +61,9 @@ module.exports = async function handler(req, res) {
         '/blog/tv-panel-wall-vs-media-wall', '/blog/accent-wall-winter-garden',
         '/blog/wood-slat-wall-panels-orlando', '/blog/accent-wall-cost-orlando-fl',
       ];
-      const results = [];
-      for (const path of urlsToCheck) {
+      // Em paralelo (Promise.all) — sequencial estourava os 10s padrão de
+      // duração da função serverless no plano Hobby pra 23 URLs.
+      const results = await Promise.all(urlsToCheck.map(async (path) => {
         const inspectionUrl = `https://ftdecordesign.com${path}`;
         try {
           const inspRes = await fetch('https://searchconsole.googleapis.com/v1/urlInspection/index:inspect', {
@@ -72,7 +73,7 @@ module.exports = async function handler(req, res) {
           });
           const inspJson = await inspRes.json();
           const r = inspJson.inspectionResult?.indexStatusResult || {};
-          results.push({
+          return {
             path,
             verdict: r.verdict || null,
             coverageState: r.coverageState || null,
@@ -82,11 +83,11 @@ module.exports = async function handler(req, res) {
             googleCanonical: r.googleCanonical || null,
             userCanonical: r.userCanonical || null,
             error: inspJson.error ? inspJson.error.message : null,
-          });
+          };
         } catch (e) {
-          results.push({ path, error: e.message });
+          return { path, error: e.message };
         }
-      }
+      }));
       return res.status(200).json({ ok: true, site: site.siteUrl, checkedAt: new Date().toISOString(), results });
     }
 
