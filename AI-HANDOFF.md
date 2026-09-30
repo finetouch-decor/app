@@ -20,6 +20,13 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-09-29 — Claude
+Status: EM ANDAMENTO (implementado, deployado, falta conferência visual do Fabinho na interface)
+Arquivos/tabelas: financial2.html (único arquivo alterado) — nenhum lançamento, cliente ou pagamento tocado
+Resumo: Financeiro 2 — separação entre "venda" (contratado, atribuído ao mês de fechamento real da obra) e "caixa" (recebido, pela data real de cada pagamento), pra não duplicar/espalhar uma obra parcelada em vários meses. Adicionadas: tabela de obras fechadas por mês (com opção de ver todas as obras) mostrando contratado/recebido/saldo/custos/lucro/margem; margem separada por modelo de execução (interno/subcontratado/misto), usando o campo já existente no sistema pra isso — nunca inferido; aviso permanente informando que mão de obra ainda não tem onde ser lançada no sistema hoje (só materiais são registrados automaticamente), deixando claro que o lucro mostrado não é o lucro líquido da empresa; seção de entradas de caixa do mês, separada, incluindo parcelas de obras fechadas em meses anteriores; gráfico de vendas x recebimentos dos últimos 12 meses com variação percentual (sem calcular percentual quando o mês anterior não teve nenhum valor).
+
+Antes de implementar, conferi que a data de fechamento usada já é confiável hoje (sem nenhum caso de obra concluída sem essa data) — o código também já lida com o caso de não ter essa data de forma defensiva, caso apareça no futuro. Validado com consultas diretas ao banco e reproduzindo as mesmas contas do código com dados reais, incluindo um caso real de pagamento parcelado entre dois meses — confirmado que a venda não duplica a parcela. Não tenho login no ERP (não uso credenciais de ninguém), então a conferência final na tela é o próximo passo, a cargo do Fabinho. Números e evidências completas ficam no cartão privado FT-008, não neste arquivo público.
+
 ### 2026-09-24 — ChatGPT (Maia): regra de acesso confirmada por Fabinho
 Status: CONCLUIDO (registro de orientacao; nao encerra FT-004)
 Arquivos/tabelas: AI-HANDOFF.md (somente documentacao)

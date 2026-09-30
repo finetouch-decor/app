@@ -28,6 +28,16 @@ Fila compartilhada de trabalho entre Fabinho, Maia (ChatGPT) e Claude.
 
 ## Tarefas ativas
 
+### FT-008 — Financeiro 2: fechamento de obras, entradas do mês e margem por modelo de execução
+Status: EM ANDAMENTO (implementado, deployado e validado via banco/dados reais; falta conferência visual do Fabinho na interface, que não tenho login pra fazer)
+Prioridade: MEDIA
+Responsável: Claude
+Solicitado por: Fabinho (via Maia)
+Criado em: 2026-09-29
+Arquivos/sistemas: financial2.html (único arquivo alterado) — sem alterar nenhum lançamento, cliente ou pagamento
+Objetivo: Separar "venda" (valor contratado, atribuído ao mês de fechamento/aceite real da obra) de "caixa" (dinheiro recebido, pela data real de pagamento de cada parcela), evitando que uma obra parcelada apareça duplicada ou espalhada em vários meses. Mostrar, por mês: obras fechadas (contratado/recebido/saldo), entradas de caixa separadas (incluindo parcelas de obras fechadas em meses anteriores), margem por modelo de execução (interno/subcontratado/misto) e um gráfico de vendas x recebimentos dos últimos 12 meses.
+Resultado: Implementado e publicado (commit 14b2555). Validado com consultas diretas ao banco e replicação das mesmas fórmulas de cálculo contra dados reais (incluindo um caso real de parcela cruzando dois meses), confirmando que a venda não é duplicada por parcela. Detalhes completos, números e evidências ficam só no cartão privado FT-008 (dados financeiros específicos não vão neste repositório público). Falta: Fabinho conferir visualmente na interface (não tenho como logar no ERP pra fazer esse último passo).
+
 ### FT-004 — RLS de quotes/quote_items/invoices, api_secrets e funções privilegiadas
 Status: EM ANDAMENTO
 Prioridade: CRITICA
