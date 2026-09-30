@@ -190,6 +190,90 @@ canvas{max-height:280px;}
 
     <div class="section">
       <div class="section-head">
+        <div class="section-title">🏁 Fechamento de Obras <small id="closing-sub">— total contratado, recebido e custos por obra</small></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="range-btn" id="closing-tab-month">Mês selecionado</button>
+          <button class="range-btn" id="closing-tab-all">Todas as Obras</button>
+          <div class="filter-sep" id="closing-month-sep"></div>
+          <div id="closing-month-nav" style="display:flex;align-items:center;gap:6px;">
+            <button class="range-btn" id="closing-month-prev">◀</button>
+            <span id="closing-month-label" style="font-size:12.5px;font-weight:700;color:var(--navy);min-width:150px;text-align:center;"></span>
+            <button class="range-btn" id="closing-month-next">▶</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-grid" id="closing-kpi-grid" style="margin-bottom:14px;"></div>
+      <div id="closing-warning" style="display:none;background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;margin-bottom:14px;"></div>
+
+      <div class="section-title" style="font-size:13px;margin-bottom:8px;">📐 Margem por Modelo de Execução</div>
+      <div class="kpi-grid" id="execmodel-kpi-grid" style="margin-bottom:8px;"></div>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.5;" id="execmodel-note"></p>
+
+      <div style="overflow-x:auto;">
+        <table id="tbl-closing">
+          <thead><tr>
+            <th data-k="name">Obra <span class="arrow"></span></th>
+            <th data-k="client">Cliente</th>
+            <th data-k="status">Status</th>
+            <th data-k="execution_model">Modelo</th>
+            <th data-k="closed_at">Fechamento</th>
+            <th data-k="contracted" class="right">Contratado</th>
+            <th data-k="received" class="right">Recebido</th>
+            <th data-k="pending" class="right">Saldo</th>
+            <th data-k="materials" class="right">Materiais</th>
+            <th class="right">Mão de Obra</th>
+            <th data-k="other" class="right">Outros</th>
+            <th data-k="totalCost" class="right">Custo Total</th>
+            <th data-k="profit" class="right">Lucro*</th>
+            <th data-k="margin" class="right">Margem*</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="closing-empty" style="display:none;">Nenhuma obra fechada neste mês.</div>
+      <p style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6;">
+        * <strong>Lucro</strong> = Contratado − custos registrados no sistema (materiais + outros lançamentos de despesa vinculados à obra). Não é o lucro líquido da empresa, que também inclui despesas gerais do negócio.
+        <span style="color:var(--amber);font-weight:700;">⚠</span> indica que mão de obra (e, quando aplicável, outros custos) não foi lançada no sistema para essa obra — hoje o ERP só registra materiais automaticamente (compras via fornecedores/Telegram); mão de obra depende de um lançamento manual em Transações que ainda não existe como prática. A margem exibida pode estar superestimada nesses casos, nunca subestimada.
+        <span style="color:var(--gold);font-weight:700;">● Provisório</span> indica obra ainda em andamento (sem data de fechamento) — contratado e custos podem mudar até o fechamento real.
+      </p>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title">💵 Entradas do Mês <small id="entries-sub">— recebido no mês, incluindo obras fechadas antes</small></div>
+      </div>
+      <div class="kpi-grid" id="entries-kpi-grid" style="margin-bottom:14px;"></div>
+      <div style="overflow-x:auto;">
+        <table id="tbl-entries">
+          <thead><tr>
+            <th>Obra</th>
+            <th>Cliente</th>
+            <th>Invoice</th>
+            <th>Data Pgto.</th>
+            <th class="right">Valor</th>
+            <th>Origem</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="entries-empty" style="display:none;">Nenhuma entrada registrada neste mês.</div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title">📊 Vendas x Recebimentos <small>— últimos 12 meses</small></div>
+        <div style="display:flex;gap:8px;">
+          <button class="range-btn" id="year-tab-sales">Vendas</button>
+          <button class="range-btn" id="year-tab-received">Recebimentos</button>
+        </div>
+      </div>
+      <canvas id="chart-year" height="90"></canvas>
+      <p style="font-size:11px;color:var(--muted);margin-top:10px;" id="year-chart-note"></p>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
         <div class="section-title">⏳ Contas a Receber <small id="ar-sub">— invoices em aberto</small></div>
       </div>
       <div class="aging-row" id="aging-row"></div>
@@ -257,12 +341,16 @@ function showToast(msg, type='') {
   setTimeout(() => t.className = 'toast', 2800);
 }
 
-let invoices = [], purchases = [], projects = [], clients = [];
+let invoices = [], purchases = [], projects = [], clients = [], transactions = [];
 let currentRange = 'mtd';
 let customFrom = null, customTo = null;
 let activeClientId = '';
 let obraSort = { k: 'revenue', dir: -1 };
 let arSort = { k: 'days', dir: -1 };
+let closingViewMode = 'month'; // 'month' | 'all'
+let closingMonth = new Date().toISOString().slice(0,7); // 'YYYY-MM', mês corrente por padrão
+let closingSort = { k: 'closed_at', dir: -1 };
+let yearChart, yearChartMode = 'sales';
 
 function fmt(n) { return '$' + Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fmtDate(d) { if(!d) return '—'; const dt = new Date(d+'T00:00:00'); return dt.toLocaleDateString('pt-BR'); }
@@ -299,16 +387,18 @@ function getPrevRangeDates(range, from, to) {
 }
 
 async function loadAll() {
-  const [{ data: invs }, { data: purch }, { data: proj }, { data: cls }] = await Promise.all([
+  const [{ data: invs }, { data: purch }, { data: proj }, { data: cls }, { data: txs }] = await Promise.all([
     db.from('invoices').select('id,invoice_number,client_id,project_id,project_name,total,subtotal,status,issue_date,due_date,paid_date'),
     db.from('purchases').select('id,project_id,order_date,supplier_name,total,purchase_items(total)'),
-    db.from('projects').select('id,name,status,client_id,closed_at,budget,quotes(total)'),
+    db.from('projects').select('id,name,status,client_id,closed_at,budget,execution_model,quotes(total)'),
     db.from('clients').select('id,name'),
+    db.from('transactions').select('id,type,category,amount,project_id'),
   ]);
   invoices = invs || [];
   purchases = purch || [];
   projects = proj || [];
   clients = cls || [];
+  transactions = txs || [];
 
   const clientMap = {}; clients.forEach(c => clientMap[c.id] = c.name);
   invoices.forEach(i => i.client_name = clientMap[i.client_id] || i.project_name || '—');
@@ -357,6 +447,29 @@ function bindEvents() {
   document.getElementById('obra-search').addEventListener('input', renderObraTable);
   document.getElementById('btn-export-obras').addEventListener('click', () => exportObrasCsv());
   document.getElementById('btn-export-ar').addEventListener('click', () => exportArCsv());
+
+  document.getElementById('closing-tab-month').addEventListener('click', () => { closingViewMode='month'; renderClosingSection(); });
+  document.getElementById('closing-tab-all').addEventListener('click', () => { closingViewMode='all'; renderClosingSection(); });
+  document.getElementById('closing-month-prev').addEventListener('click', () => {
+    const [y,m] = closingMonth.split('-').map(Number);
+    closingMonth = new Date(y, m-2, 1).toISOString().slice(0,7);
+    renderClosingSection(); renderEntriesSection();
+  });
+  document.getElementById('closing-month-next').addEventListener('click', () => {
+    const [y,m] = closingMonth.split('-').map(Number);
+    const next = new Date(y, m, 1).toISOString().slice(0,7);
+    if (next > new Date().toISOString().slice(0,7)) return; // não permite avançar pra mês futuro
+    closingMonth = next;
+    renderClosingSection(); renderEntriesSection();
+  });
+  document.querySelectorAll('#tbl-closing th[data-k]').forEach(th => {
+    th.addEventListener('click', () => {
+      if (closingSort.k === th.dataset.k) closingSort.dir *= -1; else { closingSort.k = th.dataset.k; closingSort.dir = -1; }
+      renderClosingSection();
+    });
+  });
+  document.getElementById('year-tab-sales').addEventListener('click', () => { yearChartMode='sales'; renderYearChart(); });
+  document.getElementById('year-tab-received').addEventListener('click', () => { yearChartMode='received'; renderYearChart(); });
 }
 
 function setRange(range) {
@@ -380,6 +493,286 @@ function renderAll() {
   renderAging();
   renderArTable();
   renderObraTable();
+  renderClosingSection();
+  renderEntriesSection();
+  renderYearChart();
+}
+
+// ---------- Fechamento de Obras (venda = contratado atribuído ao mês de closed_at, nunca por parcela) ----------
+function monthLabel(m) {
+  const [y,mo] = m.split('-').map(Number);
+  return new Date(y, mo-1, 1).toLocaleDateString('pt-BR', { month:'long', year:'numeric' });
+}
+function isCurrentMonth(m) { return m === new Date().toISOString().slice(0,7); }
+
+function computeObraFinance(p, invByProject, paidByProject, purchByProject, txByProject) {
+  const contracted = invByProject[p.id] || Number(p.quotes?.total || 0);
+  const received = paidByProject[p.id] || 0;
+  const pending = contracted - received;
+  const materials = purchByProject[p.id] || 0;
+  const otherHasData = txByProject.hasOwnProperty(p.id);
+  const other = otherHasData ? txByProject[p.id] : 0;
+  const totalCost = materials + other; // mão de obra não entra: não existe lançamento dela no sistema hoje
+  const profit = contracted - totalCost;
+  const margin = contracted > 0 ? (profit/contracted*100) : 0;
+  // Mão de obra é sempre "não lançada" (limitação estrutural do ERP hoje, não desta obra específica).
+  // "Outros" só conta como incompleto quando não há nenhum lançamento de despesa pra essa obra.
+  const incomplete = true; // sempre true enquanto mão de obra não tiver lugar pra ser lançada
+  return { contracted, received, pending, materials, otherHasData, other, totalCost, profit, margin, incomplete };
+}
+
+function computeClosingRows() {
+  const invByProject = {};
+  invoices.filter(i => i.status !== 'cancelled' && i.status !== 'draft').forEach(i => {
+    invByProject[i.project_id] = (invByProject[i.project_id]||0) + Number(i.total||i.subtotal||0);
+  });
+  const paidByProject = {};
+  invoices.filter(i => i.status === 'paid').forEach(i => {
+    paidByProject[i.project_id] = (paidByProject[i.project_id]||0) + Number(i.total||i.subtotal||0);
+  });
+  const purchByProject = {};
+  purchases.forEach(p => { purchByProject[p.project_id] = (purchByProject[p.project_id]||0) + p.calc_total; });
+  const txByProject = {};
+  transactions.filter(t => t.type === 'expense' && t.project_id).forEach(t => {
+    txByProject[t.project_id] = (txByProject[t.project_id]||0) + Number(t.amount||0);
+  });
+
+  let list = projects.slice();
+  if (closingViewMode === 'month') {
+    // Só obras com data de fechamento confiável (closed_at) dentro do mês selecionado.
+    // Obras concluídas sem closed_at (não deveria existir hoje — conferido: 0 casos) ficariam de fora
+    // daqui de propósito, pra não inventar em qual mês elas "deveriam" ter caído.
+    list = list.filter(p => p.closed_at && p.closed_at.slice(0,7) === closingMonth);
+  }
+  if (activeClientId) list = list.filter(p => p.client_id === activeClientId);
+
+  return list.map(p => {
+    const f = computeObraFinance(p, invByProject, paidByProject, purchByProject, txByProject);
+    return { id:p.id, name:p.name, client:p.client_name, client_id:p.client_id, status:p.status, closed_at:p.closed_at, execution_model:p.execution_model||null, provisional: !p.closed_at, ...f };
+  });
+}
+
+// ---------- Margem por Modelo de Execução (Internas / Subcontratadas / Mistas) ----------
+// Classificação vem do campo real projects.execution_model (self_performed/subcontracted/hybrid),
+// definido manualmente pelo Fabinho por obra — nunca inferido/adivinhado aqui. Obra sem esse campo
+// preenchido cai em "Não Classificada" (hoje: as 4 obras ainda em andamento, nenhuma concluída).
+const EXEC_MODEL_GROUPS = {
+  self_performed: 'Internas',
+  subcontracted: 'Subcontratadas',
+  hybrid: 'Mistas',
+};
+
+function computeExecModelSummary(rows) {
+  const buckets = { 'Internas': [], 'Subcontratadas': [], 'Mistas': [], 'Não Classificada': [] };
+  rows.forEach(r => {
+    const label = EXEC_MODEL_GROUPS[r.execution_model] || 'Não Classificada';
+    buckets[label].push(r);
+  });
+  return Object.entries(buckets).map(([label, list]) => {
+    const contracted = list.reduce((s,r)=>s+r.contracted,0);
+    const totalCost = list.reduce((s,r)=>s+r.totalCost,0);
+    const profit = contracted - totalCost;
+    // Margem do grupo = soma dos lucros / soma dos contratados (ponderada pelo valor de cada obra),
+    // nunca a média simples das margens individuais — uma obra de $10k pesa mais que uma de $500.
+    const margin = contracted > 0 ? (profit/contracted*100) : null;
+    return { label, n: list.length, contracted, totalCost, profit, margin };
+  });
+}
+
+function renderExecModelSummary(rows) {
+  const groups = computeExecModelSummary(rows);
+  document.getElementById('execmodel-kpi-grid').innerHTML = groups.map(g => `
+    <div class="kpi-card">
+      <div class="kpi-label">${g.label} <span style="font-weight:500;text-transform:none;">(${g.n})</span></div>
+      <div class="kpi-value" style="font-size:17px;">${g.n ? (g.margin===null ? '—' : g.margin.toFixed(0)+'%') : '—'}</div>
+      <div class="kpi-note">${g.n ? `Contratado ${fmt(g.contracted)} · Lucro ${fmt(g.profit)}` : 'sem obras neste recorte'}</div>
+    </div>`).join('');
+  document.getElementById('execmodel-note').textContent =
+    'Margem de cada grupo = soma dos lucros ÷ soma dos valores contratados do grupo (ponderada), não a média das margens individuais. "Subcontratadas" mostra o custo total já líquido (sem duplicar: soma de materiais/compras + despesas lançadas ligadas à obra) — o sistema hoje não tem um campo separado pra distinguir "valor pago ao subcontratado" de "custo direto da FT" dentro dessas obras, então essa quebra mais fina não é exibida pra não adivinhar. "Não Classificada" = execution_model não definido para a obra (normal em obras ainda em andamento, que só recebem essa classificação no fechamento).';
+}
+
+function renderClosingSection() {
+  document.getElementById('closing-tab-month').classList.toggle('active', closingViewMode==='month');
+  document.getElementById('closing-tab-all').classList.toggle('active', closingViewMode==='all');
+  document.getElementById('closing-month-nav').style.display = closingViewMode==='month' ? 'flex' : 'none';
+  document.getElementById('closing-month-sep').style.display = closingViewMode==='month' ? 'block' : 'none';
+  document.getElementById('closing-month-label').textContent = monthLabel(closingMonth) + (isCurrentMonth(closingMonth) ? ' (em andamento)' : '');
+  document.getElementById('closing-empty').textContent = closingViewMode==='month' ? 'Nenhuma obra fechada neste mês.' : 'Nenhuma obra encontrada.';
+
+  let rows = computeClosingRows();
+
+  const kpis = [
+    { label: closingViewMode==='month' ? 'Obras Fechadas no Mês' : 'Total de Obras', value: rows.length },
+    { label: 'Total Contratado', value: fmt(rows.reduce((s,r)=>s+r.contracted,0)) },
+    { label: 'Recebido (acumulado)', value: fmt(rows.reduce((s,r)=>s+r.received,0)) },
+    { label: 'Saldo Pendente', value: fmt(rows.reduce((s,r)=>s+r.pending,0)) },
+  ];
+  document.getElementById('closing-kpi-grid').innerHTML = kpis.map(c => `
+    <div class="kpi-card"><div class="kpi-label">${c.label}</div><div class="kpi-value">${c.value}</div></div>`).join('');
+
+  renderExecModelSummary(rows);
+
+  const warnEl = document.getElementById('closing-warning');
+  if (rows.some(r => r.incomplete)) {
+    warnEl.style.display = 'block';
+    warnEl.textContent = '⚠ Mão de obra não é lançada por obra no sistema hoje (só materiais são registrados automaticamente via compras) — o custo e a margem abaixo consideram apenas o que foi de fato registrado. A margem real tende a ser menor do que a exibida, nunca maior.';
+  } else {
+    warnEl.style.display = 'none';
+  }
+
+  rows.sort((a,b) => {
+    let av = a[closingSort.k], bv = b[closingSort.k];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === 'string') return av.localeCompare(bv) * closingSort.dir;
+    return (av-bv) * closingSort.dir;
+  });
+
+  document.getElementById('closing-empty').style.display = rows.length ? 'none' : 'block';
+  document.querySelector('#tbl-closing tbody').innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.name}${r.provisional ? ' <span style="color:var(--gold);font-weight:700;font-size:10.5px;">● Provisório</span>' : ''}</td>
+      <td>${r.client}</td>
+      <td>${projectStatusTag(r.status)}</td>
+      <td><span class="tag ${r.execution_model?'muted':'warn'}">${EXEC_MODEL_GROUPS[r.execution_model] || 'Não Classificada'}</span></td>
+      <td>${r.closed_at ? fmtDate(r.closed_at) : '— (em andamento)'}</td>
+      <td class="right mono">${fmt(r.contracted)}</td>
+      <td class="right mono">${fmt(r.received)}</td>
+      <td class="right mono" style="color:${r.pending>0.01?'var(--red)':'var(--green)'}">${fmt(r.pending)}</td>
+      <td class="right mono">${fmt(r.materials)}</td>
+      <td class="right mono" title="Mão de obra não é lançada por obra no sistema hoje">— ⚠</td>
+      <td class="right mono">${r.otherHasData ? fmt(r.other) : '—'}</td>
+      <td class="right mono">${fmt(r.totalCost)}</td>
+      <td class="right mono" style="color:${r.profit>=0?'var(--green)':'var(--red)'}">${fmt(r.profit)}${r.incomplete?' <span style="color:var(--amber);" title="Custo pode estar incompleto (mão de obra não lançada)">⚠</span>':''}</td>
+      <td class="right mono">${r.margin.toFixed(0)}%</td>
+    </tr>`).join('') || '';
+}
+
+// ---------- Entradas do Mês (caixa, separado de venda — inclui obras fechadas em meses anteriores) ----------
+function computeMonthEntries() {
+  let list = invoices.filter(i => i.status === 'paid' && i.paid_date && i.paid_date.slice(0,7) === closingMonth);
+  if (activeClientId) list = list.filter(i => i.client_id === activeClientId);
+  const projMap = {}; projects.forEach(p => projMap[p.id] = p);
+  return list.map(i => {
+    const proj = projMap[i.project_id];
+    const closedMonth = proj?.closed_at ? proj.closed_at.slice(0,7) : null;
+    // 3 casos reais distintos (confirmados nos dados): obra sem closed_at (ainda em andamento);
+    // obra fechada em mês ANTERIOR a este (obra antiga, pedido explícito do Fabinho); e obra que
+    // só viria a fechar DEPOIS deste pagamento (parcela paga adiantado, ex.: obra "Ricardo Moraes
+    // Rodriguez" fechou em 05/set mas uma parcela foi paga em 30/ago — não é "obra antiga", é
+    // pagamento antecipado de uma obra que ainda não tinha fechado naquele mês).
+    let kind, origem;
+    if (!closedMonth) { kind = 'ongoing'; origem = 'obra ainda em andamento'; }
+    else if (closedMonth === closingMonth) { kind = 'same'; origem = 'obra fechada neste mês'; }
+    else if (closedMonth < closingMonth) { kind = 'old'; origem = `obra antiga — fechada em ${monthLabel(closedMonth)}`; }
+    else { kind = 'future'; origem = `pagamento adiantado — obra só fechou em ${monthLabel(closedMonth)}`; }
+    return { ...i, obra_name: proj?.name || i.project_name || '—', kind, origem };
+  });
+}
+
+function renderEntriesSection() {
+  const list = computeMonthEntries();
+  const total = list.reduce((s,i)=>s+Number(i.total||i.subtotal||0),0);
+  const oldCount = list.filter(i=>i.kind==='old').length;
+  document.getElementById('entries-sub').textContent = `— recebido em ${monthLabel(closingMonth)}, incluindo obras fechadas antes`;
+  document.getElementById('entries-kpi-grid').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Total Recebido no Mês</div><div class="kpi-value">${fmt(total)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Parcelas Recebidas</div><div class="kpi-value">${list.length}</div></div>
+    <div class="kpi-card"><div class="kpi-label">De Obras Antigas</div><div class="kpi-value">${oldCount}</div><div class="kpi-note">fechadas em meses anteriores</div></div>`;
+  document.getElementById('entries-empty').style.display = list.length ? 'none' : 'block';
+  document.querySelector('#tbl-entries tbody').innerHTML = list.map(i => `
+    <tr>
+      <td>${i.obra_name}</td>
+      <td>${i.client_name || '—'}</td>
+      <td class="mono">${i.invoice_number||'—'}</td>
+      <td>${fmtDate(i.paid_date)}</td>
+      <td class="right mono">${fmt(i.total||i.subtotal)}</td>
+      <td><span class="tag ${i.kind==='old'?'warn':(i.kind==='future'?'bad':'muted')}">${i.origem}</span></td>
+    </tr>`).join('');
+}
+
+// ---------- Vendas x Recebimentos — últimos 12 meses ----------
+function last12Months() {
+  const months = [];
+  const now = new Date();
+  for (let i=11; i>=0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    months.push(d.toISOString().slice(0,7));
+  }
+  return months;
+}
+function computeMonthlySales(invByProject) {
+  // Venda = contratado inteiro atribuído ao mês de closed_at — nunca por data de parcela/invoice,
+  // pra não duplicar/espalhar uma única obra em vários meses (ex.: contrato fechado em set.,
+  // pago metade em set. e metade em out. = venda só em set.; recebimento é outro gráfico).
+  const map = {};
+  projects.forEach(p => {
+    if (!p.closed_at) return; // sem data confiável -> não atribuída a nenhum mês (nada inventado)
+    const m = p.closed_at.slice(0,7);
+    const contracted = invByProject[p.id] || Number(p.quotes?.total||0);
+    map[m] = (map[m]||0) + contracted;
+  });
+  return map;
+}
+function computeMonthlyReceived() {
+  const map = {};
+  invoices.filter(i=>i.status==='paid' && i.paid_date).forEach(i => {
+    const m = i.paid_date.slice(0,7);
+    map[m] = (map[m]||0) + Number(i.total||i.subtotal||0);
+  });
+  return map;
+}
+
+function renderYearChart() {
+  const months = last12Months();
+  const invByProject = {};
+  invoices.filter(i => i.status !== 'cancelled' && i.status !== 'draft').forEach(i => {
+    invByProject[i.project_id] = (invByProject[i.project_id]||0) + Number(i.total||i.subtotal||0);
+  });
+  const salesMap = computeMonthlySales(invByProject);
+  const receivedMap = computeMonthlyReceived();
+  const dataMap = yearChartMode === 'sales' ? salesMap : receivedMap;
+  const values = months.map(m => dataMap[m] || 0);
+  const labels = months.map(m => monthLabel(m));
+  const currentIdx = months.length - 1;
+
+  const pctLabels = values.map((v,i) => {
+    if (i===0) return '';
+    const prevV = values[i-1];
+    if (prevV === 0) return v > 0 ? ' (novo, sem base anterior)' : '';
+    const pct = ((v-prevV)/prevV*100);
+    return ` (${pct>=0?'+':''}${pct.toFixed(0)}% vs mês anterior)`;
+  });
+
+  if (yearChart) yearChart.destroy();
+  const ctx = document.getElementById('chart-year').getContext('2d');
+  yearChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: yearChartMode === 'sales' ? 'Vendas' : 'Recebimentos',
+        data: values,
+        backgroundColor: months.map((m,i) => i===currentIdx ? '#C69E63' : (yearChartMode==='sales' ? '#1a3d6ecc' : '#2e6b3ecc')),
+        borderRadius: 5,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmt(c.parsed.y)}${pctLabels[c.dataIndex]}` } }
+      },
+      scales: { y: { ticks: { callback: v => '$'+Number(v).toLocaleString('en-US') } } }
+    }
+  });
+
+  document.getElementById('year-chart-note').textContent =
+    `Mês atual (${monthLabel(months[currentIdx])}, em cor dourada) ainda está em andamento — valor parcial, não comparável a um mês fechado. Variação % não é exibida quando o mês anterior não teve nenhum valor registrado (evita divisão por zero / percentuais sem sentido).`;
+
+  document.getElementById('year-tab-sales').classList.toggle('active', yearChartMode==='sales');
+  document.getElementById('year-tab-received').classList.toggle('active', yearChartMode==='received');
 }
 
 // ---------- KPIs ----------
