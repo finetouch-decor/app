@@ -1267,6 +1267,22 @@ export default async function handler(req, res) {
     return;
   }
 
+  // Identifica, sem alterar nada, a que perfil do Telegram um chat_id pertence --
+  // usado pra confirmar (nunca presumir) se um remetente novo/nao autorizado e
+  // realmente o Fabinho antes de decidir autorizar o envio de comandos ao bot.
+  if (req.method === 'GET' && req.query?.whois) {
+    if (!requireOpsSecret(req)) {
+      const admin = await requireAdmin(req.headers.authorization || '');
+      if (!admin.ok) { res.status(admin.code).json({ ok: false, error: admin.error }); return; }
+    }
+    if (!BOT_TOKEN) { res.status(500).json({ ok: false, error: 'Missing config' }); return; }
+    const chatId = String(req.query.whois);
+    const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=${encodeURIComponent(chatId)}`);
+    const info = await tgRes.json();
+    res.status(200).json({ ok: true, chatId, telegram: info });
+    return;
+  }
+
   if (req.method !== 'POST') { res.status(200).json({ ok: true }); return; }
 
   // Confirma que a chamada veio mesmo do Telegram (nao de qualquer POST publico

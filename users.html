@@ -168,6 +168,15 @@
       </div>
       <button class="btn-approve" style="padding:9px 18px;font-size:13px;" id="tg-reconnect-btn" onclick="reconnectTelegram()">🔄 Reconectar Telegram</button>
     </div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(0,0,0,0.06);">
+      <div style="font-weight:700;color:var(--navy);font-size:13px;margin-bottom:6px;">🔍 Identificar chat_id</div>
+      <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px;">Confirma a quem um chat_id pertence antes de autorizar — não adivinha, só mostra o que o próprio Telegram informa.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input id="tg-whois-input" placeholder="chat_id (ex: 876981306)" style="padding:8px 10px;border:1.5px solid rgba(0,0,0,0.12);border-radius:8px;font-size:12.5px;font-family:inherit;width:200px;">
+        <button class="btn-approve" style="padding:8px 14px;font-size:12.5px;" id="tg-whois-btn" onclick="whoisTelegram()">Verificar</button>
+      </div>
+      <div id="tg-whois-result" style="font-size:12px;color:var(--muted);margin-top:8px;white-space:pre-wrap;"></div>
+    </div>
   </div>
 
   <div class="section-title">Pendentes de Aprovação</div>
@@ -252,6 +261,28 @@ async function reconnectTelegram() {
   }
   btn.disabled = false; btn.textContent = '🔄 Reconectar Telegram';
   await loadTelegramStatus();
+}
+
+async function whoisTelegram() {
+  const chatId = (document.getElementById('tg-whois-input').value || '').trim();
+  const out = document.getElementById('tg-whois-result');
+  if (!chatId) { out.textContent = 'Informe um chat_id.'; return; }
+  const btn = document.getElementById('tg-whois-btn');
+  btn.disabled = true; out.textContent = 'Consultando...';
+  try {
+    const auth = await tgAuthHeader();
+    if (!auth) { out.textContent = 'Sessão expirada — recarregue a página.'; btn.disabled = false; return; }
+    const res = await fetch(`/api/telegram?whois=${encodeURIComponent(chatId)}`, { headers: { Authorization: auth } });
+    const data = await res.json();
+    if (!res.ok || !data.ok) { out.textContent = `Erro: ${data.error || 'não foi possível consultar'}`; btn.disabled = false; return; }
+    const c = data.telegram?.result;
+    if (!c) { out.textContent = `Telegram não retornou dados para esse chat_id (${data.telegram?.description || 'sem descrição'}).`; btn.disabled = false; return; }
+    const name = [c.first_name, c.last_name].filter(Boolean).join(' ') || '(sem nome)';
+    out.textContent = `chat_id ${chatId} → ${c.type === 'private' ? 'Chat privado' : c.type} · Nome: ${name}${c.username ? ' · @'+c.username : ''}`;
+  } catch (e) {
+    out.textContent = 'Erro ao consultar.';
+  }
+  btn.disabled = false;
 }
 
 async function loadUsers() {
