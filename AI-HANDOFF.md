@@ -20,6 +20,11 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-09-30 — Claude
+Status: EM ANDAMENTO (FT-001 — investigado, ferramenta de verificação criada, aguardando decisão do Fabinho)
+Arquivos/tabelas: api/telegram.js (novo modo `?whois=` só-leitura), users.html (campo "Identificar chat_id" em Integrações) — nenhum lançamento, cliente ou nota alterado
+Resumo: Uma foto de nota fiscal real chegou ao bot em 29/09 (confirmado em `telegram_processed_updates`), mas de um chat_id que não está na lista de remetentes autorizados hoje — pelo desenho de segurança já existente, foi descartada sem processar (sem confirmar recebimento nem devolver erro ao remetente, só um log interno no servidor). Não processei nem inventei nenhum lançamento a partir disso. Como não dá pra confirmar de quem é esse chat só pelos dados do banco, adicionei uma consulta admin-only que pergunta ao próprio Telegram (não adivinha) o nome/username real de um chat_id, acessível também por um campo simples dentro de /users (usa a sessão do próprio admin, igual ao botão já existente de reconectar o bot). Autorizar um novo chat_id é mudança de segurança — não fiz isso sozinho, está aguardando confirmação. Detalhes completos (qual obra, qual chat) ficam só no cartão privado, não neste arquivo público.
+
 ### 2026-09-29 — Claude
 Status: EM ANDAMENTO (implementado, deployado, falta conferência visual do Fabinho na interface)
 Arquivos/tabelas: financial2.html (único arquivo alterado) — nenhum lançamento, cliente ou pagamento tocado
