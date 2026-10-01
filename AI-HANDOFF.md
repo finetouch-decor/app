@@ -20,6 +20,11 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-10-01 — Claude
+Status: CONCLUIDO (lançamento manual de um custo de obra)
+Arquivos/tabelas: purchases.html (campos de imposto e comprovante no formulário existente), Supabase storage (nova policy de INSERT no bucket de fotos, restrita a usuário aprovado) — nenhum lançamento anterior, cliente ou invoice alterado
+Resumo: Fabinho anexou uma foto de nota fiscal e autorizou lançar o custo direto, sem passar pelo bot do Telegram. Antes de gravar, conferi que não existia nenhum lançamento igual ou parecido já registrado (mesma obra, mesmo fornecedor, mesmos valores) — não havia duplicidade. O formulário de compras já existente não tinha como anexar foto de comprovante nem informar imposto separado do subtotal, então adicionei os dois campos reaproveitando exatamente o mesmo fluxo de salvar que a página já usava (sem função nova, sem serviço novo) e uma política de acesso adicional pro bucket de fotos, restrita a usuário aprovado (mesmo padrão de segurança já usado em todo o sistema). Conferido depois de salvo: valores, itens e a própria foto batendo exatamente com o que foi informado.
+
 ### 2026-09-30 — Claude
 Status: EM ANDAMENTO (FT-001 — investigado, ferramenta de verificação criada, aguardando decisão do Fabinho)
 Arquivos/tabelas: api/telegram.js (novo modo `?whois=` só-leitura), users.html (campo "Identificar chat_id" em Integrações) — nenhum lançamento, cliente ou nota alterado
