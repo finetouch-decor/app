@@ -18,6 +18,11 @@ Arquivos/tabelas: lista separada por virgula
 Resumo: 1-3 frases do que foi feito e por que
 ```
 
+### 2026-10-01 (ajuste de navegação) — Claude
+Status: CONCLUIDO
+Arquivos/tabelas: capture.html
+Resumo: A página de Fotografar Nota tinha sido feita como uma tela solta, sem a barra lateral comum do resto do sistema — por isso o link dela, já presente nas outras páginas, nunca aparecia destacado como "página atual" quando você estava realmente ali, e não dava pra navegar pra outro lugar de lá. Corrigido: agora ela usa a mesma barra lateral de sempre, com destaque correto, e em tela de celular essa barra vira um menu que abre por um botão, só nessa página (as demais não foram mexidas). Confirmado ao vivo em tela de computador; a parte de celular foi validada de forma indireta (funcionamento do botão conferido por código, não por captura de tela em tamanho de celular de verdade, por limitação da ferramenta usada nesta sessão) — vale uma conferência visual direto no celular quando for conveniente.
+
 ---
 
 ### 2026-10-01 (PWA + Fotografar Nota) — Claude
