@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 const BOT_TOKEN    = process.env.TELEGRAM_BOT_TOKEN;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -110,6 +112,15 @@ async function extractReceiptItems(imageUrl) {
   const imgRes    = await fetch(imageUrl);
   const imgBuffer = await imgRes.arrayBuffer();
   const base64    = Buffer.from(imgBuffer).toString('base64');
+  return extractReceiptItemsFromBase64(base64);
+}
+
+// Núcleo compartilhado da leitura de nota fiscal -- usado tanto pelo fluxo do Telegram
+// (extractReceiptItems acima, que baixa a foto da URL do Telegram primeiro) quanto pela
+// tela "Fotografar Nota" do ERP (que já recebe a foto em base64 direto do navegador,
+// sem precisar baixar de lugar nenhum). Mesmo prompt, mesmo modelo, mesma normalização
+// -- nada duplicado, só reaproveitado.
+async function extractReceiptItemsFromBase64(base64) {
   const mimeType  = 'image/jpeg';
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1183,6 +1194,26 @@ async function requireAdmin(authorization) {
   return { ok: true, user };
 }
 
+// Exige sessao Supabase valida de QUALQUER usuario aprovado (nao so admin) -- usado
+// pela tela "Fotografar Nota" (?capture=ocr/confirm), porque lançar uma compra é uma
+// ação operacional normal, igual a usar /purchases, não administrativa.
+async function requireApprovedUser(authorization) {
+  if (!authorization.startsWith('Bearer ') || !SUPABASE_KEY) {
+    return { ok: false, code: 401, error: 'Unauthorized' };
+  }
+  const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: authorization }
+  });
+  if (!userRes.ok) return { ok: false, code: 401, error: 'Unauthorized' };
+  const user = await userRes.json();
+  const profiles = await sbGet('user_profiles', `id=eq.${user.id}&select=role,status&limit=1`);
+  const profile = profiles[0];
+  if (!profile || profile.status !== 'approved') {
+    return { ok: false, code: 403, error: 'Forbidden' };
+  }
+  return { ok: true, user };
+}
+
 // Segunda forma de autorizar ?setup=1/?status=1, alem da sessao de admin: um
 // segredo operacional (TELEGRAM_OPS_SECRET) conhecido so pelo ambiente do servidor.
 // Existe pra concluir a configuracao logo apos um deploy sem depender de ninguem
@@ -1280,6 +1311,132 @@ export default async function handler(req, res) {
     const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=${encodeURIComponent(chatId)}`);
     const info = await tgRes.json();
     res.status(200).json({ ok: true, chatId, telegram: info });
+    return;
+  }
+
+  // ─── TELA "FOTOGRAFAR NOTA" (ERP web/PWA) ───────────────────
+  // Reaproveita a MESMA leitura de nota (extractReceiptItemsFromBase64) e a MESMA
+  // forma de gravar (createPurchaseWithItems) que o bot do Telegram já usa -- nenhum
+  // serviço novo contratado, só um caminho web pra chegar no mesmo lugar. Autenticado
+  // pela própria sessão do usuário aprovado (requireApprovedUser), nunca pelo
+  // secret_token do Telegram (que não existe nesse fluxo).
+  if (req.method === 'POST' && req.query?.capture === 'ocr') {
+    const auth = await requireApprovedUser(req.headers.authorization || '');
+    if (!auth.ok) { res.status(auth.code).json({ ok: false, error: auth.error }); return; }
+    if (!OPENAI_KEY || !SUPABASE_KEY) { res.status(500).json({ ok: false, error: 'Missing config' }); return; }
+
+    const base64 = (req.body?.image || '').replace(/^data:image\/\w+;base64,/, '');
+    if (!base64) { res.status(400).json({ ok: false, error: 'Nenhuma imagem enviada' }); return; }
+
+    try {
+      const photoHash = createHash('sha256').update(base64, 'base64').digest('hex');
+
+      // Deduplicação: se já existe um objeto com esse hash no bucket PRIVADO de
+      // comprovantes, é a MESMA foto já enviada antes -- avisa em vez de processar de
+      // novo. Usa o endpoint de listagem (funciona em bucket privado); o endpoint
+      // "object/info/public/..." só serve pra bucket público, não serviria aqui.
+      const dupListRes = await fetch(`${SUPABASE_URL}/storage/v1/object/list/purchase-receipts`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefix: 'web/', search: `${photoHash}.jpg`, limit: 1 }),
+      });
+      const dupList = await dupListRes.json().catch(() => []);
+      const isDuplicate = Array.isArray(dupList) && dupList.length > 0;
+      let duplicateOf = null;
+      if (isDuplicate) {
+        const existing = await sbGet('purchases', `receipt_url=eq.web/${photoHash}.jpg&select=purchase_number,supplier_name,total,project_id&limit=1`);
+        duplicateOf = existing[0] || null;
+      }
+
+      const data = await extractReceiptItemsFromBase64(base64);
+      if (!data || data._error) {
+        res.status(200).json({ ok: true, isDuplicate, duplicateOf, photoHash, parseError: data?._raw || 'Não consegui ler a nota.', items: [], projects: [] });
+        return;
+      }
+
+      const allProjects = await sbGet('projects', `select=id,name,status,clients(name)&order=name`);
+      const projects = allProjects
+        .filter(p => p.status === 'active')
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+        .map(p => ({ id: p.id, name: p.name, client_name: p.clients?.name || '' }));
+
+      res.status(200).json({
+        ok: true,
+        isDuplicate, duplicateOf, photoHash,
+        store: data.store || null,
+        total: data.total || 0,
+        tax: data.tax || 0,
+        discount: data.discount || 0,
+        items: data.items || [],
+        projects,
+      });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: e.message });
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && req.query?.capture === 'confirm') {
+    const auth = await requireApprovedUser(req.headers.authorization || '');
+    if (!auth.ok) { res.status(auth.code).json({ ok: false, error: auth.error }); return; }
+    if (!SUPABASE_KEY) { res.status(500).json({ ok: false, error: 'Missing config' }); return; }
+
+    try {
+      const { projectId, supplierName, items, tax, orderDate, image, photoHash } = req.body || {};
+      if (!projectId) { res.status(400).json({ ok: false, error: 'Selecione uma obra.' }); return; }
+      if (!Array.isArray(items) || !items.length) { res.status(400).json({ ok: false, error: 'Nenhum item informado.' }); return; }
+      const base64 = (image || '').replace(/^data:image\/\w+;base64,/, '');
+      if (!base64 || !photoHash) { res.status(400).json({ ok: false, error: 'Foto da nota não recebida.' }); return; }
+
+      // Reconfirma o hash no servidor (não confia no que o cliente mandou) e sobe a
+      // foto com upsert:false -- se já existir um objeto com esse nome, o upload falha
+      // e isso IMPEDE o lançamento duplicado da mesma nota, não é só um aviso.
+      const realHash = createHash('sha256').update(base64, 'base64').digest('hex');
+      const path = `web/${realHash}.jpg`;
+      const upRes = await fetch(`${SUPABASE_URL}/storage/v1/object/purchase-receipts/${path}`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'image/jpeg', 'x-upsert': 'false' },
+        body: Buffer.from(base64, 'base64'),
+      });
+      if (!upRes.ok) {
+        if (upRes.status === 409 || upRes.status === 400) {
+          res.status(409).json({ ok: false, error: 'Essa mesma foto já foi lançada antes (comprovante duplicado).' });
+        } else {
+          const t = await upRes.text();
+          res.status(502).json({ ok: false, error: 'Falha ao salvar a foto: ' + t.slice(0, 200) });
+        }
+        return;
+      }
+
+      const subtotal = items.reduce((s, it) => s + Number(it.total || 0), 0);
+      const taxNum = Number(tax) || 0;
+      const num = 'CMP-' + Date.now().toString().slice(-5);
+
+      const purchase = await createPurchaseWithItems(
+        {
+          purchase_number: num,
+          supplier_name: supplierName || '',
+          project_id: projectId,
+          status: 'received',
+          order_date: orderDate || new Date().toISOString().slice(0, 10),
+          subtotal,
+          total: subtotal + taxNum,
+        },
+        items.map(it => ({ description: it.desc || it.description, quantity: it.qty || it.quantity || 1, unit_price: it.unit_price, total: it.total }))
+      );
+
+      // A RPC não grava tax/receipt_url (não faz parte da assinatura dela) -- completa
+      // com um UPDATE direto, igual já seria feito se isso tivesse passado pelo bot.
+      await fetch(`${SUPABASE_URL}/rest/v1/purchases?id=eq.${purchase.id}`, {
+        method: 'PATCH',
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tax: taxNum, receipt_url: path, notes: 'Lançado via Fotografar Nota (ERP mobile).' }),
+      });
+
+      res.status(200).json({ ok: true, purchaseId: purchase.id, purchaseNumber: num, total: subtotal + taxNum });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: e.message });
+    }
     return;
   }
 

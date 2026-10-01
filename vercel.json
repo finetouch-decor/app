@@ -10,6 +10,7 @@
     { "source": "/invoice-print",  "destination": "/invoice-print.html" },
     { "source": "/projects",  "destination": "/projects.html" },
     { "source": "/purchases", "destination": "/purchases.html" },
+    { "source": "/capture",   "destination": "/capture.html" },
     { "source": "/financial", "destination": "/financial.html" },
     { "source": "/financial2", "destination": "/financial2.html" },
     { "source": "/reports",   "destination": "/reports.html" },

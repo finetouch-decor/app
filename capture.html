@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#102A4B">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/logo-icon-navy.png">
+<meta name="apple-mobile-web-app-title" content="FT ERP">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Fine Touch — Fotografar Nota</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+:root{
+  --navy:#102A4B; --gold:#C69E63; --cream:#F7F8FA; --white:#FFFFFF;
+  --border:rgba(15,23,42,0.1); --text:#1a1a1a; --muted:#64748B;
+  --green:#2e6b3e; --green-bg:#f0f7eb; --red:#a03030; --red-bg:#fdf0f0;
+  --amber:#a06a1a; --amber-bg:#fdf3e0;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;padding-bottom:40px;}
+header{background:var(--navy);color:#fff;padding:16px 18px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;}
+header a{color:#fff;text-decoration:none;font-size:20px;line-height:1;}
+header h1{font-size:16px;font-weight:700;}
+main{max-width:520px;margin:0 auto;padding:18px 16px;}
+.card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
+.btn{display:block;width:100%;padding:14px;border-radius:10px;border:none;font-size:15px;font-weight:700;cursor:pointer;text-align:center;}
+.btn-primary{background:var(--navy);color:#fff;}
+.btn-gold{background:var(--gold);color:var(--navy);}
+.btn-ghost{background:var(--white);color:var(--navy);border:1.5px solid var(--border);}
+.btn[disabled]{opacity:.5;cursor:not-allowed;}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+input[type=file]{display:none;}
+.preview-img{width:100%;border-radius:10px;margin-bottom:14px;max-height:280px;object-fit:cover;}
+label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;margin-top:12px;}
+label:first-child{margin-top:0;}
+input[type=text],input[type=number],input[type=date],select,textarea{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;background:var(--cream);}
+.item-row{display:grid;grid-template-columns:1fr 50px 70px 36px;gap:6px;align-items:center;margin-bottom:8px;}
+.item-row input{padding:8px;font-size:13px;}
+.item-remove{background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;}
+.add-item{background:none;border:1.5px dashed var(--border);color:var(--navy);padding:8px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;width:100%;margin-top:4px;}
+.total-bar{display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:#fff;padding:12px 14px;border-radius:10px;margin-top:14px;font-weight:700;}
+.total-bar small{font-weight:400;opacity:.75;display:block;font-size:10.5px;}
+.banner{border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:14px;line-height:1.5;}
+.banner.warn{background:var(--amber-bg);color:var(--amber);}
+.banner.error{background:var(--red-bg);color:var(--red);}
+.banner.success{background:var(--green-bg);color:var(--green);}
+.spinner{border:3px solid var(--border);border-top-color:var(--navy);border-radius:50%;width:28px;height:28px;animation:spin .8s linear infinite;margin:20px auto;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.center{text-align:center;color:var(--muted);font-size:13px;}
+.hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/purchases">←</a>
+  <h1>📸 Fotografar Nota</h1>
+</header>
+
+<main>
+
+  <!-- ETAPA 1: escolher foto -->
+  <div class="card" id="step-pick">
+    <p class="center" style="margin-bottom:14px;">Tire uma foto da nota fiscal ou escolha uma já salva. A gente lê loja, data e valores automaticamente.</p>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="document.getElementById('file-camera').click()">📷 Tirar Foto</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('file-gallery').click()">🖼️ Galeria</button>
+    </div>
+    <input type="file" id="file-camera" accept="image/*" capture="environment">
+    <input type="file" id="file-gallery" accept="image/*">
+  </div>
+
+  <!-- ETAPA 2: carregando / lendo -->
+  <div class="card hidden" id="step-loading">
+    <img class="preview-img" id="preview-img-loading">
+    <div class="spinner"></div>
+    <p class="center" id="loading-text">Lendo a nota...</p>
+  </div>
+
+  <!-- ETAPA 3: revisão -->
+  <div class="card hidden" id="step-review">
+    <img class="preview-img" id="preview-img-review">
+
+    <div id="dup-banner" class="banner warn hidden"></div>
+    <div id="parse-banner" class="banner error hidden"></div>
+
+    <label>Fornecedor / Loja</label>
+    <input type="text" id="f-store" placeholder="Ex: Sherwin-Williams">
+
+    <label>Obra</label>
+    <select id="f-project"><option value="">Selecionar obra...</option></select>
+
+    <label>Data da compra</label>
+    <input type="date" id="f-date">
+
+    <label style="margin-top:16px;">Itens</label>
+    <div id="items-list"></div>
+    <button class="add-item" onclick="addItemRow()">＋ Adicionar item</button>
+
+    <label>Imposto / Tax ($)</label>
+    <input type="number" step="0.01" min="0" id="f-tax" value="0" oninput="updateTotal()">
+
+    <div class="total-bar">
+      <div>Total<small id="total-breakdown"></small></div>
+      <div id="total-value">$0.00</div>
+    </div>
+
+    <div id="confirm-error" class="banner error hidden" style="margin-top:14px;"></div>
+
+    <button class="btn btn-gold" style="margin-top:16px;" id="btn-confirm" onclick="confirmPurchase()">✅ Confirmar e Salvar</button>
+    <button class="btn btn-ghost" style="margin-top:10px;" onclick="resetFlow()">Cancelar / Tirar outra foto</button>
+  </div>
+
+  <!-- ETAPA 4: sucesso -->
+  <div class="card hidden" id="step-success">
+    <div class="banner success" id="success-msg"></div>
+    <button class="btn btn-primary" onclick="resetFlow()">📸 Fotografar outra nota</button>
+    <button class="btn btn-ghost" style="margin-top:10px;" onclick="window.location.href='/purchases'">Ver em Compras</button>
+  </div>
+
+</main>
+
+<script>
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let session = null;
+let currentPhotoHash = null;
+let currentImageBase64 = null;
+let itemRowIds = [];
+
+async function init() {
+  const { data } = await db.auth.getSession();
+  session = data.session;
+  if (!session) { window.location.href = '/login.html'; return; }
+  const { data: prof } = await db.from('user_profiles').select('status,role').eq('id', session.user.id).single();
+  if (!prof || prof.status !== 'approved') { window.location.href = '/pending.html'; return; }
+}
+db.auth.onAuthStateChange((e) => { if (e === 'SIGNED_OUT') window.location.href = '/login.html'; });
+
+async function authHeader() {
+  const { data: { session: s } } = await db.auth.getSession();
+  return s ? `Bearer ${s.access_token}` : null;
+}
+
+function showStep(step) {
+  ['pick','loading','review','success'].forEach(s => {
+    document.getElementById('step-'+s).classList.toggle('hidden', s !== step);
+  });
+}
+
+function resetFlow() {
+  currentPhotoHash = null; currentImageBase64 = null; itemRowIds = [];
+  document.getElementById('file-camera').value = '';
+  document.getElementById('file-gallery').value = '';
+  document.getElementById('dup-banner').classList.add('hidden');
+  document.getElementById('parse-banner').classList.add('hidden');
+  document.getElementById('confirm-error').classList.add('hidden');
+  showStep('pick');
+}
+
+document.getElementById('file-camera').addEventListener('change', (e) => handleFile(e.target.files[0]));
+document.getElementById('file-gallery').addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+// Redimensiona/comprime no proprio navegador antes de enviar -- foto de celular
+// facil passa de 4-8MB, e o limite de corpo de requisicao do servidor e menor que
+// isso. Também deixa a leitura mais rápida sem perder legibilidade do texto.
+function compressImage(file, maxDim = 1600, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = () => { img.src = reader.result; };
+    reader.onerror = reject;
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      resolve(dataUrl);
+    };
+    img.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleFile(file) {
+  if (!file) return;
+  showStep('loading');
+  document.getElementById('loading-text').textContent = 'Preparando foto...';
+  try {
+    const dataUrl = await compressImage(file);
+    currentImageBase64 = dataUrl;
+    document.getElementById('preview-img-loading').src = dataUrl;
+    document.getElementById('preview-img-review').src = dataUrl;
+
+    document.getElementById('loading-text').textContent = 'Lendo a nota (loja, data, itens)...';
+    const auth = await authHeader();
+    if (!auth) { showStep('pick'); alert('Sessão expirada, recarregue a página.'); return; }
+
+    const res = await fetch('/api/telegram?capture=ocr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: auth },
+      body: JSON.stringify({ image: dataUrl }),
+    });
+    const result = await res.json();
+    if (!res.ok || !result.ok) {
+      showStep('pick');
+      alert('Erro ao ler a nota: ' + (result.error || 'desconhecido') + '. Tente novamente.');
+      return;
+    }
+
+    currentPhotoHash = result.photoHash;
+    populateProjects(result.projects || []);
+
+    document.getElementById('dup-banner').classList.toggle('hidden', !result.isDuplicate);
+    if (result.isDuplicate) {
+      const d = result.duplicateOf;
+      document.getElementById('dup-banner').innerHTML = d
+        ? `⚠️ Essa mesma foto já foi lançada antes: <strong>${d.purchase_number}</strong> — ${d.supplier_name || ''} — $${Number(d.total||0).toFixed(2)}. Confirmar de novo vai ser bloqueado (nota duplicada).`
+        : `⚠️ Essa mesma foto já foi lançada antes. Confirmar de novo vai ser bloqueado (nota duplicada).`;
+    }
+
+    if (!result.items || !result.items.length) {
+      document.getElementById('parse-banner').classList.remove('hidden');
+      document.getElementById('parse-banner').textContent = '❌ Não consegui ler os itens automaticamente. Preencha manualmente abaixo.';
+    }
+
+    document.getElementById('f-store').value = result.store || '';
+    document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+    document.getElementById('f-tax').value = (result.tax || 0).toFixed(2);
+
+    document.getElementById('items-list').innerHTML = '';
+    itemRowIds = [];
+    if (result.items && result.items.length) {
+      result.items.forEach(it => addItemRow(it.desc || it.description, it.qty || 1, it.unit_price, it.value || it.total));
+    } else {
+      addItemRow();
+    }
+    updateTotal();
+    showStep('review');
+  } catch (e) {
+    showStep('pick');
+    alert('Erro ao processar a foto: ' + e.message);
+  }
+}
+
+function populateProjects(projects) {
+  const sel = document.getElementById('f-project');
+  sel.innerHTML = '<option value="">Selecionar obra...</option>' +
+    projects.map(p => `<option value="${p.id}">${p.name}${p.client_name ? ' — '+p.client_name : ''}</option>`).join('');
+  if (!projects.length) {
+    sel.innerHTML = '<option value="">Nenhuma obra em andamento</option>';
+  }
+}
+
+function addItemRow(desc='', qty=1, price='', total='') {
+  const rid = 'r'+Date.now()+Math.floor(Math.random()*9999);
+  itemRowIds.push(rid);
+  const row = document.createElement('div');
+  row.className = 'item-row';
+  row.id = 'item-'+rid;
+  const p = price !== '' ? Number(price) : (total !== '' ? Number(total)/(Number(qty)||1) : '');
+  row.innerHTML = `
+    <input type="text" placeholder="Descrição" value="${(desc||'').replace(/"/g,'&quot;')}">
+    <input type="number" placeholder="Qtd" value="${qty||1}" oninput="updateTotal()">
+    <input type="number" placeholder="Preço" step="0.01" value="${p!==''?Number(p).toFixed(2):''}" oninput="updateTotal()">
+    <button class="item-remove" onclick="removeItemRow('${rid}')">✕</button>`;
+  document.getElementById('items-list').appendChild(row);
+}
+function removeItemRow(rid) {
+  const el = document.getElementById('item-'+rid);
+  if (el) el.remove();
+  itemRowIds = itemRowIds.filter(x => x !== rid);
+  updateTotal();
+}
+
+function collectItems() {
+  return itemRowIds.map(rid => {
+    const row = document.getElementById('item-'+rid);
+    if (!row) return null;
+    const inputs = row.querySelectorAll('input');
+    const desc = inputs[0].value.trim();
+    const qty = parseFloat(inputs[1].value) || 1;
+    const unit_price = parseFloat(inputs[2].value) || 0;
+    if (!desc && !unit_price) return null;
+    return { desc: desc || 'Item', qty, unit_price, total: Math.round(qty*unit_price*100)/100 };
+  }).filter(Boolean);
+}
+
+function updateTotal() {
+  const items = collectItems();
+  const itemsTotal = items.reduce((s,i) => s+i.total, 0);
+  const tax = parseFloat(document.getElementById('f-tax').value) || 0;
+  document.getElementById('total-value').textContent = '$' + (itemsTotal+tax).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('total-breakdown').textContent = tax ? `itens $${itemsTotal.toFixed(2)} + imposto $${tax.toFixed(2)}` : '';
+}
+// recalcula total quando um item novo é digitado via delegação (cobre inputs criados depois)
+document.getElementById('items-list').addEventListener('input', updateTotal);
+
+async function confirmPurchase() {
+  const errEl = document.getElementById('confirm-error');
+  errEl.classList.add('hidden');
+
+  const projectId = document.getElementById('f-project').value;
+  if (!projectId) { errEl.textContent = 'Selecione a obra antes de confirmar.'; errEl.classList.remove('hidden'); return; }
+  const items = collectItems();
+  if (!items.length) { errEl.textContent = 'Adicione pelo menos um item.'; errEl.classList.remove('hidden'); return; }
+  if (!currentImageBase64 || !currentPhotoHash) { errEl.textContent = 'Foto não carregada — tire a foto de novo.'; errEl.classList.remove('hidden'); return; }
+
+  const btn = document.getElementById('btn-confirm');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+
+  try {
+    const auth = await authHeader();
+    if (!auth) { errEl.textContent = 'Sessão expirada — recarregue a página.'; errEl.classList.remove('hidden'); btn.disabled=false; btn.textContent='✅ Confirmar e Salvar'; return; }
+
+    const res = await fetch('/api/telegram?capture=confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: auth },
+      body: JSON.stringify({
+        projectId,
+        supplierName: document.getElementById('f-store').value.trim(),
+        items,
+        tax: parseFloat(document.getElementById('f-tax').value) || 0,
+        orderDate: document.getElementById('f-date').value,
+        image: currentImageBase64,
+        photoHash: currentPhotoHash,
+      }),
+    });
+    const result = await res.json();
+    if (!res.ok || !result.ok) {
+      errEl.textContent = result.error || 'Erro ao salvar a compra.';
+      errEl.classList.remove('hidden');
+      btn.disabled = false; btn.textContent = '✅ Confirmar e Salvar';
+      return;
+    }
+    document.getElementById('success-msg').innerHTML = `✅ Compra <strong>${result.purchaseNumber}</strong> salva — total $${Number(result.total).toFixed(2)}.`;
+    showStep('success');
+  } catch (e) {
+    errEl.textContent = 'Erro ao salvar: ' + e.message;
+    errEl.classList.remove('hidden');
+  }
+  btn.disabled = false; btn.textContent = '✅ Confirmar e Salvar';
+}
+
+init();
+</script>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{});}</script>
+</body>
+</html>
