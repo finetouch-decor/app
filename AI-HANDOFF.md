@@ -20,6 +20,13 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-10-01 (PWA + Fotografar Nota) — Claude
+Status: CONCLUIDO
+Arquivos/tabelas: todas as páginas internas do ERP (tags de PWA), sw.js (novo), capture.html (novo), api/telegram.js (dois endpoints novos), Supabase storage (policy de DELETE adicional no bucket privado de comprovantes)
+Resumo: ERP agora instalável na tela inicial do iPhone (e Android), com um service worker mínimo que só guarda em cache imagem/ícone/manifest — nunca HTML, nunca JS de página, nunca nada de API ou de outro domínio, justamente pra nunca arriscar mostrar dado financeiro desatualizado offline. Criada também uma tela nova (/capture) pra fotografar a nota fiscal direto do celular — ela lê a nota e grava a compra reaproveitando exatamente a mesma leitura automática e a mesma gravação que o bot do Telegram já usa, sem contratar nada novo. Tem checagem de nota repetida: calcula uma identidade única da foto original e bloqueia de verdade uma segunda tentativa com a mesma foto, não é só um aviso.
+
+Testei tudo de ponta a ponta usando a sessão já autenticada do Fabinho (sem extrair nem usar credencial nenhuma minha): processei a nota real já lançada antes pra conferir a leitura, e fiz um teste de duplicidade com um dado totalmente fictício (criado e apagado na mesma hora, sem deixar rastro nos números reais) pra confirmar que o bloqueio funciona de verdade. Dois problemas foram encontrados nesse teste e corrigidos antes de considerar pronto: a identidade da foto estava sendo calculada no momento errado (deixaria passar uma duplicata em certos casos) e a lista de obras ficava vazia quando a leitura automática falhava. Nenhum lançamento real foi alterado por este trabalho.
+
 ### 2026-10-01 (correção) — Claude
 Status: CONCLUIDO (correção de segurança)
 Arquivos/tabelas: purchases.html, Supabase storage (bucket privado novo `purchase-receipts`, policies de acesso restritas a usuário aprovado) — nenhum lançamento, cliente ou invoice alterado

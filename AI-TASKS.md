@@ -28,6 +28,16 @@ Fila compartilhada de trabalho entre Fabinho, Maia (ChatGPT) e Claude.
 
 ## Tarefas ativas
 
+### FT-010 — PWA no iPhone + tela Fotografar Nota
+Status: CONCLUIDO
+Prioridade: MEDIA
+Responsável: Claude
+Solicitado por: Fabinho (via Maia)
+Criado em: 2026-10-01
+Arquivos/sistemas: todas as páginas internas do ERP (tags de PWA + manifest), sw.js (novo), capture.html (novo), api/telegram.js (dois endpoints novos reaproveitando a OCR e a gravação já existentes do bot)
+Objetivo: Deixar o ERP instalável na tela inicial do iPhone e criar uma forma de lançar custo de obra fotografando a nota direto do celular, sem precisar do Telegram.
+Resultado: Implementado, testado e publicado. PWA com tags em todas as páginas internas e um service worker que só cacheia asset estático (nunca dado de negócio). Tela /capture reaproveita a mesma OCR e a mesma gravação do bot — nenhum serviço novo contratado — com deduplicação por hash do arquivo original (bloqueio real, não só aviso). Dois bugs encontrados e corrigidos durante o teste real (hash calculado no momento errado; lista de obras ficando vazia quando a OCR falhava). Testado de ponta a ponta com a sessão já autenticada do Fabinho, incluindo um teste de duplicidade com dado fictício criado e removido na hora (sem deixar rastro). Detalhes completos no cartão privado FT-010.
+
 ### FT-008 — Financeiro 2: fechamento de obras, entradas do mês e margem por modelo de execução
 Status: EM ANDAMENTO (implementado, deployado e validado via banco/dados reais; falta conferência visual do Fabinho na interface, que não tenho login pra fazer)
 Prioridade: MEDIA
