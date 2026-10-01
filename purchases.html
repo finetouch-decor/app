@@ -470,7 +470,7 @@ function fmt(v){if(!v&&v!==0)return'—';return'$'+Number(v).toLocaleString('en-
 function fmtN(v){return'$'+Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 
 // ── MODAL ──────────────────────────────────────────────────
-function openModal(id) {
+async function openModal(id) {
   editingId=id||null; itemRowIds=[];
   document.getElementById('items-body').innerHTML='';
   document.getElementById('modal-title').textContent=id?'Editar Compra':'Nova Compra de Material';
@@ -487,9 +487,16 @@ function openModal(id) {
     document.getElementById('f-notes').value       = p.notes||'';
     document.getElementById('f-tax').value         = p.tax ? Number(p.tax).toFixed(2) : '';
     document.getElementById('f-receipt-file').value = '';
-    document.getElementById('f-receipt-current').innerHTML = p.receipt_url
-      ? `📎 <a href="${p.receipt_url}" target="_blank" rel="noopener">Comprovante já anexado — ver foto</a> (selecionar outro arquivo substitui)`
-      : '';
+    // receipt_url guarda só o CAMINHO dentro do bucket privado purchase-receipts (não
+    // uma URL pública) -- o link só funciona por um tempo limitado e só pra quem está
+    // logado como usuário aprovado, nunca anonimamente.
+    document.getElementById('f-receipt-current').innerHTML = p.receipt_url ? '📎 Comprovante já anexado — carregando link...' : '';
+    if (p.receipt_url) {
+      const { data: signed } = await db.storage.from('purchase-receipts').createSignedUrl(p.receipt_url, 3600);
+      document.getElementById('f-receipt-current').innerHTML = signed?.signedUrl
+        ? `📎 <a href="${signed.signedUrl}" target="_blank" rel="noopener">Comprovante já anexado — ver foto</a> (link expira em 1h; selecionar outro arquivo substitui)`
+        : '📎 Comprovante anexado (não foi possível gerar o link agora — tente reabrir).';
+    }
     (p.purchase_items||[]).forEach(i=>addItemRow(i.description,i.quantity,i.unit||'un',i.unit_price));
   } else {
     renderProjectOptions();
@@ -599,17 +606,17 @@ async function savePurchase() {
   const projectId=document.getElementById('f-project').value||null;
   const status=document.getElementById('f-status').value;
 
-  // Comprovante (foto da nota): se um arquivo novo foi selecionado, sobe pro bucket
-  // obra-photos (mesmo bucket que o bot do Telegram usa) e usa a URL pública. Se
-  // nenhum arquivo foi escolhido, mantém o receipt_url que já existia (edição).
+  // Comprovante (foto da nota): bucket PRIVADO (purchase-receipts) -- nunca público.
+  // Guardamos só o caminho do arquivo em receipt_url; a visualização gera um link
+  // temporário (signed URL) na hora, só pra quem está logado como usuário aprovado.
+  // Se nenhum arquivo novo foi escolhido, mantém o caminho que já existia (edição).
   let receiptUrl = editingId ? (allPurchases.find(x=>x.id===editingId)?.receipt_url || null) : null;
   const file = document.getElementById('f-receipt-file').files[0];
   if (file) {
     const path = `manual/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${file.name.replace(/[^a-zA-Z0-9.]/g,'_')}`;
-    const { error: upErr } = await db.storage.from('obra-photos').upload(path, file, { upsert: false });
+    const { error: upErr } = await db.storage.from('purchase-receipts').upload(path, file, { upsert: false });
     if (upErr) { showToast('Erro ao subir comprovante: '+upErr.message,'error'); btn.disabled=false; btn.textContent='💾 Salvar Compra'; return; }
-    const { data: pub } = db.storage.from('obra-photos').getPublicUrl(path);
-    receiptUrl = pub.publicUrl;
+    receiptUrl = path;
   }
 
   const payload={
