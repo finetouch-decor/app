@@ -194,13 +194,25 @@ function compressImage(file, maxDim = 1600, quality = 0.82) {
   });
 }
 
+// Hash do arquivo ORIGINAL (antes de comprimir) -- a mesma nota fotografada duas vezes
+// deve dar o mesmo hash mesmo que a compressão não seja 100% determinística; se o hash
+// fosse calculado só depois de comprimir, duas submissões da mesma foto podiam gerar
+// bytes ligeiramente diferentes e escapar da deduplicação.
+async function hashFile(file) {
+  const buf = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
 async function handleFile(file) {
   if (!file) return;
   showStep('loading');
   document.getElementById('loading-text').textContent = 'Preparando foto...';
   try {
+    const originalHash = await hashFile(file);
     const dataUrl = await compressImage(file);
     currentImageBase64 = dataUrl;
+    currentPhotoHash = originalHash;
     document.getElementById('preview-img-loading').src = dataUrl;
     document.getElementById('preview-img-review').src = dataUrl;
 
@@ -211,7 +223,7 @@ async function handleFile(file) {
     const res = await fetch('/api/telegram?capture=ocr', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: auth },
-      body: JSON.stringify({ image: dataUrl }),
+      body: JSON.stringify({ image: dataUrl, photoHash: originalHash }),
     });
     const result = await res.json();
     if (!res.ok || !result.ok) {
@@ -220,7 +232,8 @@ async function handleFile(file) {
       return;
     }
 
-    currentPhotoHash = result.photoHash;
+    // currentPhotoHash já foi fixado a partir do arquivo original antes de comprimir
+    // (ver hashFile acima) -- não sobrescreve com nada que o servidor devolva.
     populateProjects(result.projects || []);
 
     document.getElementById('dup-banner').classList.toggle('hidden', !result.isDuplicate);

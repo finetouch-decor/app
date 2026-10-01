@@ -1327,10 +1327,15 @@ export default async function handler(req, res) {
 
     const base64 = (req.body?.image || '').replace(/^data:image\/\w+;base64,/, '');
     if (!base64) { res.status(400).json({ ok: false, error: 'Nenhuma imagem enviada' }); return; }
+    // Hash calculado no navegador a partir do ARQUIVO ORIGINAL, antes de comprimir --
+    // não recalculamos aqui a partir do base64 comprimido, porque duas compressões da
+    // mesma foto podem não dar bytes idênticos e escapariam da deduplicação. O pior
+    // caso de confiar nesse valor é deixar passar uma duplicata (não é falha de
+    // segurança, é uma ferramenta interna autenticada) -- aceitável aqui.
+    const photoHash = (req.body?.photoHash || '').trim();
+    if (!photoHash) { res.status(400).json({ ok: false, error: 'Hash da foto não recebido' }); return; }
 
     try {
-      const photoHash = createHash('sha256').update(base64, 'base64').digest('hex');
-
       // Deduplicação: se já existe um objeto com esse hash no bucket PRIVADO de
       // comprovantes, é a MESMA foto já enviada antes -- avisa em vez de processar de
       // novo. Usa o endpoint de listagem (funciona em bucket privado); o endpoint
@@ -1388,11 +1393,11 @@ export default async function handler(req, res) {
       const base64 = (image || '').replace(/^data:image\/\w+;base64,/, '');
       if (!base64 || !photoHash) { res.status(400).json({ ok: false, error: 'Foto da nota não recebida.' }); return; }
 
-      // Reconfirma o hash no servidor (não confia no que o cliente mandou) e sobe a
-      // foto com upsert:false -- se já existir um objeto com esse nome, o upload falha
-      // e isso IMPEDE o lançamento duplicado da mesma nota, não é só um aviso.
-      const realHash = createHash('sha256').update(base64, 'base64').digest('hex');
-      const path = `web/${realHash}.jpg`;
+      // Usa o hash do arquivo ORIGINAL calculado no navegador (mesmo valor usado no
+      // passo de leitura) como nome do arquivo, com upsert:false -- se já existir um
+      // objeto com esse nome, o upload falha e isso IMPEDE o lançamento duplicado da
+      // mesma nota, não é só um aviso visual que dá pra ignorar.
+      const path = `web/${photoHash}.jpg`;
       const upRes = await fetch(`${SUPABASE_URL}/storage/v1/object/purchase-receipts/${path}`, {
         method: 'POST',
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'image/jpeg', 'x-upsert': 'false' },
