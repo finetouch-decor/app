@@ -269,6 +269,17 @@ textarea{resize:vertical;min-height:60px;}
             </select>
           </div>
         </div>
+        <div class="form-grid col-2" style="margin-top:10px">
+          <div>
+            <label>Imposto / Tax ($)</label>
+            <input type="number" min="0" step="0.01" id="f-tax" placeholder="0.00" oninput="recalc()">
+          </div>
+          <div>
+            <label>Comprovante / Nota (foto)</label>
+            <input type="file" id="f-receipt-file" accept="image/*">
+            <div id="f-receipt-current" style="font-size:11.5px;margin-top:4px;"></div>
+          </div>
+        </div>
       </div>
 
       <div class="form-section">
@@ -291,7 +302,7 @@ textarea{resize:vertical;min-height:60px;}
         </div>
 
         <div class="total-bar">
-          <span>Total da Compra</span>
+          <span>Total da Compra <small id="total-breakdown" style="font-weight:400;opacity:.7;"></small></span>
           <strong id="total-display">$0.00</strong>
         </div>
       </div>
@@ -474,6 +485,11 @@ function openModal(id) {
     document.getElementById('f-expected-date').value = p.expected_date||'';
     document.getElementById('f-status').value      = p.status||'pending';
     document.getElementById('f-notes').value       = p.notes||'';
+    document.getElementById('f-tax').value         = p.tax ? Number(p.tax).toFixed(2) : '';
+    document.getElementById('f-receipt-file').value = '';
+    document.getElementById('f-receipt-current').innerHTML = p.receipt_url
+      ? `📎 <a href="${p.receipt_url}" target="_blank" rel="noopener">Comprovante já anexado — ver foto</a> (selecionar outro arquivo substitui)`
+      : '';
     (p.purchase_items||[]).forEach(i=>addItemRow(i.description,i.quantity,i.unit||'un',i.unit_price));
   } else {
     renderProjectOptions();
@@ -482,6 +498,9 @@ function openModal(id) {
     document.getElementById('f-status').value='pending';
     document.getElementById('f-order-date').value=new Date().toISOString().slice(0,10);
     document.getElementById('f-expected-date').value='';
+    document.getElementById('f-tax').value='';
+    document.getElementById('f-receipt-file').value='';
+    document.getElementById('f-receipt-current').innerHTML='';
   }
   if(!itemRowIds.length) addItemRow();
   recalc();
@@ -554,7 +573,9 @@ function recalc() {
     const t=qty*price; total+=t;
     const el=document.getElementById('it-'+rid); if(el)el.textContent=fmtN(t);
   });
-  document.getElementById('total-display').textContent=fmtN(total);
+  const tax=parseFloat(document.getElementById('f-tax')?.value)||0;
+  document.getElementById('total-display').textContent=fmtN(total+tax);
+  document.getElementById('total-breakdown').textContent = tax ? `(itens ${fmtN(total)} + imposto ${fmtN(tax)})` : '';
 }
 
 // ── SAVE ───────────────────────────────────────────────────
@@ -573,9 +594,23 @@ async function savePurchase() {
     return{description:desc||'Item',quantity:qty,unit,unit_price:price,total:qty*price};
   }).filter(Boolean);
 
-  const total=items.reduce((s,i)=>s+i.total,0);
+  const itemsTotal=items.reduce((s,i)=>s+i.total,0);
+  const tax=parseFloat(document.getElementById('f-tax').value)||0;
   const projectId=document.getElementById('f-project').value||null;
   const status=document.getElementById('f-status').value;
+
+  // Comprovante (foto da nota): se um arquivo novo foi selecionado, sobe pro bucket
+  // obra-photos (mesmo bucket que o bot do Telegram usa) e usa a URL pública. Se
+  // nenhum arquivo foi escolhido, mantém o receipt_url que já existia (edição).
+  let receiptUrl = editingId ? (allPurchases.find(x=>x.id===editingId)?.receipt_url || null) : null;
+  const file = document.getElementById('f-receipt-file').files[0];
+  if (file) {
+    const path = `manual/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${file.name.replace(/[^a-zA-Z0-9.]/g,'_')}`;
+    const { error: upErr } = await db.storage.from('obra-photos').upload(path, file, { upsert: false });
+    if (upErr) { showToast('Erro ao subir comprovante: '+upErr.message,'error'); btn.disabled=false; btn.textContent='💾 Salvar Compra'; return; }
+    const { data: pub } = db.storage.from('obra-photos').getPublicUrl(path);
+    receiptUrl = pub.publicUrl;
+  }
 
   const payload={
     supplier_name:  document.getElementById('f-supplier').value.trim(),
@@ -583,9 +618,11 @@ async function savePurchase() {
     status,
     order_date:     document.getElementById('f-order-date').value||null,
     expected_date:  document.getElementById('f-expected-date').value||null,
-    subtotal:       total,
-    total,
+    subtotal:       itemsTotal,
+    tax,
+    total:          itemsTotal+tax,
     notes:          document.getElementById('f-notes').value.trim(),
+    receipt_url:    receiptUrl,
   };
 
   let purchaseId=editingId;
