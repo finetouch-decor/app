@@ -21,10 +21,45 @@
   --amber:#a06a1a; --amber-bg:#fdf3e0;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Inter',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;padding-bottom:40px;}
-header{background:var(--navy);color:#fff;padding:16px 18px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;}
-header a{color:#fff;text-decoration:none;font-size:20px;line-height:1;}
-header h1{font-size:16px;font-weight:700;}
+body{font-family:'Inter',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;}
+
+/* Mesma barra lateral compartilhada com o resto do ERP (copiada de purchases.html) --
+   "Fotografar Nota" aparece aqui marcado como item ativo, igual toda página já destaca
+   o próprio link. */
+.sidebar{width:240px;background:var(--navy);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:200;overflow-y:auto;transition:transform .2s;}
+.sidebar-logo{padding:22px 18px 18px;border-bottom:1px solid rgba(255,255,255,0.1);}
+.sidebar-logo img{width:100%;max-width:190px;height:auto;max-height:88px;display:block;object-fit:contain;}
+.sidebar-nav{flex:1;padding:12px 0;}
+.nav-section{padding:16px 20px 6px;font-size:9px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:2px;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;color:rgba(255,255,255,0.55);font-size:13px;font-weight:500;text-decoration:none;transition:all .15s;}
+.nav-item:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.9);}
+.nav-item.active{background:rgba(198,158,99,0.15);color:var(--gold);border-right:3px solid var(--gold);}
+.nav-item.dim{opacity:0.3;pointer-events:none;}
+.nav-item .icon{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+.sidebar-user{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px;}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--navy);flex-shrink:0;}
+.user-info{flex:1;min-width:0;}
+.user-name{font-size:12px;font-weight:600;color:rgba(255,255,255,0.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-role{font-size:10px;color:var(--gold2, var(--gold));text-transform:uppercase;letter-spacing:1px;}
+.btn-logout{background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:15px;padding:4px;}
+
+.app{margin-left:240px;min-height:100vh;}
+.topbar{background:var(--navy);color:#fff;padding:14px 18px;display:none;align-items:center;gap:12px;position:sticky;top:0;z-index:100;}
+.topbar button{background:none;border:none;color:#fff;font-size:22px;line-height:1;cursor:pointer;padding:2px 4px;}
+.topbar h1{font-size:15px;font-weight:700;}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:150;}
+
+/* Abaixo de 900px (celular/tablet em pé): a barra lateral vira um menu que abre por
+   um botão de hambúrguer, igual qualquer app mobile -- em vez de espremer 240px fixos
+   numa tela de celular. */
+@media (max-width:900px){
+  .sidebar{transform:translateX(-100%);}
+  .sidebar.open{transform:translateX(0);}
+  .app{margin-left:0;}
+  .topbar{display:flex;}
+  .overlay.open{display:block;}
+}
+
 main{max-width:520px;margin:0 auto;padding:18px 16px;}
 .card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
 .btn{display:block;width:100%;padding:14px;border-radius:10px;border:none;font-size:15px;font-weight:700;cursor:pointer;text-align:center;}
@@ -56,10 +91,51 @@ input[type=text],input[type=number],input[type=date],select,textarea{width:100%;
 </head>
 <body>
 
-<header>
-  <a href="/purchases">←</a>
-  <h1>📸 Fotografar Nota</h1>
-</header>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><img src="/logo-dark-bg.png" alt="Fine Touch"></div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Principal</div>
+    <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
+    <div class="nav-section">Captação</div>
+    <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
+    <div class="nav-section">Venda</div>
+    <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
+    <a class="nav-item" href="/proposals"><span class="icon">📄</span>Propostas</a>
+    <a class="nav-item" href="/proposal-bundles"><span class="icon">🧩</span>Propostas Combinadas</a>
+    <a class="nav-item" href="/invoices"><span class="icon">🧾</span>Invoices</a>
+    <div class="nav-section">Execução</div>
+    <a class="nav-item" href="/projects"><span class="icon">🏗️</span>Obras</a>
+    <a class="nav-item" href="/purchases"><span class="icon">🛒</span>Compras</a>
+    <a class="nav-item active" href="/capture"><span class="icon">📸</span>Fotografar Nota</a>
+    <div class="nav-section">Gestão</div>
+    <a class="nav-item" href="/financial"><span class="icon">💰</span>Financeiro</a>
+    <a class="nav-item" href="/financial2"><span class="icon">💹</span>Financeiro 2</a>
+    <a class="nav-item" href="/reports"><span class="icon">📈</span>Relatórios</a>
+    <a class="nav-item" href="/analytics"><span class="icon">📐</span>Análise</a>
+    <a class="nav-item" href="/catalog"><span class="icon">🖼️</span>Catálogo Cliente</a>
+    <a class="nav-item" href="/services"><span class="icon">📚</span>Serviços</a>
+    <a class="nav-item" href="/marketing"><span class="icon">📣</span>Marketing</a>
+    <a class="nav-item" href="/tasks"><span class="icon">✅</span>Tarefas</a>
+    <a class="nav-item" href="/pendencias"><span class="icon">🧩</span>Pendências/Melhorias</a>
+    <div class="nav-section">Admin</div>
+    <a class="nav-item" id="nav-users" href="/users" style="display:none"><span class="icon">👥</span>Usuários</a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-avatar" id="user-avatar">?</div>
+    <div class="user-info">
+      <div class="user-name" id="user-name">...</div>
+      <div class="user-role" id="user-role">Usuário</div>
+    </div>
+    <button class="btn-logout" onclick="logout()">⏻</button>
+  </div>
+</aside>
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<div class="app">
+  <div class="topbar">
+    <button onclick="openSidebar()" aria-label="Abrir menu">☰</button>
+    <h1>📸 Fotografar Nota</h1>
+  </div>
 
 <main>
 
@@ -123,6 +199,7 @@ input[type=text],input[type=number],input[type=date],select,textarea{width:100%;
   </div>
 
 </main>
+</div>
 
 <script>
 const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
@@ -138,10 +215,25 @@ async function init() {
   const { data } = await db.auth.getSession();
   session = data.session;
   if (!session) { window.location.href = '/login.html'; return; }
-  const { data: prof } = await db.from('user_profiles').select('status,role').eq('id', session.user.id).single();
+  const { data: prof } = await db.from('user_profiles').select('status,role,full_name').eq('id', session.user.id).single();
   if (!prof || prof.status !== 'approved') { window.location.href = '/pending.html'; return; }
+  if (prof.role === 'admin') { const u = document.getElementById('nav-users'); if (u) u.style.display = 'flex'; }
+  const name = prof.full_name || session.user.email?.split('@')[0] || 'Usuário';
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+  document.getElementById('user-role').textContent = prof.role === 'admin' ? 'Administrador' : 'Usuário';
 }
 db.auth.onAuthStateChange((e) => { if (e === 'SIGNED_OUT') window.location.href = '/login.html'; });
+async function logout() { await db.auth.signOut(); }
+
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+}
 
 async function authHeader() {
   const { data: { session: s } } = await db.auth.getSession();
