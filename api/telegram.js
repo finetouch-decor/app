@@ -1353,17 +1353,20 @@ export default async function handler(req, res) {
         duplicateOf = existing[0] || null;
       }
 
-      const data = await extractReceiptItemsFromBase64(base64);
-      if (!data || data._error) {
-        res.status(200).json({ ok: true, isDuplicate, duplicateOf, photoHash, parseError: data?._raw || 'Não consegui ler a nota.', items: [], projects: [] });
-        return;
-      }
-
+      // Busca as obras em andamento SEMPRE, mesmo se a leitura da nota falhar --
+      // o usuário ainda precisa escolher a obra e digitar os itens à mão nesse caso
+      // (bug encontrado em teste: antes isso devolvia projects:[] quando a OCR falhava).
       const allProjects = await sbGet('projects', `select=id,name,status,clients(name)&order=name`);
       const projects = allProjects
         .filter(p => p.status === 'active')
         .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
         .map(p => ({ id: p.id, name: p.name, client_name: p.clients?.name || '' }));
+
+      const data = await extractReceiptItemsFromBase64(base64);
+      if (!data || data._error) {
+        res.status(200).json({ ok: true, isDuplicate, duplicateOf, photoHash, parseError: data?._raw || 'Não consegui ler a nota.', items: [], projects });
+        return;
+      }
 
       res.status(200).json({
         ok: true,
