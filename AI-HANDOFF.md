@@ -20,6 +20,11 @@ Resumo: 1-3 frases do que foi feito e por que
 
 ---
 
+### 2026-10-01 (correção) — Claude
+Status: CONCLUIDO (correção de segurança)
+Arquivos/tabelas: purchases.html, Supabase storage (bucket privado novo `purchase-receipts`, policies de acesso restritas a usuário aprovado) — nenhum lançamento, cliente ou invoice alterado
+Resumo: Maia/Fabinho apontaram, corretamente, que o comprovante lançado na entrada anterior ficou publicamente acessível — eu tinha usado um bucket que já era público por padrão (usado antes pra outra finalidade, fotos de obra) sem perceber essa implicação. Corrigido: criado um bucket separado e privado só pra comprovantes, acessível e gravável apenas por usuário aprovado; o link de visualização agora é temporário (expira em 1h), nunca uma URL pública fixa. A mesma foto foi reenviada pro bucket novo (conferida byte a byte igual à original) antes de remover a cópia pública antiga — em nenhum momento ficou sem nenhuma cópia válida. Verificado depois: acesso anônimo negado, acesso autorizado funcionando, cópia antiga removida. O bucket antigo (usado para outra finalidade) não foi alterado. Detalhes completos (caminho do arquivo, evidências) só no cartão privado.
+
 ### 2026-10-01 — Claude
 Status: CONCLUIDO (lançamento manual de um custo de obra)
 Arquivos/tabelas: purchases.html (campos de imposto e comprovante no formulário existente), Supabase storage (nova policy de INSERT no bucket de fotos, restrita a usuário aprovado) — nenhum lançamento anterior, cliente ou invoice alterado
