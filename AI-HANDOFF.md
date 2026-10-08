@@ -9,6 +9,12 @@ Este arquivo existe porque o Fabinho usa mais de um assistente de IA (Claude e C
 3. **Ao terminar uma tarefa**, adicione uma entrada nova no topo da lista com: data/hora, assistente, o que foi feito, quais arquivos/tabelas foram tocados, e status final.
 4. Commits no GitHub e mudancas no Supabase ja ficam no historico de cada ferramenta — este log e um resumo em linguagem simples pro outro assistente (e pro Fabinho) entender rapido o que mudou e por que, sem precisar reconstruir o raciocinio a partir do diff bruto.
 
+
+### 2026-10-07 — Maia
+Status: IMPLEMENTADO — validacao de publicacao em andamento
+Arquivos/tabelas: projects.html, purchase-inbox.html, db/purchase-inbox.sql, purchase_inbox, assign_purchase_inbox
+Resumo: Fila separada de notas de compra recebidas por email, acessivel em Obras. Importacao periodica via automacao do Codex/Gmail; depende do executor local e conexoes ativas. Comprovantes originais permanecem no Gmail e sao abertos pela fila, sem copia publica. Usuarios aprovados revisam e destinam valores para obras ou empresa; gravacao atomica e repeticao idempotente. Sem custo antes da confirmacao. Teste transacional de destino e repeticao passou, com rollback integral. Nenhum lancamento real criado por este desenvolvimento.
+
 ## Formato de cada entrada
 
 ```
