@@ -11,7 +11,8 @@ Este arquivo existe porque o Fabinho usa mais de um assistente de IA (Claude e C
 
 
 ### 2026-10-07 — Maia
-Status: IMPLEMENTADO — validacao de publicacao em andamento
+Status: CONCLUIDO — publicado e verificado no ERP
+Validacao final: fila exibiu compra real importada; formulario carregou obras e uso da empresa. A importacao recorrente esta configurada, mas depende do Codex/computador e das conexoes ativas; ainda nao foi observada uma execucao horaria automatica.
 Arquivos/tabelas: projects.html, purchase-inbox.html, db/purchase-inbox.sql, purchase_inbox, assign_purchase_inbox
 Resumo: Fila separada de notas de compra recebidas por email, acessivel em Obras. Importacao periodica via automacao do Codex/Gmail; depende do executor local e conexoes ativas. Comprovantes originais permanecem no Gmail e sao abertos pela fila, sem copia publica. Usuarios aprovados revisam e destinam valores para obras ou empresa; gravacao atomica e repeticao idempotente. Sem custo antes da confirmacao. Teste transacional de destino e repeticao passou, com rollback integral. Nenhum lancamento real criado por este desenvolvimento.
 
