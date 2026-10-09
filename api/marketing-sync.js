@@ -1,5 +1,10 @@
 // Roda 2x/dia via Vercel Cron — verifica blog posts + GMB reviews e salva no Supabase
 module.exports = async function handler(req, res) {
+  // Importacao de notas do Gmail (lib/gmail-intake.js): mesmo arquivo de funcao porque o
+  // plano Hobby da Vercel limita a 12 funcoes. As rotas ?task=gmail-* tem autorizacao propria.
+  if (typeof req.query?.task === 'string' && req.query.task.startsWith('gmail-')) {
+    return require('../lib/gmail-intake').handleTask(req, res);
+  }
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

@@ -1,5 +1,9 @@
 module.exports = async function handler(req, res) {
   const { code, error, state } = req.query;
+  // Fluxo da caixa de notas (Gmail somente leitura): state assinado "gmail.*", tratado no lib.
+  if (typeof state === 'string' && state.startsWith('gmail.')) {
+    return require('../lib/gmail-intake').oauthCallback(req, res);
+  }
   if (error) return res.status(400).send(`Google OAuth error: ${error}`);
   if (!code) return res.status(400).send('No code received');
 

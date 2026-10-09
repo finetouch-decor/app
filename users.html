@@ -177,6 +177,16 @@
       <button class="btn-approve" style="padding:9px 18px;font-size:13px;" id="tg-reconnect-btn" onclick="reconnectTelegram()">🔄 Reconectar Telegram</button>
     </div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(0,0,0,0.06);">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-weight:700;color:var(--navy);font-size:13px;">📬 Notas de compra do Gmail (contact@)</div>
+          <div id="gm-status-text" style="font-size:12px;color:var(--muted);margin-top:4px;">Verificando status...</div>
+        </div>
+        <button class="btn-approve" style="padding:8px 14px;font-size:12.5px;" id="gm-connect-btn" onclick="connectGmail()">Conectar Gmail</button>
+      </div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:6px;">Somente leitura. As notas entram em Compras aguardando destinação e só viram custo depois da sua confirmação.</div>
+    </div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(0,0,0,0.06);">
       <div style="font-weight:700;color:var(--navy);font-size:13px;margin-bottom:6px;">🔍 Identificar chat_id</div>
       <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px;">Confirma a quem um chat_id pertence antes de autorizar — não adivinha, só mostra o que o próprio Telegram informa.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -222,6 +232,7 @@ async function init() {
 
   await loadUsers();
   await loadTelegramStatus();
+  await loadGmailStatus();
 }
 
 db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
@@ -269,6 +280,38 @@ async function reconnectTelegram() {
   }
   btn.disabled = false; btn.textContent = '🔄 Reconectar Telegram';
   await loadTelegramStatus();
+}
+
+async function loadGmailStatus() {
+  const el = document.getElementById('gm-status-text');
+  try {
+    const auth = await tgAuthHeader();
+    if (!auth) { el.textContent = '⚠️ Sessão expirada — recarregue a página.'; return; }
+    const res = await fetch('/api/marketing-sync?task=gmail-status', { headers: { Authorization: auth } });
+    const info = await res.json();
+    if (!res.ok) { el.textContent = `⚠️ ${info.error || 'Não foi possível verificar.'}`; return; }
+    if (!info.oauth_client_configured) { el.textContent = '⚠️ Credenciais Google (GOOGLE_CLIENT_ID/SECRET) ausentes no servidor.'; return; }
+    if (!info.connected) { el.textContent = '⚠️ Não conectado — clique em Conectar Gmail e entre como ' + info.mailbox + '.'; return; }
+    const lr = info.last_run || {};
+    const c = info.counts || {};
+    const when = lr.finished_at ? new Date(lr.finished_at).toLocaleString('pt-BR') : 'ainda não executou';
+    const warn = lr.reauth_required ? ' · ⚠️ autorização expirada, reconecte' : (lr.error ? ' · ⚠️ ' + lr.error : '');
+    el.textContent = `✅ ${info.mailbox} conectado · última busca: ${when} · na fila: ${c.inserted || 0} · duplicadas: ${c.duplicate || 0} · ignoradas: ${c.skipped || 0} · com erro: ${(c.failed || 0) + (c.abandoned || 0)}${warn}`;
+    if (lr.reauth_required) document.getElementById('gm-connect-btn').textContent = 'Reconectar Gmail';
+  } catch (e) { el.textContent = '⚠️ Erro ao verificar status do Gmail.'; }
+}
+async function connectGmail() {
+  const btn = document.getElementById('gm-connect-btn');
+  btn.disabled = true;
+  try {
+    const auth = await tgAuthHeader();
+    if (!auth) { showToast('Sessão expirada — recarregue a página.', 'error'); btn.disabled = false; return; }
+    const res = await fetch('/api/marketing-sync?task=gmail-connect', { headers: { Authorization: auth } });
+    const data = await res.json();
+    if (res.ok && data.url) window.location.href = data.url;
+    else showToast('Erro: ' + (data.error || 'não foi possível iniciar'), 'error');
+  } catch (e) { showToast('Erro ao iniciar conexão.', 'error'); }
+  btn.disabled = false;
 }
 
 async function whoisTelegram() {

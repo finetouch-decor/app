@@ -25,13 +25,22 @@
     { "source": "/sort-photos", "destination": "/sort-photos.html" }
   ],
   "functions": {
-    "api/telegram.js": { "maxDuration": 60 }
+    "api/telegram.js": { "maxDuration": 60 },
+    "api/marketing-sync.js": { "maxDuration": 60 }
   },
   "crons": [
     { "path": "/api/marketing-sync", "schedule": "0 12 * * *" },
     { "path": "/api/marketing-sync", "schedule": "0 15 * * *" },
     { "path": "/api/marketing-sync", "schedule": "0 18 * * *" },
     { "path": "/api/marketing-sync", "schedule": "0 21 * * *" },
-    { "path": "/api/marketing-sync", "schedule": "0 0 * * *" }
+    { "path": "/api/marketing-sync", "schedule": "0 0 * * *" },
+    { "path": "/api/marketing-sync?task=gmail-intake", "schedule": "15 1 * * *" },
+    { "path": "/api/marketing-sync?task=gmail-intake", "schedule": "15 4 * * *" },
+    { "path": "/api/marketing-sync?task=gmail-intake", "schedule": "15 7 * * *" },
+    { "path": "/api/marketing-sync?task=gmail-intake", "schedule": "15 10 * * *" },
+    { "path": "/api/marketing-sync?task=gmail-intake", "schedule": "15 13 * * *" },
+    { "path": "/api/marketing-sync?task=gmail-intake", "schedule": "15 16 * * *" },
+    { "path": "/api/marketing-sync?task=gmail-intake", "schedule": "15 19 * * *" },
+    { "path": "/api/marketing-sync?task=gmail-intake", "schedule": "15 22 * * *" }
   ]
 }
