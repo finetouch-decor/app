@@ -120,8 +120,16 @@ async function extractReceiptItems(imageUrl) {
 // tela "Fotografar Nota" do ERP (que já recebe a foto em base64 direto do navegador,
 // sem precisar baixar de lugar nenhum). Mesmo prompt, mesmo modelo, mesma normalização
 // -- nada duplicado, só reaproveitado.
-async function extractReceiptItemsFromBase64(base64) {
-  const mimeType  = 'image/jpeg';
+async function extractReceiptItemsFromBase64(base64, opts = {}) {
+  const mimeType  = opts.mime || 'image/jpeg';
+  const isPdf = mimeType === 'application/pdf';
+  const textBody = typeof opts.text === 'string' ? opts.text : null;
+  // Imagem (padrão, igual ao bot do Telegram), PDF (parte "file") ou texto já decodificado.
+  const docPart = textBody !== null
+    ? { type: 'text', text: `Conteúdo do arquivo (texto):\n${textBody.slice(0, 12000)}` }
+    : isPdf
+      ? { type: 'file', file: { filename: 'nota.pdf', file_data: `data:application/pdf;base64,${base64}` } }
+      : { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } };
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -131,7 +139,7 @@ async function extractReceiptItemsFromBase64(base64) {
       messages: [{
         role: 'user',
         content: [
-          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
+          docPart,
           { type: 'text', text: `Analise esta nota fiscal/recibo e extraia cada item de linha com descrição, quantidade, preço unitário e valor total da linha.
 Ignore QR codes, barcodes e cabeçalhos. Foque apenas no texto impresso com descrições de produtos e valores.
 Retorne SOMENTE um JSON válido neste formato (sem markdown):
@@ -143,7 +151,7 @@ Regras importantes:
 - Se não conseguir identificar itens individuais, retorne o total como um único item com desc "Compra geral", qty 1 e unit_price igual ao total.` }
         ]
       }],
-      max_tokens: 600
+      max_tokens: (isPdf || textBody !== null) ? 1500 : 600
     })
   });
   const data = await res.json();
@@ -164,6 +172,39 @@ Regras importantes:
     return parsed;
   }
   catch { return { _raw: `Parse falhou. Resposta: ${content.slice(0, 400)}`, _error: 'parse failed' }; }
+}
+
+
+// ─── Tela "Fotografar Nota": aceita foto, PDF ou qualquer outro arquivo ──────────────
+// O arquivo vem como data URL base64 (limite de corpo da Vercel ~4,5MB). Fotos chegam
+// já comprimidas em JPEG pelo navegador; PDF e texto são lidos pela IA; qualquer outro
+// tipo é só guardado (privado) e o lançamento é feito à mão.
+const RECEIPT_EXT_BY_MIME = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
+  'image/heic': 'heic', 'image/heif': 'heif', 'application/pdf': 'pdf',
+  'text/plain': 'txt', 'text/csv': 'csv', 'text/html': 'html', 'message/rfc822': 'eml', 'application/json': 'json',
+};
+function parseReceiptFile(body) {
+  const dataUrl = String(body?.file || body?.image || '');
+  const m = dataUrl.match(/^data:([^;,]*)(?:;[^,]*)?;base64,([\s\S]*)$/);
+  if (!m || !m[2]) return null;
+  const mime = (m[1] || 'application/octet-stream').toLowerCase();
+  let ext = RECEIPT_EXT_BY_MIME[mime];
+  if (!ext) {
+    const fromName = String(body?.fileName || '').toLowerCase().match(/\.([a-z0-9]{1,8})$/);
+    ext = fromName ? fromName[1] : 'bin';
+  }
+  const safeMime = /^[a-z0-9]+\/[a-z0-9.+-]+$/.test(mime) ? mime : 'application/octet-stream';
+  return { base64: m[2], mime: safeMime, ext };
+}
+async function readReceiptFile(file) {
+  const { base64, mime } = file;
+  if (['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(mime)) return extractReceiptItemsFromBase64(base64, { mime });
+  if (mime === 'application/pdf') return extractReceiptItemsFromBase64(base64, { mime });
+  if (mime.startsWith('text/') || ['message/rfc822', 'application/json'].includes(mime)) {
+    return extractReceiptItemsFromBase64('', { mime, text: Buffer.from(base64, 'base64').toString('utf8') });
+  }
+  return { _raw: 'Esse tipo de arquivo não tem leitura automática. Ele será guardado como comprovante; preencha os itens abaixo.', _error: 'unsupported type' };
 }
 
 // ─── OPENAI VISION — classifica: nota fiscal ou foto de obra ─
@@ -1325,8 +1366,8 @@ export default async function handler(req, res) {
     if (!auth.ok) { res.status(auth.code).json({ ok: false, error: auth.error }); return; }
     if (!OPENAI_KEY || !SUPABASE_KEY) { res.status(500).json({ ok: false, error: 'Missing config' }); return; }
 
-    const base64 = (req.body?.image || '').replace(/^data:image\/\w+;base64,/, '');
-    if (!base64) { res.status(400).json({ ok: false, error: 'Nenhuma imagem enviada' }); return; }
+    const rfile = parseReceiptFile(req.body);
+    if (!rfile) { res.status(400).json({ ok: false, error: 'Nenhum arquivo enviado' }); return; }
     // Hash calculado no navegador a partir do ARQUIVO ORIGINAL, antes de comprimir --
     // não recalculamos aqui a partir do base64 comprimido, porque duas compressões da
     // mesma foto podem não dar bytes idênticos e escapariam da deduplicação. O pior
@@ -1343,13 +1384,13 @@ export default async function handler(req, res) {
       const dupListRes = await fetch(`${SUPABASE_URL}/storage/v1/object/list/purchase-receipts`, {
         method: 'POST',
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prefix: 'web/', search: `${photoHash}.jpg`, limit: 1 }),
+        body: JSON.stringify({ prefix: 'web/', search: `${photoHash}.${rfile.ext}`, limit: 1 }),
       });
       const dupList = await dupListRes.json().catch(() => []);
       const isDuplicate = Array.isArray(dupList) && dupList.length > 0;
       let duplicateOf = null;
       if (isDuplicate) {
-        const existing = await sbGet('purchases', `receipt_url=eq.web/${photoHash}.jpg&select=purchase_number,supplier_name,total,project_id&limit=1`);
+        const existing = await sbGet('purchases', `receipt_url=eq.web/${photoHash}.${rfile.ext}&select=purchase_number,supplier_name,total,project_id&limit=1`);
         duplicateOf = existing[0] || null;
       }
 
@@ -1362,7 +1403,7 @@ export default async function handler(req, res) {
         .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
         .map(p => ({ id: p.id, name: p.name, client_name: p.clients?.name || '' }));
 
-      const data = await extractReceiptItemsFromBase64(base64);
+      const data = await readReceiptFile(rfile);
       if (!data || data._error) {
         res.status(200).json({ ok: true, isDuplicate, duplicateOf, photoHash, parseError: data?._raw || 'Não consegui ler a nota.', items: [], projects });
         return;
@@ -1390,21 +1431,21 @@ export default async function handler(req, res) {
     if (!SUPABASE_KEY) { res.status(500).json({ ok: false, error: 'Missing config' }); return; }
 
     try {
-      const { projectId, supplierName, items, tax, orderDate, image, photoHash } = req.body || {};
+      const { projectId, supplierName, items, tax, orderDate, photoHash } = req.body || {};
       if (!projectId) { res.status(400).json({ ok: false, error: 'Selecione uma obra.' }); return; }
       if (!Array.isArray(items) || !items.length) { res.status(400).json({ ok: false, error: 'Nenhum item informado.' }); return; }
-      const base64 = (image || '').replace(/^data:image\/\w+;base64,/, '');
-      if (!base64 || !photoHash) { res.status(400).json({ ok: false, error: 'Foto da nota não recebida.' }); return; }
+      const rfile = parseReceiptFile(req.body);
+      if (!rfile || !photoHash) { res.status(400).json({ ok: false, error: 'Arquivo da nota não recebido.' }); return; }
 
       // Usa o hash do arquivo ORIGINAL calculado no navegador (mesmo valor usado no
       // passo de leitura) como nome do arquivo, com upsert:false -- se já existir um
       // objeto com esse nome, o upload falha e isso IMPEDE o lançamento duplicado da
       // mesma nota, não é só um aviso visual que dá pra ignorar.
-      const path = `web/${photoHash}.jpg`;
+      const path = `web/${photoHash}.${rfile.ext}`;
       const upRes = await fetch(`${SUPABASE_URL}/storage/v1/object/purchase-receipts/${path}`, {
         method: 'POST',
-        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'image/jpeg', 'x-upsert': 'false' },
-        body: Buffer.from(base64, 'base64'),
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': rfile.mime, 'x-upsert': 'false' },
+        body: Buffer.from(rfile.base64, 'base64'),
       });
       if (!upRes.ok) {
         if (upRes.status === 409 || upRes.status === 400) {

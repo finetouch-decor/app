@@ -141,13 +141,13 @@ input[type=text],input[type=number],input[type=date],select,textarea{width:100%;
 
   <!-- ETAPA 1: escolher foto -->
   <div class="card" id="step-pick">
-    <p class="center" style="margin-bottom:14px;">Tire uma foto da nota fiscal ou escolha uma já salva. A gente lê loja, data e valores automaticamente.</p>
+    <p class="center" style="margin-bottom:14px;">Tire uma foto da nota ou envie um arquivo: PDF, imagem ou qualquer outro tipo. Fotos, PDFs e arquivos de texto são lidos automaticamente (loja, data e valores); outros tipos ficam guardados e você preenche à mão.</p>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="document.getElementById('file-camera').click()">📷 Tirar Foto</button>
-      <button class="btn btn-ghost" onclick="document.getElementById('file-gallery').click()">🖼️ Galeria</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('file-gallery').click()">📎 Escolher arquivo</button>
     </div>
     <input type="file" id="file-camera" accept="image/*" capture="environment">
-    <input type="file" id="file-gallery" accept="image/*">
+    <input type="file" id="file-gallery">
   </div>
 
   <!-- ETAPA 2: carregando / lendo -->
@@ -209,6 +209,7 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let session = null;
 let currentPhotoHash = null;
 let currentImageBase64 = null;
+let currentFileName = '';
 let itemRowIds = [];
 
 async function init() {
@@ -247,7 +248,7 @@ function showStep(step) {
 }
 
 function resetFlow() {
-  currentPhotoHash = null; currentImageBase64 = null; itemRowIds = [];
+  currentPhotoHash = null; currentImageBase64 = null; currentFileName = ''; itemRowIds = [];
   document.getElementById('file-camera').value = '';
   document.getElementById('file-gallery').value = '';
   document.getElementById('dup-banner').classList.add('hidden');
@@ -296,17 +297,54 @@ async function hashFile(file) {
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
+// Limite de corpo da Vercel (~4,5MB) menos o inchaço do base64: arquivos que não são foto
+// (comprimida no navegador) precisam caber em ~3,2MB.
+const MAX_RAW_BYTES = 3.2 * 1024 * 1024;
+
+function readAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+// Pré-visualização para arquivos que não são imagem (PDF, planilha etc.).
+function fileChipSrc(name) {
+  const esc = String(name).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])).slice(0, 40);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="140"><rect width="400" height="140" rx="14" fill="#eef1f6"/><text x="200" y="68" font-size="46" text-anchor="middle">📄</text><text x="200" y="112" font-size="16" font-family="sans-serif" fill="#102a4b" text-anchor="middle">${esc}</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
 async function handleFile(file) {
   if (!file) return;
   showStep('loading');
-  document.getElementById('loading-text').textContent = 'Preparando foto...';
+  document.getElementById('loading-text').textContent = 'Preparando arquivo...';
   try {
     const originalHash = await hashFile(file);
-    const dataUrl = await compressImage(file);
+    const looksLikeImage = (file.type || '').startsWith('image/') || /\.(jpe?g|png|webp|heic|heif|gif)$/i.test(file.name || '');
+    let dataUrl, previewSrc;
+    if (looksLikeImage) {
+      try { dataUrl = await compressImage(file); previewSrc = dataUrl; }
+      catch (e) { // formato que o navegador não decodifica (ex.: HEIC fora do Safari): envia o original
+        dataUrl = null;
+      }
+    }
+    if (!dataUrl) {
+      if (file.size > MAX_RAW_BYTES) {
+        showStep('pick');
+        alert('Arquivo grande demais (' + (file.size/1048576).toFixed(1) + ' MB). O limite é cerca de 3 MB para arquivos que não são foto. Para PDF grande, exporte com menos qualidade ou tire foto da nota.');
+        return;
+      }
+      dataUrl = await readAsDataUrl(file);
+      previewSrc = (file.type || '').startsWith('image/') && file.type !== 'image/heic' && file.type !== 'image/heif' ? dataUrl : fileChipSrc(file.name || 'arquivo');
+    }
     currentImageBase64 = dataUrl;
     currentPhotoHash = originalHash;
-    document.getElementById('preview-img-loading').src = dataUrl;
-    document.getElementById('preview-img-review').src = dataUrl;
+    currentFileName = file.name || '';
+    document.getElementById('preview-img-loading').src = previewSrc;
+    document.getElementById('preview-img-review').src = previewSrc;
 
     document.getElementById('loading-text').textContent = 'Lendo a nota (loja, data, itens)...';
     const auth = await authHeader();
@@ -315,7 +353,7 @@ async function handleFile(file) {
     const res = await fetch('/api/telegram?capture=ocr', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: auth },
-      body: JSON.stringify({ image: dataUrl, photoHash: originalHash }),
+      body: JSON.stringify({ file: dataUrl, fileName: file.name || '', photoHash: originalHash }),
     });
     const result = await res.json();
     if (!res.ok || !result.ok) {
@@ -332,8 +370,8 @@ async function handleFile(file) {
     if (result.isDuplicate) {
       const d = result.duplicateOf;
       document.getElementById('dup-banner').innerHTML = d
-        ? `⚠️ Essa mesma foto já foi lançada antes: <strong>${d.purchase_number}</strong> — ${d.supplier_name || ''} — $${Number(d.total||0).toFixed(2)}. Confirmar de novo vai ser bloqueado (nota duplicada).`
-        : `⚠️ Essa mesma foto já foi lançada antes. Confirmar de novo vai ser bloqueado (nota duplicada).`;
+        ? `⚠️ Esse mesmo arquivo já foi lançado antes: <strong>${d.purchase_number}</strong> — ${d.supplier_name || ''} — $${Number(d.total||0).toFixed(2)}. Confirmar de novo vai ser bloqueado (nota duplicada).`
+        : `⚠️ Esse mesmo arquivo já foi lançado antes. Confirmar de novo vai ser bloqueado (nota duplicada).`;
     }
 
     if (!result.items || !result.items.length) {
@@ -421,7 +459,7 @@ async function confirmPurchase() {
   if (!projectId) { errEl.textContent = 'Selecione a obra antes de confirmar.'; errEl.classList.remove('hidden'); return; }
   const items = collectItems();
   if (!items.length) { errEl.textContent = 'Adicione pelo menos um item.'; errEl.classList.remove('hidden'); return; }
-  if (!currentImageBase64 || !currentPhotoHash) { errEl.textContent = 'Foto não carregada — tire a foto de novo.'; errEl.classList.remove('hidden'); return; }
+  if (!currentImageBase64 || !currentPhotoHash) { errEl.textContent = 'Arquivo não carregado — envie de novo.'; errEl.classList.remove('hidden'); return; }
 
   const btn = document.getElementById('btn-confirm');
   btn.disabled = true; btn.textContent = 'Salvando...';
@@ -439,7 +477,8 @@ async function confirmPurchase() {
         items,
         tax: parseFloat(document.getElementById('f-tax').value) || 0,
         orderDate: document.getElementById('f-date').value,
-        image: currentImageBase64,
+        file: currentImageBase64,
+        fileName: currentFileName,
         photoHash: currentPhotoHash,
       }),
     });
