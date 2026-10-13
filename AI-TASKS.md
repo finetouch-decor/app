@@ -28,6 +28,16 @@ Fila compartilhada de trabalho entre Fabinho, Maia (ChatGPT) e Claude.
 
 ## Tarefas ativas
 
+### FT-011 — Importacao automatica de notas do Gmail para a fila de compras
+Status: EM ANDAMENTO (aguardando autorizacao Google do Fabinho)
+Prioridade: ALTA
+Responsável: Claude
+Solicitado por: Fabinho (via Maia)
+Criado em: 2026-10-08
+Arquivos/sistemas: lib/gmail-intake.js, db/gmail-intake.sql, api/marketing-sync.js, api/gmb-callback.js, vercel.json, users.html, purchase-inbox.html
+Objetivo: Trazer para Obras > Compras aguardando destinacao as notas de qualquer fornecedor recebidas no contact@, no servidor, sem agente de IA e sem custo novo; o usuario continua confirmando destino.
+Resultado: Codigo publicado e testado (ver AI-HANDOFF.md de 2026-10-13). Falta o Fabinho autorizar o Gmail (somente leitura) em Usuarios > Integracoes; depois disso a primeira execucao real deve ser verificada e este cartao encerrado.
+
 ### FT-010 — PWA no iPhone + tela Fotografar Nota
 Status: CONCLUIDO
 Prioridade: MEDIA
