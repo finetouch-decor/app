@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="FT ERP">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
-<title>Fine Touch — Fotografar Nota</title>
+<title>Fine Touch — Envio de notas</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -24,7 +24,7 @@
 body{font-family:'Inter',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;}
 
 /* Mesma barra lateral compartilhada com o resto do ERP (copiada de purchases.html) --
-   "Fotografar Nota" aparece aqui marcado como item ativo, igual toda página já destaca
+   "Envio de notas" aparece aqui marcado como item ativo, igual toda página já destaca
    o próprio link. */
 .sidebar{width:240px;background:var(--navy);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:200;overflow-y:auto;transition:transform .2s;}
 .sidebar-logo{padding:22px 18px 18px;border-bottom:1px solid rgba(255,255,255,0.1);}
@@ -106,7 +106,7 @@ input[type=text],input[type=number],input[type=date],select,textarea{width:100%;
     <div class="nav-section">Execução</div>
     <a class="nav-item" href="/projects"><span class="icon">🏗️</span>Obras</a>
     <a class="nav-item" href="/purchases"><span class="icon">🛒</span>Compras</a>
-    <a class="nav-item active" href="/capture"><span class="icon">📸</span>Fotografar Nota</a>
+    <a class="nav-item active" href="/capture"><span class="icon">🧾</span>Envio de notas</a>
     <div class="nav-section">Gestão</div>
     <a class="nav-item" href="/financial"><span class="icon">💰</span>Financeiro</a>
     <a class="nav-item" href="/financial2"><span class="icon">💹</span>Financeiro 2</a>
@@ -134,7 +134,7 @@ input[type=text],input[type=number],input[type=date],select,textarea{width:100%;
 <div class="app">
   <div class="topbar">
     <button onclick="openSidebar()" aria-label="Abrir menu">☰</button>
-    <h1>📸 Fotografar Nota</h1>
+    <h1>🧾 Envio de notas</h1>
   </div>
 
 <main>
@@ -194,7 +194,7 @@ input[type=text],input[type=number],input[type=date],select,textarea{width:100%;
   <!-- ETAPA 4: sucesso -->
   <div class="card hidden" id="step-success">
     <div class="banner success" id="success-msg"></div>
-    <button class="btn btn-primary" onclick="resetFlow()">📸 Fotografar outra nota</button>
+    <button class="btn btn-primary" onclick="resetFlow()">🧾 Enviar outra nota</button>
     <button class="btn btn-ghost" style="margin-top:10px;" onclick="window.location.href='/purchases'">Ver em Compras</button>
   </div>
 

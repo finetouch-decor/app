@@ -117,7 +117,7 @@ async function extractReceiptItems(imageUrl) {
 
 // Núcleo compartilhado da leitura de nota fiscal -- usado tanto pelo fluxo do Telegram
 // (extractReceiptItems acima, que baixa a foto da URL do Telegram primeiro) quanto pela
-// tela "Fotografar Nota" do ERP (que já recebe a foto em base64 direto do navegador,
+// tela "Envio de notas" do ERP (que já recebe a foto em base64 direto do navegador,
 // sem precisar baixar de lugar nenhum). Mesmo prompt, mesmo modelo, mesma normalização
 // -- nada duplicado, só reaproveitado.
 async function extractReceiptItemsFromBase64(base64, opts = {}) {
@@ -1236,7 +1236,7 @@ async function requireAdmin(authorization) {
 }
 
 // Exige sessao Supabase valida de QUALQUER usuario aprovado (nao so admin) -- usado
-// pela tela "Fotografar Nota" (?capture=ocr/confirm), porque lançar uma compra é uma
+// pela tela "Envio de notas" (?capture=ocr/confirm), porque lançar uma compra é uma
 // ação operacional normal, igual a usar /purchases, não administrativa.
 async function requireApprovedUser(authorization) {
   if (!authorization.startsWith('Bearer ') || !SUPABASE_KEY) {
@@ -1479,7 +1479,7 @@ export default async function handler(req, res) {
       await fetch(`${SUPABASE_URL}/rest/v1/purchases?id=eq.${purchase.id}`, {
         method: 'PATCH',
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tax: taxNum, receipt_url: path, notes: 'Lançado via Fotografar Nota (ERP mobile).' }),
+        body: JSON.stringify({ tax: taxNum, receipt_url: path, notes: 'Lançado via Envio de notas (ERP mobile).' }),
       });
 
       res.status(200).json({ ok: true, purchaseId: purchase.id, purchaseNumber: num, total: subtotal + taxNum });
