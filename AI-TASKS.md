@@ -28,6 +28,16 @@ Fila compartilhada de trabalho entre Fabinho, Maia (ChatGPT) e Claude.
 
 ## Tarefas ativas
 
+### FT-012 — Financeiro 3 (vendas, meta, recebimentos, custos e lucratividade por obra)
+Status: CONCLUIDO
+Prioridade: ALTA
+Responsável: Claude
+Solicitado por: Fabinho (via Maia)
+Criado em: 2026-10-22
+Arquivos/sistemas: financial3.html, db/financial3.sql, views fin3_*, financial_goals, proposals (data de aprovacao)
+Objetivo: Painel financeiro confiavel e conciliavel, separado dos Financeiros 1 e 2 (que nao tiveram calculo alterado).
+Resultado: Publicado e validado com dados reais (ver AI-HANDOFF.md de 2026-10-22). Falta o Fabinho: definir a meta do mes, confirmar a data de aprovacao das vendas antigas e decidir sobre a proposta aceita possivelmente duplicada. Proxima versao (Financeiro 4): custos fixos e data de pagamento das compras.
+
 ### FT-011 — Importacao automatica de notas do Gmail para a fila de compras
 Status: EM ANDAMENTO (aguardando autorizacao Google do Fabinho)
 Prioridade: ALTA
