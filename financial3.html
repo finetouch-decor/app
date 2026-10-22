@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#102A4B">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/logo-icon-navy.png">
+<meta name="apple-mobile-web-app-title" content="FT ERP">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Fine Touch — Financeiro 3</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+:root {
+  --navy:#102A4B; --navy2:#1a3d6e; --gold:#C69E63; --gold2:#C7B090;
+  --cream:#EAE6DA; --cream2:#F7F8FA; --cream3:#FFFFFF; --white:#FFFFFF;
+  --border:rgba(15,23,42,0.08); --text:#1a1a1a; --muted:#64748B;
+  --green:#2e6b3e; --green-bg:#f0f7eb; --red:#a03030; --red-bg:#fdf0f0;
+  --amber:#a06a1a; --amber-bg:#fdf3e0;
+  --shadow:0 1px 4px rgba(0,0,0,0.06); --sidebar:220px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);display:flex;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar);background:var(--navy);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;}
+.sidebar-logo{padding:22px 18px 18px;border-bottom:1px solid rgba(255,255,255,0.08);}
+.sidebar-nav{flex:1;padding:16px 0;overflow-y:auto;}
+.nav-section{padding:8px 20px 4px;font-size:9px;font-weight:700;color:rgba(234,230,218,0.35);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;color:rgba(234,230,218,0.6);font-size:13px;font-weight:500;text-decoration:none;transition:all .15s;border-left:3px solid transparent;}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:var(--cream);}
+.nav-item.active{background:rgba(198,158,99,0.15);color:var(--cream);border-left-color:var(--gold);}
+.nav-item .icon{font-size:15px;width:20px;text-align:center;}
+.sidebar-user{padding:16px 20px;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px;}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--navy);}
+.user-name{font-size:13px;font-weight:600;color:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-role{font-size:10px;color:rgba(234,230,218,0.5);}
+
+/* MAIN */
+main{margin-left:var(--sidebar);flex:1;padding:28px 32px 60px;max-width:1440px;}
+.page-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:22px;}
+.page-title{font-size:24px;font-weight:800;color:var(--navy);}
+.page-title .badge{font-size:10px;font-weight:700;background:var(--gold);color:var(--navy);padding:3px 8px;border-radius:20px;margin-left:8px;vertical-align:middle;letter-spacing:.5px;}
+.page-sub{font-size:13px;color:var(--muted);margin-top:3px;}
+
+/* FILTER BAR */
+.filter-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:20px;box-shadow:var(--shadow);}
+.range-btn{padding:7px 13px;border-radius:8px;border:1.5px solid var(--border);background:var(--cream2);color:var(--navy);font-size:12.5px;font-weight:600;cursor:pointer;transition:all .12s;white-space:nowrap;}
+.range-btn:hover{border-color:var(--gold);}
+.range-btn.active{background:var(--navy);border-color:var(--navy);color:var(--cream);}
+.filter-bar input[type=date]{padding:6px 9px;border:1.5px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;color:var(--navy);background:var(--cream2);}
+.filter-bar select{padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;color:var(--navy);background:var(--cream2);}
+.filter-sep{width:1px;align-self:stretch;background:var(--border);margin:0 2px;}
+.filter-bar .spacer{flex:1;}
+.btn-export{padding:7px 13px;border-radius:8px;border:1.5px solid var(--gold);background:var(--white);color:var(--navy);font-size:12.5px;font-weight:700;cursor:pointer;}
+.btn-export:hover{background:var(--cream2);}
+
+/* KPI GRID */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px;}
+.kpi-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);}
+.kpi-label{font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;display:flex;align-items:center;gap:5px;}
+.kpi-value{font-size:21px;font-weight:800;color:var(--navy);margin-top:5px;}
+.kpi-delta{font-size:11px;font-weight:700;margin-top:4px;display:inline-flex;align-items:center;gap:3px;}
+.kpi-delta.up{color:var(--green);}
+.kpi-delta.down{color:var(--red);}
+.kpi-delta.flat{color:var(--muted);}
+.kpi-note{font-size:10.5px;color:var(--muted);margin-top:4px;}
+
+/* SECTIONS */
+.section{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-bottom:20px;box-shadow:var(--shadow);}
+.section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;}
+.section-title{font-size:15px;font-weight:800;color:var(--navy);display:flex;align-items:center;gap:7px;}
+.section-title small{font-size:11px;font-weight:500;color:var(--muted);}
+.two-col{display:grid;grid-template-columns:1.6fr 1fr;gap:20px;}
+@media(max-width:1100px){.two-col{grid-template-columns:1fr;}}
+
+/* AGING CHIPS */
+.aging-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.aging-chip{flex:1;min-width:100px;border-radius:10px;padding:9px 12px;border:1px solid var(--border);}
+.aging-chip .n{font-size:16px;font-weight:800;}
+.aging-chip .l{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+.aging-chip.ok{background:var(--green-bg);} .aging-chip.ok .n{color:var(--green);}
+.aging-chip.warn{background:var(--amber-bg);} .aging-chip.warn .n{color:var(--amber);}
+.aging-chip.bad{background:var(--red-bg);} .aging-chip.bad .n{color:var(--red);}
+
+/* TABLES */
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+th{text-align:left;padding:8px 10px;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;border-bottom:1.5px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;}
+th:hover{color:var(--navy);}
+th .arrow{opacity:.4;font-size:9px;margin-left:2px;}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--cream2);}
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:700;}
+.tag.ok{background:var(--green-bg);color:var(--green);}
+.tag.warn{background:var(--amber-bg);color:var(--amber);}
+.tag.bad{background:var(--red-bg);color:var(--red);}
+.tag.muted{background:var(--cream);color:var(--muted);}
+.search-box{padding:7px 11px;border:1.5px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;width:200px;background:var(--cream2);}
+.empty-state{padding:30px 10px;text-align:center;color:var(--muted);font-size:13px;}
+.right{text-align:right;}
+.mono{font-variant-numeric:tabular-nums;}
+canvas{max-height:280px;}
+.legend-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;}
+.btn-logout{margin-left:auto;background:none;border:none;color:rgba(234,230,218,0.5);cursor:pointer;font-size:15px;}
+.btn-logout:hover{color:var(--cream);}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:var(--cream);padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,0.25);opacity:0;pointer-events:none;transform:translateY(10px);transition:all .2s;z-index:999;}
+.toast.show{opacity:1;transform:translateY(0);}
+
+.topbar{display:none;background:var(--navy);color:#fff;padding:12px 16px;align-items:center;gap:12px;position:sticky;top:0;z-index:90;}
+.topbar button{background:none;border:none;color:#fff;font-size:22px;cursor:pointer;line-height:1;}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:95;}
+.overlay.open{display:block;}
+@media(max-width:900px){.sidebar{transform:translateX(-100%);transition:transform .2s;}.sidebar.open{transform:translateX(0);}main{margin-left:0;padding:16px 14px 50px;}.topbar{display:flex;}.app-shell{flex-direction:column;}}
+.month-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.month-nav .range-btn{padding:7px 11px;}
+.month-nav select{padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;color:var(--navy);background:var(--white);font-weight:600;}
+.kpi-grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px;}
+@media(max-width:1200px){.kpi-grid5{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:700px){.kpi-grid5{grid-template-columns:repeat(2,1fr);}}
+.kpi-card.bad .kpi-value{color:var(--red);} .kpi-card.good .kpi-value{color:var(--green);}
+.goal-row{display:flex;gap:6px;align-items:center;margin-top:5px;}
+.goal-row input{width:100%;min-width:0;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:16px;font-weight:800;color:var(--navy);font-family:inherit;}
+.goal-row button{padding:7px 10px;border-radius:8px;border:none;background:var(--navy);color:var(--cream);font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap;}
+.goal-row button:disabled,.goal-row input:disabled{opacity:.5;cursor:not-allowed;}
+.progress{height:16px;background:var(--cream);border-radius:20px;overflow:hidden;margin:10px 0 6px;}
+.progress > div{height:100%;background:linear-gradient(90deg,var(--gold),#d9b77a);border-radius:20px;transition:width .4s;}
+.progress.done > div{background:linear-gradient(90deg,#3d8a52,#5aa66d);}
+.notice{border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:14px;line-height:1.5;}
+.notice.info{background:var(--cream2);border:1px solid var(--border);color:var(--navy);}
+.notice.warn{background:var(--amber-bg);border:1px solid rgba(160,106,26,.25);color:var(--amber);}
+.notice button{margin-left:8px;}
+.tbl-wrap{overflow-x:auto;}
+.btn-sm{padding:4px 9px;border-radius:7px;border:1.5px solid var(--gold);background:var(--white);color:var(--navy);font-size:11.5px;font-weight:700;cursor:pointer;}
+.date-edit{display:inline-flex;gap:4px;align-items:center;}
+.date-edit input{padding:3px 6px;border:1.5px solid var(--border);border-radius:7px;font-size:12px;}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
+tr.total td{font-weight:800;border-top:1.5px solid var(--border);background:var(--cream2);}
+.chart-box{position:relative;height:260px;}
+</style>
+</head>
+<body>
+<div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+<div class="app-shell" style="display:flex;width:100%;">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo" style="padding:22px 18px 18px;border-bottom:1px solid rgba(255,255,255,0.08);">
+      <img src="/logo-dark-bg.png" alt="Fine Touch" style="width:100%;height:auto;display:block;max-height:90px;">
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Principal</div>
+      <a class="nav-item" href="/dashboard"><span class="icon">📊</span>Dashboard</a>
+      <div class="nav-section">Captação</div>
+      <a class="nav-item" href="/app"><span class="icon">🎯</span>CRM / Leads</a>
+      <div class="nav-section">Venda</div>
+      <a class="nav-item" href="/quotes"><span class="icon">📋</span>Orçamentos</a>
+      <a class="nav-item" href="/proposals"><span class="icon">📄</span>Propostas</a>
+      <a class="nav-item" href="/proposal-bundles"><span class="icon">🧩</span>Propostas Combinadas</a>
+      <a class="nav-item" href="/invoices"><span class="icon">🧾</span>Invoices</a>
+      <div class="nav-section">Execução</div>
+      <a class="nav-item" href="/projects"><span class="icon">🏗️</span>Obras</a>
+      <a class="nav-item" href="/purchases"><span class="icon">🛒</span>Compras</a>
+      <a class="nav-item" href="/capture"><span class="icon">🧾</span>Envio de notas</a>
+      <div class="nav-section">Gestão</div>
+      <a class="nav-item" href="/financial"><span class="icon">💰</span>Financeiro</a>
+      <a class="nav-item" href="/financial2"><span class="icon">💹</span>Financeiro 2</a>
+      <a class="nav-item active" href="/financial3"><span class="icon">📊</span>Financeiro 3</a>
+      <a class="nav-item" href="/reports"><span class="icon">📈</span>Relatórios</a>
+    <a class="nav-item" href="/analytics"><span class="icon">📐</span>Análise</a>
+      <a class="nav-item" href="/catalog"><span class="icon">🖼️</span>Catálogo Cliente</a>
+      <a class="nav-item" href="/services"><span class="icon">📚</span>Serviços</a>
+      <a class="nav-item" href="/marketing"><span class="icon">📣</span>Marketing</a>
+      <a class="nav-item" href="/tasks"><span class="icon">✅</span>Tarefas</a>
+      <a class="nav-item" href="/pendencias"><span class="icon">🧩</span>Pendências/Melhorias</a>
+      <div class="nav-section">Admin</div>
+      <a class="nav-item" id="nav-users" href="/users" style="display:none"><span class="icon">👥</span>Usuários</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <div><div class="user-name" id="user-name">...</div><div class="user-role">Fine Touch</div></div>
+      <button class="btn-logout" onclick="logout()">⏏</button>
+    </div>
+  </aside>
+  <main>
+    <div class="topbar"><button onclick="toggleMenu()" aria-label="Menu">☰</button><strong>Financeiro 3</strong></div>
+    <div class="page-header">
+      <div>
+        <div class="page-title">Financeiro 3<span class="badge">NOVO</span></div>
+        <div class="page-sub">Vendas fechadas, recebimentos, custos das obras e lucratividade — cada indicador separado e conciliável. Valores em US$.</div>
+      </div>
+      <div class="month-nav">
+        <button class="range-btn" id="m-prev" aria-label="Mês anterior">◀</button>
+        <select id="m-month" aria-label="Mês"></select>
+        <select id="m-year" aria-label="Ano"></select>
+        <button class="range-btn" id="m-next" aria-label="Próximo mês">▶</button>
+        <button class="range-btn" id="m-today">Mês atual</button>
+      </div>
+    </div>
+
+    <div class="notice info">
+      A lucratividade mostrada considera apenas <strong>vendas, recebimentos e custos lançados nas obras</strong>. Custos fixos e despesas administrativas (aluguel, seguros, softwares etc.) <strong>não estão incluídos</strong> — não é o lucro líquido da empresa.
+    </div>
+    <div id="alerts"></div>
+
+    <div class="kpi-grid5">
+      <div class="kpi-card" id="k-goal-card">
+        <div class="kpi-label">Meta mensal de vendas</div>
+        <div class="goal-row"><input type="number" id="goal-input" min="0" step="100" placeholder="0,00" inputmode="decimal"><button id="goal-save">Salvar</button></div>
+        <div class="kpi-note" id="goal-note"></div>
+      </div>
+      <div class="kpi-card"><div class="kpi-label">Vendas fechadas</div><div class="kpi-value" id="k-sales">—</div><div class="kpi-note" id="k-sales-note"></div></div>
+      <div class="kpi-card"><div class="kpi-label">Recebido no mês</div><div class="kpi-value" id="k-received">—</div><div class="kpi-note" id="k-received-note"></div></div>
+      <div class="kpi-card"><div class="kpi-label">Total a receber</div><div class="kpi-value" id="k-recv">—</div><div class="kpi-note" id="k-recv-note"></div></div>
+      <div class="kpi-card" id="k-over-card"><div class="kpi-label">Vencidos</div><div class="kpi-value" id="k-over">—</div><div class="kpi-note" id="k-over-note"></div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="section-title">🎯 Progresso da meta <small id="prog-month"></small></div></div>
+      <div id="prog-text" style="font-size:13px;color:var(--navy);font-weight:600;"></div>
+      <div class="progress" id="prog-bar"><div style="width:0%"></div></div>
+      <div id="prog-sub" style="font-size:12px;color:var(--muted);"></div>
+    </div>
+
+    <div class="two-col" style="margin-bottom:20px;">
+      <div class="section" style="margin-bottom:0;"><div class="section-head"><div class="section-title">📈 Vendas por mês × meta</div></div><div class="chart-box"><canvas id="ch-sales"></canvas></div></div>
+      <div class="section" style="margin-bottom:0;"><div class="section-head"><div class="section-title">💵 Recebimentos, custos e resultado</div></div><div class="chart-box"><canvas id="ch-cash"></canvas></div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="section-title">🤝 Vendas fechadas no mês <small>valor integral da proposta/combo aprovado, contado uma única vez</small></div></div>
+      <div class="tbl-wrap"><table id="t-sales"><thead><tr><th>Cliente</th><th>Proposta</th><th>Tipo</th><th class="num">Valor</th><th>Aprovação</th><th>Data</th><th></th></tr></thead><tbody></tbody></table></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="section-title">💰 Recebimentos do mês <small>invoices marcadas como pagas, pela data real do pagamento</small></div></div>
+      <div class="tbl-wrap"><table id="t-pay"><thead><tr><th>Invoice</th><th>Cliente</th><th>Pago em</th><th class="num">Valor</th><th>Conciliação</th></tr></thead><tbody></tbody></table></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="section-title">📬 Contas a receber <small>saldo contratado ainda não pago (posição de hoje)</small></div></div>
+      <div class="aging-row" id="aging"></div>
+      <div class="tbl-wrap"><table id="t-recv"><thead><tr><th>Cliente</th><th>Referência</th><th>Situação</th><th>Vencimento</th><th class="num">Valor</th></tr></thead><tbody></tbody></table></div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:8px;">“Sem invoice emitida” = parcela contratada ainda sem invoice. Não há data de vencimento cadastrada para ela e nenhuma data é inventada.</div>
+      <div class="section-title" style="margin:18px 0 8px;font-size:13px;">Contratos com saldo</div>
+      <div class="tbl-wrap"><table id="t-contracts"><thead><tr><th>Cliente</th><th>Contrato</th><th class="num">Contratado</th><th class="num">Recebido</th><th class="num">Saldo</th></tr></thead><tbody></tbody></table></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="section-title">🛠️ Custos das obras no mês <small>data efetiva do lançamento (data da compra), valor com imposto</small></div></div>
+      <div class="aging-row" id="cost-chips"></div>
+      <div class="two-col">
+        <div class="tbl-wrap"><table id="t-cost-obra"><thead><tr><th>Obra</th><th class="num">Custos</th></tr></thead><tbody></tbody></table></div>
+        <div class="tbl-wrap"><table id="t-cost-sup"><thead><tr><th>Fornecedor</th><th class="num">Custos</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <details style="margin-top:12px;"><summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:var(--navy);">Ver lançamentos do mês</summary>
+        <div class="tbl-wrap"><table id="t-cost-rows" style="margin-top:8px;"><thead><tr><th>Data</th><th>Compra</th><th>Fornecedor</th><th>Obra</th><th>Status</th><th class="num">Valor</th></tr></thead><tbody></tbody></table></div></details>
+      <div id="inbox-note" class="notice info" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title">🏗️ Lucratividade por obra <small>contratado − custos registrados até agora</small></div>
+        <select id="pp-filter" class="search-box" style="width:auto;"><option value="all">Todas as obras</option><option value="open">Em andamento (parcial)</option><option value="completed">Concluídas (final)</option></select>
+      </div>
+      <div class="tbl-wrap"><table id="t-pp"><thead><tr><th>Obra</th><th>Cliente</th><th>Situação</th><th class="num">Contratado</th><th class="num">Recebido</th><th class="num">Custos</th><th class="num">Lucro</th><th class="num">Margem</th><th>Tipo</th></tr></thead><tbody></tbody></table></div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:8px;">Lucro da obra ≠ dinheiro em caixa. Em obras em andamento o lucro é <strong>parcial/provisório</strong>: ainda podem surgir novos custos.</div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
+        <div class="section-title">📅 Comparativo mensal <small>histórico sem alterar dados antigos</small></div>
+        <div class="month-nav"><select id="cmp-from"></select><span style="color:var(--muted);font-size:12px;">até</span><select id="cmp-to"></select></div>
+      </div>
+      <div class="tbl-wrap"><table id="t-cmp"><thead><tr><th>Mês</th><th class="num">Vendas</th><th class="num">Δ vendas</th><th class="num">Meta</th><th class="num">% da meta</th><th class="num">Recebido</th><th class="num">Δ receb.</th><th class="num">Custos obras</th><th class="num">Resultado</th></tr></thead><tbody></tbody></table></div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:8px;"><strong>Resultado mensal</strong> = recebido − custos lançados nas obras, com o custo na data da compra. O ERP ainda não guarda a data em que cada compra foi <em>paga</em>, então isto é um fluxo de caixa <strong>estimado</strong>, não confirmado. Não inclui custos fixos.</div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="section-title">🔎 Conciliação e pontos de atenção <small>nada foi alterado nos registros; só sinalizado</small></div></div>
+      <div id="recon"></div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://jpbpzlpvhdwgbmljqfyd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59';
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function toggleMenu() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').classList.toggle('open'); }
+async function logout() { await db.auth.signOut(); }
+db.auth.onAuthStateChange((e) => { if (e === 'SIGNED_OUT') window.location.href = '/login.html'; });
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3200);
+}
+
+// ── utilidades (datas SEMPRE como texto AAAA-MM-DD: nunca new Date('AAAA-MM-DD'), que desloca o dia/mês por fuso) ──
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = v => Number(v || 0);
+const fmt = n => (num(n) < 0 ? '-' : '') + '$' + Math.abs(num(n)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtDate = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '—';
+const ym = d => (d || '').slice(0, 7);
+const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const monthName = m => MONTHS[Number(m.slice(5, 7)) - 1] + ' ' + m.slice(0, 4);
+const todayNY = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+const curMonth = () => todayNY().slice(0, 7);
+const shiftMonth = (m, k) => { const d = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + k, 1)); return d.toISOString().slice(0, 7); };
+const sum = (arr, f) => arr.reduce((s, x) => s + num(f(x)), 0);
+const round2 = n => Math.round(n * 100) / 100;
+
+let D = {};            // dados carregados
+let selMonth = curMonth();
+const charts = {};
+
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { window.location.href = '/login.html'; return; }
+  const { data: prof } = await db.from('user_profiles').select('status,role').eq('id', session.user.id).single();
+  if (!prof || (prof.status !== 'approved' && prof.role !== 'admin')) { window.location.href = '/pending.html'; return; }
+  if (prof.role === 'admin') { const ul = document.getElementById('nav-users'); if (ul) ul.style.display = 'flex'; }
+  const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Usuário';
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+  const q = new URLSearchParams(location.search).get('m');
+  if (q && /^\d{4}-\d{2}$/.test(q) && q <= curMonth()) selMonth = q;
+  bindControls();
+  await loadAll();
+}
+
+async function loadAll() {
+  const get = async (p) => { const { data, error } = await p; if (error) throw new Error(error.message); return data || []; };
+  try {
+    const [su, pay, orph, rec, cost, pp, mon, goals, inbox] = await Promise.all([
+      get(db.from('fin3_sale_units').select('*')),
+      get(db.from('fin3_payments').select('*')),
+      get(db.from('fin3_orphan_income').select('*')),
+      get(db.from('fin3_receivable_lines').select('*')),
+      get(db.from('fin3_costs').select('*')),
+      get(db.from('fin3_project_profit').select('*')),
+      get(db.from('fin3_monthly').select('*').order('month')),
+      get(db.from('financial_goals').select('month,target').order('month')),
+      get(db.from('purchase_inbox').select('status,total').in('status', ['pending', 'review'])),
+    ]);
+    D = { su, pay, orph, rec, cost, pp, mon, goals, inbox };
+    D.projName = Object.fromEntries(pp.map(p => [p.project_id, p.name]));
+    D.months = mon.map(r => r.month.slice(0, 7));
+    populateSelectors();
+    renderAll();
+  } catch (e) {
+    showToast('Erro ao carregar: ' + e.message, 'error');
+    document.getElementById('alerts').innerHTML = `<div class="notice warn">Não foi possível carregar os dados (${esc(e.message)}). Se a mensagem citar uma tabela ou view inexistente, a migração db/financial3.sql ainda não foi aplicada.</div>`;
+  }
+}
+
+function goalFor(m) {   // última meta definida em mês <= m (herança); meses anteriores nunca mudam
+  let g = null;
+  for (const r of D.goals) { if (r.month.slice(0, 7) <= m) g = num(r.target); else break; }
+  return g;
+}
+
+// ── controles ──
+function populateSelectors() {
+  const first = D.months[0] || curMonth(), last = curMonth();
+  const mSel = document.getElementById('m-month'), ySel = document.getElementById('m-year');
+  mSel.innerHTML = MONTHS.map((n, i) => `<option value="${String(i + 1).padStart(2, '0')}">${n}</option>`).join('');
+  const years = []; for (let y = +first.slice(0, 4); y <= +last.slice(0, 4); y++) years.push(y);
+  ySel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  const opts = D.months.map(m => `<option value="${m}">${monthName(m)}</option>`).join('');
+  const f = document.getElementById('cmp-from'), t = document.getElementById('cmp-to');
+  const pf = f.value, pt = t.value;
+  f.innerHTML = opts; t.innerHTML = opts;
+  f.value = pf || D.months[Math.max(0, D.months.length - 6)]; t.value = pt || D.months[D.months.length - 1];
+}
+function bindControls() {
+  const go = m => { m = m > curMonth() ? curMonth() : m; selMonth = m; history.replaceState(null, '', '?m=' + m); renderAll(); };
+  document.getElementById('m-prev').onclick = () => go(shiftMonth(selMonth, -1));
+  document.getElementById('m-next').onclick = () => go(shiftMonth(selMonth, 1));
+  document.getElementById('m-today').onclick = () => go(curMonth());
+  const fromSel = () => go(document.getElementById('m-year').value + '-' + document.getElementById('m-month').value);
+  document.getElementById('m-month').onchange = fromSel; document.getElementById('m-year').onchange = fromSel;
+  document.getElementById('pp-filter').onchange = renderProfit;
+  document.getElementById('cmp-from').onchange = renderCompare; document.getElementById('cmp-to').onchange = renderCompare;
+  document.getElementById('goal-save').onclick = saveGoal;
+}
+
+async function saveGoal() {
+  const raw = document.getElementById('goal-input').value;
+  const v = Number(raw);
+  if (raw === '' || !Number.isFinite(v) || v < 0) { showToast('Informe uma meta válida (0 ou mais).', 'error'); return; }
+  const btn = document.getElementById('goal-save'); btn.disabled = true;
+  const { error } = await db.from('financial_goals').upsert({ month: selMonth + '-01', target: round2(v) }, { onConflict: 'month' });
+  btn.disabled = false;
+  if (error) { showToast('Não foi possível salvar: ' + error.message, 'error'); return; }
+  showToast('Meta salva — vale para este mês e os seguintes até nova alteração.', 'success');
+  await loadAll();
+}
+
+// ── cálculo dos indicadores do mês ──
+function metrics(m) {
+  const sales = D.su.filter(s => !s.review_flag && ym(s.approval_date) === m);
+  const pays = D.pay.filter(p => ym(p.paid_date) === m);
+  const costs = D.cost.filter(c => ym(c.cost_date) === m);
+  const goal = goalFor(m);
+  const salesTotal = round2(sum(sales, s => s.amount));
+  return {
+    sales, pays, costs, goal, salesTotal,
+    salesEstimated: round2(sum(sales.filter(s => !s.approval_confirmed), s => s.amount)),
+    received: round2(sum(pays, p => p.amount)),
+    costObras: round2(sum(costs.filter(c => c.project_id), c => c.amount)),
+    costSemObra: round2(sum(costs.filter(c => !c.project_id), c => c.amount)),
+  };
+}
+
+function renderAll() {
+  document.getElementById('m-month').value = selMonth.slice(5, 7);
+  document.getElementById('m-year').value = selMonth.slice(0, 4);
+  document.getElementById('m-next').disabled = selMonth >= curMonth();
+  const M = metrics(selMonth);
+  renderKpis(M); renderAlerts(); renderSales(M); renderPayments(M); renderReceivables(); renderCosts(M); renderProfit(); renderCompare(); renderCharts(); renderRecon();
+}
+
+function renderKpis(M) {
+  const isPast = selMonth < curMonth();
+  const gi = document.getElementById('goal-input');
+  gi.value = M.goal == null ? '' : M.goal; gi.disabled = isPast; document.getElementById('goal-save').disabled = isPast;
+  document.getElementById('goal-note').textContent = isPast
+    ? 'Mês anterior: meta fixa, não pode ser alterada.'
+    : (M.goal == null ? 'Defina a meta; os meses seguintes a herdam até você alterar.' : 'Vale deste mês em diante, até nova alteração.');
+  document.getElementById('k-sales').textContent = fmt(M.salesTotal);
+  const est = M.sales.filter(s => !s.approval_confirmed).length;
+  document.getElementById('k-sales-note').textContent = `${M.sales.length} venda(s)` + (est ? ` · ${est} com data estimada` : '');
+  document.getElementById('k-received').textContent = fmt(M.received);
+  document.getElementById('k-received-note').textContent = `${M.pays.length} pagamento(s) confirmado(s)`;
+  const tot = round2(sum(D.rec, r => r.amount));
+  const over = round2(sum(D.rec.filter(r => r.bucket === 'vencido'), r => r.amount));
+  document.getElementById('k-recv').textContent = fmt(tot);
+  document.getElementById('k-recv-note').textContent = 'posição de hoje, todos os contratos';
+  document.getElementById('k-over').textContent = fmt(over);
+  document.getElementById('k-over-card').classList.toggle('bad', over > 0);
+  document.getElementById('k-over-note').textContent = over > 0 ? 'invoices com vencimento passado' : 'nenhum vencido';
+  // progresso
+  document.getElementById('prog-month').textContent = monthName(selMonth);
+  const bar = document.getElementById('prog-bar'), fill = bar.firstElementChild;
+  if (M.goal == null || M.goal === 0) {
+    fill.style.width = '0%'; bar.classList.remove('done');
+    document.getElementById('prog-text').textContent = `Vendido no mês: ${fmt(M.salesTotal)}`;
+    document.getElementById('prog-sub').textContent = M.goal === 0 ? 'Meta definida como zero.' : 'Nenhuma meta definida para este mês.';
+    return;
+  }
+  const pct = M.salesTotal / M.goal * 100;
+  fill.style.width = Math.min(100, pct).toFixed(1) + '%'; bar.classList.toggle('done', pct >= 100);
+  document.getElementById('prog-text').textContent = `${fmt(M.salesTotal)} de ${fmt(M.goal)} — ${pct.toFixed(1)}% da meta`;
+  const diff = round2(M.goal - M.salesTotal);
+  document.getElementById('prog-sub').textContent = diff > 0 ? `Faltam ${fmt(diff)} para bater a meta.` : `Meta batida! Excedente de ${fmt(-diff)}.`;
+}
+
+function renderAlerts() {
+  const est = D.su.filter(s => !s.review_flag && !s.approval_confirmed);
+  const dup = D.su.filter(s => s.review_flag);
+  const parts = [];
+  if (est.length) parts.push(`<strong>${est.length} venda(s)</strong> ainda têm data de aprovação <em>estimada</em> (o ERP não registrava a data em que a proposta foi aprovada). Confirme na tabela “Vendas fechadas” para fixar o mês. A partir de agora, aprovações novas gravam a data sozinhas.`);
+  if (dup.length) parts.push(`<strong>${dup.length} proposta(s) aceita(s) possivelmente duplicada(s)</strong> ficaram <em>fora</em> das vendas (ver “Conciliação”).`);
+  document.getElementById('alerts').innerHTML = parts.length ? `<div class="notice warn">${parts.join('<br>')}</div>` : '';
+}
+
+function tagFor(kind) {
+  const map = { confirmada: ['ok', 'Confirmada'], estimada_primeira_invoice: ['warn', 'Estimada (1ª invoice)'], estimada_data_proposta: ['warn', 'Estimada (data da proposta)'] };
+  const [c, t] = map[kind] || ['muted', kind]; return `<span class="tag ${c}">${t}</span>`;
+}
+function renderSales(M) {
+  const tb = document.querySelector('#t-sales tbody');
+  if (!M.sales.length) { tb.innerHTML = `<tr><td colspan="7" class="empty-state">Nenhuma venda fechada em ${monthName(selMonth)}.</td></tr>`; return; }
+  const rows = [...M.sales].sort((a, b) => a.approval_date.localeCompare(b.approval_date));
+  tb.innerHTML = rows.map(s => `<tr data-id="${esc(s.unit_id)}">
+    <td>${esc(s.client_name)}</td><td>${esc(s.title)}</td><td>${s.unit_type === 'bundle' ? 'Combo' : 'Proposta'}</td>
+    <td class="num">${fmt(s.amount)}</td><td>${tagFor(s.approval_basis)}</td><td class="date-cell">${fmtDate(s.approval_date)}</td>
+    <td>${!s.approval_confirmed && s.unit_type === 'proposal' ? `<button class="btn-sm" data-act="confirm">Confirmar data</button>` : ''}</td></tr>`).join('')
+    + `<tr class="total"><td colspan="3">Total vendido</td><td class="num">${fmt(M.salesTotal)}</td><td colspan="3"></td></tr>`;
+  tb.querySelectorAll('[data-act=confirm]').forEach(b => b.onclick = () => editDate(b.closest('tr')));
+}
+function editDate(tr) {
+  const s = D.su.find(x => x.unit_id === tr.dataset.id);
+  const cell = tr.querySelector('.date-cell');
+  cell.innerHTML = `<span class="date-edit"><input type="date" value="${esc(s.approval_date)}" max="${todayNY()}"><button class="btn-sm" data-act="ok">Salvar</button></span>`;
+  cell.querySelector('[data-act=ok]').onclick = async () => {
+    const d = cell.querySelector('input').value;
+    if (!d) { showToast('Escolha a data de aprovação.', 'error'); return; }
+    const { error } = await db.from('proposals').update({ accepted_at: d + 'T16:00:00Z', accepted_source: 'manual' }).eq('id', s.unit_id);
+    if (error) { showToast('Não foi possível salvar: ' + error.message, 'error'); return; }
+    showToast('Data de aprovação confirmada.', 'success'); await loadAll();
+  };
+}
+
+function renderPayments(M) {
+  const tb = document.querySelector('#t-pay tbody');
+  const lab = { conciliado: ['ok', 'Conciliado'], sem_lancamento: ['warn', 'Sem lançamento de entrada'], valor_diferente: ['bad', 'Valor difere do lançamento'], data_diferente: ['warn', 'Data difere do lançamento'], lancamento_duplicado: ['bad', 'Lançamento duplicado'] };
+  if (!M.pays.length) { tb.innerHTML = `<tr><td colspan="5" class="empty-state">Nenhum pagamento confirmado em ${monthName(selMonth)}.</td></tr>`; return; }
+  tb.innerHTML = [...M.pays].sort((a, b) => a.paid_date.localeCompare(b.paid_date)).map(p => {
+    const [c, t] = lab[p.reconciliation] || ['muted', p.reconciliation];
+    return `<tr><td>${esc(p.invoice_number)}</td><td>${esc(p.client_name)}</td><td>${fmtDate(p.paid_date)}</td><td class="num">${fmt(p.amount)}</td><td><span class="tag ${c}">${t}</span></td></tr>`;
+  }).join('') + `<tr class="total"><td colspan="3">Total recebido</td><td class="num">${fmt(M.received)}</td><td></td></tr>`;
+}
+
+function renderReceivables() {
+  const by = k => round2(sum(D.rec.filter(r => r.bucket === k), r => r.amount));
+  const tot = round2(sum(D.rec, r => r.amount));
+  document.getElementById('aging').innerHTML = [
+    ['', 'Total a receber', tot], ['bad', 'Vencidos', by('vencido')], ['ok', 'A vencer', by('a_vencer')], ['warn', 'Sem invoice emitida', by('sem_invoice')], ['warn', 'Sem data', by('sem_data')],
+  ].map(([c, l, v]) => `<div class="aging-chip ${c}"><div class="n">${fmt(v)}</div><div class="l">${l}</div></div>`).join('');
+  const lab = { vencido: ['bad', 'Vencido'], a_vencer: ['ok', 'A vencer'], sem_invoice: ['warn', 'Sem invoice emitida'], sem_data: ['muted', 'Sem data'] };
+  const tb = document.querySelector('#t-recv tbody');
+  const order = { vencido: 0, a_vencer: 1, sem_data: 2, sem_invoice: 3 };
+  const rows = [...D.rec].sort((a, b) => order[a.bucket] - order[b.bucket] || String(a.due_date).localeCompare(String(b.due_date)));
+  tb.innerHTML = rows.length ? rows.map(r => { const [c, t] = lab[r.bucket]; return `<tr><td>${esc(r.client_name)}</td><td>${esc(r.ref)}</td><td><span class="tag ${c}">${t}</span></td><td>${fmtDate(r.due_date)}</td><td class="num">${fmt(r.amount)}</td></tr>`; }).join('')
+    + `<tr class="total"><td colspan="4">Total</td><td class="num">${fmt(tot)}</td></tr>` : `<tr><td colspan="5" class="empty-state">Nada a receber. 🎉</td></tr>`;
+  const open = D.su.filter(s => !s.review_flag && s.open_balance > 0);
+  document.querySelector('#t-contracts tbody').innerHTML = open.length ? open.map(s => `<tr><td>${esc(s.client_name)}</td><td>${esc(s.title)}</td><td class="num">${fmt(s.amount)}</td><td class="num">${fmt(s.paid_total)}</td><td class="num">${fmt(s.open_balance)}</td></tr>`).join('')
+    : `<tr><td colspan="5" class="empty-state">Nenhum contrato com saldo em aberto.</td></tr>`;
+}
+
+function renderCosts(M) {
+  const byObra = {}, bySup = {};
+  M.costs.forEach(c => {
+    const o = c.project_id ? (D.projName[c.project_id] || 'Obra') : 'Sem obra (uso da empresa)';
+    byObra[o] = (byObra[o] || 0) + num(c.amount);
+    const s = c.supplier_name || 'Sem fornecedor'; bySup[s] = (bySup[s] || 0) + num(c.amount);
+  });
+  document.getElementById('cost-chips').innerHTML = [
+    ['', 'Custos das obras', M.costObras], ['warn', 'Sem obra (fora do cálculo)', M.costSemObra], ['', 'Lançamentos', M.costs.length],
+  ].map(([c, l, v]) => `<div class="aging-chip ${c}"><div class="n">${l === 'Lançamentos' ? v : fmt(v)}</div><div class="l">${l}</div></div>`).join('');
+  const fill = (id, obj) => {
+    const e = Object.entries(obj).sort((a, b) => b[1] - a[1]);
+    document.querySelector(id + ' tbody').innerHTML = e.length ? e.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="num">${fmt(v)}</td></tr>`).join('') : `<tr><td colspan="2" class="empty-state">Sem lançamentos.</td></tr>`;
+  };
+  fill('#t-cost-obra', byObra); fill('#t-cost-sup', bySup);
+  document.querySelector('#t-cost-rows tbody').innerHTML = [...M.costs].sort((a, b) => a.cost_date.localeCompare(b.cost_date)).map(c =>
+    `<tr><td>${fmtDate(c.cost_date)}</td><td>${esc(c.ref)}</td><td>${esc(c.supplier_name)}</td><td>${esc(c.project_id ? (D.projName[c.project_id] || '') : '—')}</td><td>${esc(c.status || '')}</td><td class="num">${fmt(c.amount)}</td></tr>`).join('');
+  const pend = D.inbox, n = pend.length;
+  document.getElementById('inbox-note').innerHTML = n
+    ? `📥 <strong>${n} nota(s) de fornecedor aguardando destinação</strong> (${fmt(sum(pend, p => p.total))}) — ainda <em>não</em> entram nos custos. Vinculam-se à obra só depois da sua confirmação em <a href="/purchase-inbox" style="color:var(--navy);font-weight:700;">Compras aguardando destinação</a>.`
+    : `📥 Nenhuma nota de fornecedor aguardando destinação. Notas confirmadas em <a href="/purchase-inbox" style="color:var(--navy);font-weight:700;">Compras aguardando destinação</a> entram nos custos automaticamente, sem duplicar.`;
+}
+
+function renderProfit() {
+  const f = document.getElementById('pp-filter').value;
+  let rows = D.pp.filter(p => p.contracted > 0 || p.costs > 0);
+  if (f === 'open') rows = rows.filter(p => p.status !== 'completed');
+  if (f === 'completed') rows = rows.filter(p => p.status === 'completed');
+  rows = rows.sort((a, b) => (a.status === 'completed') - (b.status === 'completed') || String(b.closed_at).localeCompare(String(a.closed_at)));
+  const stl = { completed: 'Concluída', active: 'Em andamento', planning: 'Planejamento', paused: 'Pausada', cancelled: 'Cancelada' };
+  const tb = document.querySelector('#t-pp tbody');
+  tb.innerHTML = rows.map(p => `<tr><td>${esc(p.name)}${p.no_contract ? ' <span class="tag bad">sem contrato vinculado</span>' : ''}</td><td>${esc(p.client_name)}</td><td>${stl[p.status] || esc(p.status)}</td>
+    <td class="num">${fmt(p.contracted)}</td><td class="num">${fmt(p.received)}</td><td class="num">${fmt(p.costs)}</td>
+    <td class="num" style="font-weight:800;color:${p.profit >= 0 ? 'var(--green)' : 'var(--red)'}">${fmt(p.profit)}</td>
+    <td class="num">${p.margin_pct == null ? '—' : p.margin_pct + '%'}</td>
+    <td>${p.profit_kind === 'final' ? '<span class="tag ok">Lucro final</span>' : '<span class="tag warn">Parcial / provisório</span>'}</td></tr>`).join('')
+    + (rows.length ? `<tr class="total"><td colspan="3">Total (${rows.length} obras)</td><td class="num">${fmt(sum(rows, p => p.contracted))}</td><td class="num">${fmt(sum(rows, p => p.received))}</td><td class="num">${fmt(sum(rows, p => p.costs))}</td><td class="num">${fmt(sum(rows, p => p.profit))}</td><td class="num">${sum(rows, p => p.contracted) > 0 ? (sum(rows, p => p.profit) / sum(rows, p => p.contracted) * 100).toFixed(1) + '%' : '—'}</td><td></td></tr>` : `<tr><td colspan="9" class="empty-state">Nenhuma obra neste filtro.</td></tr>`);
+}
+
+function compareRows() {
+  const a = document.getElementById('cmp-from').value, b = document.getElementById('cmp-to').value;
+  const lo = a <= b ? a : b, hi = a <= b ? b : a;
+  return D.mon.filter(r => r.month.slice(0, 7) >= lo && r.month.slice(0, 7) <= hi);
+}
+function renderCompare() {
+  const rows = compareRows();
+  const pct = (cur, prev) => prev > 0 ? ((cur - prev) / prev * 100) : null;
+  const d = v => v == null ? '—' : `<span style="color:${v >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:700">${v >= 0 ? '▲' : '▼'} ${Math.abs(v).toFixed(0)}%</span>`;
+  document.querySelector('#t-cmp tbody').innerHTML = rows.map((r, i) => {
+    const prev = rows[i - 1]; const m = r.month.slice(0, 7);
+    const goal = r.goal == null ? null : num(r.goal);
+    return `<tr style="${m === selMonth ? 'background:var(--cream2);' : ''}"><td><a href="?m=${m}" style="color:var(--navy);font-weight:700;text-decoration:none">${monthName(m)}</a></td>
+      <td class="num">${fmt(r.sales)}</td><td class="num">${prev ? d(pct(num(r.sales), num(prev.sales))) : '—'}</td>
+      <td class="num">${goal == null ? '—' : fmt(goal)}</td><td class="num">${goal ? (num(r.sales) / goal * 100).toFixed(0) + '%' : '—'}</td>
+      <td class="num">${fmt(r.received)}</td><td class="num">${prev ? d(pct(num(r.received), num(prev.received))) : '—'}</td>
+      <td class="num">${fmt(r.costs_obras)}</td><td class="num" style="font-weight:800;color:${num(r.received) - num(r.costs_obras) >= 0 ? 'var(--green)' : 'var(--red)'}">${fmt(num(r.received) - num(r.costs_obras))}</td></tr>`;
+  }).join('') || `<tr><td colspan="9" class="empty-state">Sem meses no período.</td></tr>`;
+}
+
+function renderCharts() {
+  const rows = D.mon;
+  const labels = rows.map(r => monthName(r.month.slice(0, 7)).slice(0, 3) + '/' + r.month.slice(2, 4));
+  const mk = (id, cfg) => { if (charts[id]) charts[id].destroy(); charts[id] = new Chart(document.getElementById(id), cfg); };
+  const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fmt(c.parsed.y) } } }, scales: { y: { ticks: { callback: v => '$' + Number(v).toLocaleString('en-US') } } } };
+  mk('ch-sales', { data: { labels, datasets: [
+    { type: 'bar', label: 'Vendas fechadas', data: rows.map(r => num(r.sales)), backgroundColor: rows.map(r => r.month.slice(0, 7) === selMonth ? '#C69E63' : 'rgba(16,42,75,.75)'), borderRadius: 4 },
+    { type: 'line', label: 'Meta', data: rows.map(r => r.goal == null ? null : num(r.goal)), borderColor: '#a03030', backgroundColor: '#a03030', borderDash: [5, 4], pointRadius: 3, stepped: true, spanGaps: false },
+  ] }, options: opt });
+  mk('ch-cash', { data: { labels, datasets: [
+    { type: 'bar', label: 'Recebido', data: rows.map(r => num(r.received)), backgroundColor: 'rgba(46,107,62,.8)', borderRadius: 4 },
+    { type: 'bar', label: 'Custos das obras', data: rows.map(r => num(r.costs_obras)), backgroundColor: 'rgba(160,48,48,.7)', borderRadius: 4 },
+    { type: 'line', label: 'Resultado', data: rows.map(r => round2(num(r.received) - num(r.costs_obras))), borderColor: '#102A4B', backgroundColor: '#102A4B', pointRadius: 3 },
+  ] }, options: opt });
+}
+
+function renderRecon() {
+  const out = [];
+  const sec = (title, body) => out.push(`<div style="margin-bottom:16px;"><div class="section-title" style="font-size:13px;margin-bottom:6px;">${title}</div>${body}</div>`);
+  const tbl = (head, rows) => `<div class="tbl-wrap"><table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+  const dup = D.su.filter(s => s.review_flag);
+  if (dup.length) sec('⚠️ Propostas aceitas possivelmente duplicadas (fora das vendas)', tbl(['Cliente', 'Proposta', 'Valor', 'Motivo'], dup.map(s => `<tr><td>${esc(s.client_name)}</td><td>${esc(s.title)}</td><td class="num">${fmt(s.amount)}</td><td>Existe outra proposta aceita do mesmo cliente, título e valor que já gerou invoices. Confirme e, se for duplicata, marque uma delas como rejeitada em Propostas.</td></tr>`)));
+  const nol = D.pay.filter(p => p.reconciliation !== 'conciliado');
+  if (nol.length) sec('⚠️ Pagamentos confirmados sem conciliação perfeita com os lançamentos de entrada', tbl(['Invoice', 'Pago em', 'Valor da invoice', 'Lançamento', 'Situação'], nol.map(p => `<tr><td>${esc(p.invoice_number)}</td><td>${fmtDate(p.paid_date)}</td><td class="num">${fmt(p.amount)}</td><td class="num">${p.txn_amount == null ? '—' : fmt(p.txn_amount)}</td><td>${{ sem_lancamento: 'Sem lançamento de entrada (conta aqui pela invoice paga)', valor_diferente: 'Valor do lançamento difere (vale o da invoice)', data_diferente: 'Data difere', lancamento_duplicado: 'Mais de um lançamento' }[p.reconciliation]}</td></tr>`)));
+  if (D.orph.length) sec('⚠️ Lançamentos de entrada sem invoice correspondente (não contados como recebido)', tbl(['Data', 'Valor', 'Descrição'], D.orph.map(o => `<tr><td>${fmtDate(o.date)}</td><td class="num">${fmt(o.amount)}</td><td>${esc(o.description)}</td></tr>`)));
+  const est = D.su.filter(s => !s.review_flag && !s.approval_confirmed).length;
+  if (est) sec('ℹ️ Vendas com data de aprovação estimada', `<div style="font-size:12.5px;">${est} venda(s) usam como data a emissão da primeira invoice (ou a data da proposta, se não há invoice). Confirme a data real em “Vendas fechadas no mês”.</div>`);
+  const tot = sum(D.pay, p => p.amount), totTx = sum(D.pay.filter(p => p.txn_id), p => p.txn_amount);
+  sec('✔ Conferência de totais', `<div style="font-size:12.5px;line-height:1.7;">Pagamentos confirmados (invoices pagas): <strong>${fmt(tot)}</strong> em ${D.pay.length} invoices.<br>Lançamentos de entrada conciliados: ${fmt(totTx)}.<br>Contas a receber (linhas) = soma dos saldos por contrato: ${fmt(sum(D.rec, r => r.amount))} = ${fmt(sum(D.su.filter(s => !s.review_flag), s => s.open_balance))}.</div>`);
+  document.getElementById('recon').innerHTML = out.join('');
+}
+
+init();
+</script>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{});}</script>
+</body>
+</html>
