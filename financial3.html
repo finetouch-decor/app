@@ -335,7 +335,7 @@ async function init() {
 async function loadAll() {
   const get = async (p) => { const { data, error } = await p; if (error) throw new Error(error.message); return data || []; };
   try {
-    const [su, pay, orph, rec, cost, pp, mon, goals, inbox] = await Promise.all([
+    const [su, pay, orph, rec, cost, pp, mon, goals, inbox, snap] = await Promise.all([
       get(db.from('fin3_sale_units').select('*')),
       get(db.from('fin3_payments').select('*')),
       get(db.from('fin3_orphan_income').select('*')),
@@ -345,8 +345,9 @@ async function loadAll() {
       get(db.from('fin3_monthly').select('*').order('month')),
       get(db.from('financial_goals').select('month,target').order('month')),
       get(db.from('purchase_inbox').select('status,total').in('status', ['pending', 'review'])),
+      get(db.from('projects').select('id,actual_cost,status').eq('status', 'completed')),
     ]);
-    D = { su, pay, orph, rec, cost, pp, mon, goals, inbox };
+    D = { su, pay, orph, rec, cost, pp, mon, goals, inbox, snap };
     D.projName = Object.fromEntries(pp.map(p => [p.project_id, p.name]));
     D.months = mon.map(r => r.month.slice(0, 7));
     populateSelectors();
@@ -607,6 +608,9 @@ function renderRecon() {
   const nol = D.pay.filter(p => p.reconciliation !== 'conciliado');
   if (nol.length) sec('⚠️ Pagamentos confirmados sem conciliação perfeita com os lançamentos de entrada', tbl(['Invoice', 'Pago em', 'Valor da invoice', 'Lançamento', 'Situação'], nol.map(p => `<tr><td>${esc(p.invoice_number)}</td><td>${fmtDate(p.paid_date)}</td><td class="num">${fmt(p.amount)}</td><td class="num">${p.txn_amount == null ? '—' : fmt(p.txn_amount)}</td><td>${{ sem_lancamento: 'Sem lançamento de entrada (conta aqui pela invoice paga)', valor_diferente: 'Valor do lançamento difere (vale o da invoice)', data_diferente: 'Data difere', lancamento_duplicado: 'Mais de um lançamento' }[p.reconciliation]}</td></tr>`)));
   if (D.orph.length) sec('⚠️ Lançamentos de entrada sem invoice correspondente (não contados como recebido)', tbl(['Data', 'Valor', 'Descrição'], D.orph.map(o => `<tr><td>${fmtDate(o.date)}</td><td class="num">${fmt(o.amount)}</td><td>${esc(o.description)}</td></tr>`)));
+  const ppById = Object.fromEntries(D.pp.map(p => [p.project_id, p]));
+  const snapDiff = D.snap.filter(x => ppById[x.id] && Math.abs(num(ppById[x.id].costs) - num(x.actual_cost)) >= 0.01);
+  if (snapDiff.length) sec('ℹ️ Obras concluídas: custo registrado hoje ≠ custo guardado ao fechar a obra', tbl(['Obra', 'Custos registrados (Financeiro 3)', 'Guardado em “Fechar Obra”', 'Diferença'], snapDiff.map(x => { const c = num(ppById[x.id].costs); return `<tr><td>${esc(ppById[x.id].name)}</td><td class="num">${fmt(c)}</td><td class="num">${fmt(x.actual_cost)}</td><td class="num">${fmt(c - num(x.actual_cost))}</td></tr>`; })) + '<div style="font-size:11.5px;color:var(--muted);margin-top:6px;">O valor guardado em “Fechar Obra” é uma foto do momento do fechamento; compras lançadas depois (ou não preenchidas) não o atualizam. O Financeiro 3 usa sempre os lançamentos atuais da obra.</div>');
   const est = D.su.filter(s => !s.review_flag && !s.approval_confirmed).length;
   if (est) sec('ℹ️ Vendas com data de aprovação estimada', `<div style="font-size:12.5px;">${est} venda(s) usam como data a emissão da primeira invoice (ou a data da proposta, se não há invoice). Confirme a data real em “Vendas fechadas no mês”.</div>`);
   const tot = sum(D.pay, p => p.amount), totTx = sum(D.pay.filter(p => p.txn_id), p => p.txn_amount);
