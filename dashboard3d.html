@@ -74,7 +74,7 @@ canvas{display:block;outline:none;}
 </div>
 
 <div class="legend">
-  <div><span class="dot" style="background:#C69E63"></span>Altura = valor contratado</div>
+  <div><span class="dot" style="background:#8fa6c7"></span>Altura = valor contratado</div>
   <div><span class="dot" style="background:#c8514a"></span>Base vermelha = custos registrados</div>
   <div><span class="dot" style="background:#C69E63"></span>Dourado: obra em andamento (lucro parcial)</div>
   <div><span class="dot" style="background:#4fae6a"></span>Verde: obra concluída (lucro final)</div>
@@ -213,13 +213,13 @@ function buildCity() {
       ring.rotation.x = -Math.PI / 2; ring.position.y = 0.04; g.add(ring);
     }
     const nm = (p.name || '').replace(/^(Projeto|Obra)\s*—\s*/i, ''); const lb = label(nm.length > 22 ? nm.slice(0, 21) + '…' : nm, 46);
-    lb.position.set(0, total + 0.9, 0); g.add(lb);
+    lb.scale.multiplyScalar(0.8); lb.position.set(0, total + 0.8, 0); g.add(lb);
     towerGroup.add(g);
     towers.push({ g, data: p, meshes: [cost, top], total });
   });
   buildCharts(rows, gap);
   const span = Math.max(cols, rows) * gap;
-  home.pos.set(span * 0.75 + 6, span * 0.62 + 8, span * 0.95 + 10); home.target.set(0, H * 0.25, -2);
+  home.pos.set(span * 0.42 + 4, span * 0.5 + 5, span * 0.62 + 9); home.target.set(0, H * 0.22, -5);
   resetCamera();
 }
 
@@ -228,7 +228,7 @@ function buildCharts(rows, gap) {
   const months = D.mon.slice(-8);
   if (!months.length) return;
   const maxV = Math.max(1, ...months.map(r => Math.max(num(r.sales), num(r.received), num(r.goal))));
-  const zBack = -(rows * gap) / 2 - 7, step = 3.4, x0 = -((months.length - 1) * step) / 2;
+  const zBack = -(rows * gap) / 2 - 12, step = 3.4, x0 = -((months.length - 1) * step) / 2;
   const hv = v => Math.max(0.05, num(v) / maxV * 7);
   const base = new THREE.Mesh(new THREE.BoxGeometry(months.length * step + 1, 0.2, 4.2), new THREE.MeshStandardMaterial({ color: 0x14294a, roughness: 0.6 }));
   base.position.set(0, 0.1, zBack); chartGroup.add(base);
