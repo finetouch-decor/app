@@ -10,6 +10,11 @@ Este arquivo existe porque o Fabinho usa mais de um assistente de IA (Claude e C
 4. Commits no GitHub e mudancas no Supabase ja ficam no historico de cada ferramenta — este log e um resumo em linguagem simples pro outro assistente (e pro Fabinho) entender rapido o que mudou e por que, sem precisar reconstruir o raciocinio a partir do diff bruto.
 
 
+### 2026-10-23 — Claude
+Status: CONCLUIDO (versao de TESTE) — Dashboard 3D em /dashboard3d
+Arquivos/tabelas: dashboard3d.html (novo, pagina independente, Three.js via CDN), vercel.json (rota), financial3.html (link no menu)
+Resumo: "Cidade de obras" 3D com dados reais das views fin3_* (somente leitura): cada obra e uma torre (altura = contratado, base vermelha = custos, dourado = em andamento, verde = concluida, anel no chao = parte recebida), painel do mes com meta, e barras 3D de vendas x recebido por mes. Girar/zoom, tooltip com valores e filtro por situacao. Nenhuma tabela alterada. Uso interno (mostra valores e custos): nao expor a clientes.
+
 ### 2026-10-22 — Claude
 Status: CONCLUIDO — Financeiro 3 publicado (/financial3) e validado com dados reais; Financeiro 1 e 2 sem alteracao de calculo
 Arquivos/tabelas: financial3.html (novo), db/financial3.sql (novo), vercel.json (rota), menus laterais (link "Financeiro 3"; icone de "Envio de notas"), lib/gmail-intake.js (classificador), proposals (colunas aditivas accepted_at/accepted_source + gatilho), financial_goals (nova), views fin3_sale_units, fin3_payments, fin3_orphan_income, fin3_receivable_lines, fin3_costs, fin3_project_profit, fin3_monthly
