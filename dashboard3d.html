@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b1c33">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/logo-icon-navy.png">
+<title>Fine Touch — Dashboard 3D</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+:root{--navy:#102A4B;--bg:#0b1c33;--gold:#C69E63;--cream:#EAE6DA;--green:#4fae6a;--red:#c8514a;--muted:rgba(234,230,218,.6);}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;background:var(--bg);color:var(--cream);font-family:'Inter',sans-serif;overflow:hidden;}
+#stage{position:fixed;inset:0;}
+canvas{display:block;outline:none;}
+.top{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;background:linear-gradient(180deg,rgba(11,28,51,.92),rgba(11,28,51,0));z-index:5;pointer-events:none;}
+.top > *{pointer-events:auto;}
+.top h1{font-size:17px;font-weight:800;letter-spacing:.3px;}
+.top h1 span{font-size:10px;font-weight:700;background:var(--gold);color:var(--navy);padding:2px 8px;border-radius:20px;margin-left:8px;vertical-align:middle;}
+.btn,.top select{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:var(--cream);padding:7px 12px;border-radius:9px;font:600 12.5px 'Inter',sans-serif;cursor:pointer;text-decoration:none;}
+.btn:hover,.top select:hover{background:rgba(255,255,255,.16);}
+.top select option{color:#111;}
+.spacer{flex:1;}
+.panel{position:fixed;left:16px;top:62px;width:290px;max-width:calc(100vw - 32px);background:rgba(11,28,51,.78);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px 16px;z-index:4;}
+.panel h2{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:8px;}
+.kpi{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:12.5px;}
+.kpi:last-child{border-bottom:none;}
+.kpi b{font-size:15px;font-weight:800;}
+.kpi.bad b{color:#ff8b84;} .kpi.good b{color:#7fd194;}
+.bar{height:10px;background:rgba(255,255,255,.12);border-radius:20px;overflow:hidden;margin:6px 0 4px;}
+.bar div{height:100%;background:linear-gradient(90deg,var(--gold),#e2c48a);border-radius:20px;}
+.bar.done div{background:linear-gradient(90deg,#3d8a52,#7fd194);}
+.small{font-size:11px;color:var(--muted);line-height:1.45;}
+.legend{position:fixed;right:16px;bottom:16px;background:rgba(11,28,51,.78);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:12px 14px;font-size:11.5px;z-index:4;max-width:260px;line-height:1.7;}
+.dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px;vertical-align:-1px;}
+#tip{position:fixed;pointer-events:none;background:rgba(11,28,51,.94);border:1px solid var(--gold);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.6;z-index:10;display:none;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.4);}
+#tip b{color:var(--gold);}
+#msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;z-index:20;background:var(--bg);font-size:14px;line-height:1.6;}
+#msg a{color:var(--gold);}
+@media(max-width:700px){.panel{top:auto;bottom:16px;left:12px;right:12px;width:auto;max-width:none;padding:10px 12px;}.legend{display:none;}.panel .hide-m{display:none;}.top h1{font-size:15px;}}
+</style>
+</head>
+<body>
+<div id="msg">Carregando o showroom 3D…</div>
+<div id="stage"></div>
+
+<div class="top">
+  <a class="btn" href="/financial3">← Financeiro 3 (2D)</a>
+  <h1>Dashboard 3D<span>TESTE</span></h1>
+  <div class="spacer"></div>
+  <select id="f-status" aria-label="Filtrar obras"><option value="all">Todas as obras</option><option value="open">Em andamento</option><option value="completed">Concluídas</option></select>
+  <button class="btn" id="b-rotate">⟳ Girar: ligado</button>
+  <button class="btn" id="b-reset">⌖ Recentrar</button>
+</div>
+
+<div class="panel">
+  <h2 id="p-month">Mês</h2>
+  <div class="kpi"><span>Vendas fechadas</span><b id="p-sales">—</b></div>
+  <div class="kpi"><span>Recebido no mês</span><b id="p-recv">—</b></div>
+  <div class="kpi"><span>Total a receber</span><b id="p-open">—</b></div>
+  <div class="kpi" id="p-over-row"><span>Vencidos</span><b id="p-over">—</b></div>
+  <div class="bar" id="p-bar"><div style="width:0%"></div></div>
+  <div class="small" id="p-goal"></div>
+  <div class="small hide-m" style="margin-top:8px;">Arraste para girar, role/pince para dar zoom, toque numa torre para ver os detalhes.</div>
+</div>
+
+<div class="legend">
+  <div><span class="dot" style="background:#C69E63"></span>Altura = valor contratado</div>
+  <div><span class="dot" style="background:#c8514a"></span>Base vermelha = custos registrados</div>
+  <div><span class="dot" style="background:#C69E63"></span>Dourado: obra em andamento (lucro parcial)</div>
+  <div><span class="dot" style="background:#4fae6a"></span>Verde: obra concluída (lucro final)</div>
+  <div><span class="dot" style="background:#7fd194"></span>Anel no chão = parte já recebida</div>
+  <div style="color:var(--muted);">Barras ao fundo: vendas (dourado) × meta (traço) e recebido (verde) por mês.</div>
+</div>
+<div id="tip"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const db = window.supabase.createClient('https://jpbpzlpvhdwgbmljqfyd.supabase.co', 'sb_publishable_l6x3A2YiBL0Pc7huB-QejA_d2RXKL59');
+const num = v => Number(v || 0);
+const fmt = n => (num(n) < 0 ? '-' : '') + '$' + Math.abs(num(n)).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmt2 = n => (num(n) < 0 ? '-' : '') + '$' + Math.abs(num(n)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const MON = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const MONF = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const todayNY = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+const msg = document.getElementById('msg');
+
+function webglOK() { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } }
+
+let D = null, scene, camera, renderer, controls, raycaster, mouse, towerGroup, chartGroup;
+let towers = [];   // { mesh(es), data }
+let hovered = null, autoRotate = true;
+const home = { pos: new THREE.Vector3(), target: new THREE.Vector3() };
+
+async function load() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { location.href = '/login.html'; return false; }
+  const { data: prof } = await db.from('user_profiles').select('status,role').eq('id', session.user.id).single();
+  if (!prof || (prof.status !== 'approved' && prof.role !== 'admin')) { location.href = '/pending.html'; return false; }
+  const get = async p => { const { data, error } = await p; if (error) throw new Error(error.message); return data || []; };
+  const [pp, mon, rec, goals] = await Promise.all([
+    get(db.from('fin3_project_profit').select('*')),
+    get(db.from('fin3_monthly').select('*').order('month')),
+    get(db.from('fin3_receivable_lines').select('bucket,amount')),
+    get(db.from('financial_goals').select('month,target').order('month')),
+  ]);
+  D = { pp: pp.filter(p => num(p.contracted) > 0 || num(p.costs) > 0), mon, rec, goals };
+  return true;
+}
+
+function goalFor(m) { let g = null; for (const r of D.goals) { if (r.month.slice(0, 7) <= m) g = num(r.target); else break; } return g; }
+
+function fillPanel() {
+  const m = todayNY().slice(0, 7);
+  const row = D.mon.find(r => r.month.slice(0, 7) === m) || {};
+  document.getElementById('p-month').textContent = MONF[+m.slice(5, 7) - 1] + ' ' + m.slice(0, 4);
+  document.getElementById('p-sales').textContent = fmt2(row.sales);
+  document.getElementById('p-recv').textContent = fmt2(row.received);
+  const tot = D.rec.reduce((s, r) => s + num(r.amount), 0), over = D.rec.filter(r => r.bucket === 'vencido').reduce((s, r) => s + num(r.amount), 0);
+  document.getElementById('p-open').textContent = fmt2(tot);
+  document.getElementById('p-over').textContent = fmt2(over);
+  document.getElementById('p-over-row').classList.toggle('bad', over > 0);
+  const g = goalFor(m), bar = document.getElementById('p-bar'), pg = document.getElementById('p-goal');
+  if (!g) { bar.firstElementChild.style.width = '0%'; pg.textContent = 'Defina a meta no Financeiro 3 para ver o progresso.'; return; }
+  const pct = num(row.sales) / g * 100;
+  bar.firstElementChild.style.width = Math.min(100, pct) + '%'; bar.classList.toggle('done', pct >= 100);
+  pg.textContent = `${pct.toFixed(0)}% da meta de ${fmt(g)} — ` + (g - num(row.sales) > 0 ? `faltam ${fmt(g - num(row.sales))}` : `excedente de ${fmt(num(row.sales) - g)}`);
+}
+
+// ── cena ──
+function label(text, size = 56, color = '#EAE6DA', w = 512) {
+  const c = document.createElement('canvas'); c.width = w; c.height = 128;
+  const x = c.getContext('2d'); x.font = `600 ${size}px Inter, sans-serif`; x.fillStyle = color; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(text, w / 2, 64);
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false }));
+  s.scale.set(w / 128 * 0.9, 0.9, 1); return s;
+}
+
+function initScene() {
+  const stage = document.getElementById('stage');
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  stage.appendChild(renderer.domElement);
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0b1c33);
+  scene.fog = new THREE.Fog(0x0b1c33, 40, 110);
+  camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 300);
+  scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x1a2a44, 0.9));
+  const sun = new THREE.DirectionalLight(0xfff1d6, 1.15); sun.position.set(18, 30, 14); scene.add(sun);
+  const grid = new THREE.GridHelper(120, 60, 0x2a4a78, 0x16294a); grid.position.y = -0.01; scene.add(grid);
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(60, 64), new THREE.MeshBasicMaterial({ color: 0x0e2342, transparent: true, opacity: 0.55 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.03; scene.add(ground);
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08; controls.maxPolarAngle = Math.PI / 2.05; controls.minDistance = 6; controls.maxDistance = 90;
+  controls.autoRotate = true; controls.autoRotateSpeed = 0.5;
+  controls.addEventListener('start', () => { controls.autoRotate = false; setRotLabel(); });
+  raycaster = new THREE.Raycaster(); mouse = new THREE.Vector2();
+  towerGroup = new THREE.Group(); chartGroup = new THREE.Group(); scene.add(towerGroup, chartGroup);
+  addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+  renderer.domElement.addEventListener('pointermove', onMove);
+  renderer.domElement.addEventListener('pointerdown', e => { onMove(e); if (e.pointerType === 'touch') setTimeout(() => {}, 0); });
+}
+
+function disposeGroup(g) {
+  g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); }); } });
+  g.clear();
+}
+
+function buildCity() {
+  disposeGroup(towerGroup); towers = [];
+  const f = document.getElementById('f-status').value;
+  let list = D.pp.slice();
+  if (f === 'open') list = list.filter(p => p.status !== 'completed');
+  if (f === 'completed') list = list.filter(p => p.status === 'completed');
+  list.sort((a, b) => (a.status === 'completed') - (b.status === 'completed') || String(b.closed_at).localeCompare(String(a.closed_at)));
+  const n = list.length, cols = Math.max(1, Math.ceil(Math.sqrt(n * 1.3))), rows = Math.ceil(n / cols), gap = 3.6;
+  const maxC = Math.max(1, ...list.map(p => num(p.contracted)));
+  const H = 11;                                  // altura da torre maior
+  const hOf = v => Math.max(0.35, num(v) / maxC * H);
+  list.forEach((p, i) => {
+    const cx = (i % cols - (cols - 1) / 2) * gap, cz = (Math.floor(i / cols) - (rows - 1) / 2) * gap;
+    const done = p.status === 'completed';
+    const total = hOf(num(p.contracted) || num(p.costs));
+    const costH = Math.min(total, hOf(p.costs));
+    const g = new THREE.Group(); g.position.set(cx, 0, cz);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: done ? 0x4fae6a : 0xC69E63, roughness: 0.45, metalness: 0.25, emissive: done ? 0x0c2a14 : 0x2a1e08 });
+    const costMat = new THREE.MeshStandardMaterial({ color: 0xc8514a, roughness: 0.5, metalness: 0.15 });
+    const w = 2.0;
+    const cost = new THREE.Mesh(new THREE.BoxGeometry(w, costH, w), costMat); cost.position.y = costH / 2; g.add(cost);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(w, Math.max(0.01, total - costH), w), bodyMat); top.position.y = costH + Math.max(0.01, total - costH) / 2; g.add(top);
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, total, w)), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 }));
+    edges.position.y = total / 2; g.add(edges);
+    // anel de recebimento no chão
+    const share = num(p.contracted) > 0 ? Math.min(1, num(p.received) / num(p.contracted)) : 0;
+    const ringBg = new THREE.Mesh(new THREE.RingGeometry(1.45, 1.7, 48), new THREE.MeshBasicMaterial({ color: 0x2a4a78, side: THREE.DoubleSide, transparent: true, opacity: 0.7 }));
+    ringBg.rotation.x = -Math.PI / 2; ringBg.position.y = 0.02; g.add(ringBg);
+    if (share > 0) {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(1.45, 1.7, 48, 1, Math.PI / 2, -share * Math.PI * 2), new THREE.MeshBasicMaterial({ color: 0x7fd194, side: THREE.DoubleSide }));
+      ring.rotation.x = -Math.PI / 2; ring.position.y = 0.04; g.add(ring);
+    }
+    const nm = (p.name || '').replace(/^(Projeto|Obra)\s*—\s*/i, ''); const lb = label(nm.length > 22 ? nm.slice(0, 21) + '…' : nm, 46);
+    lb.position.set(0, total + 0.9, 0); g.add(lb);
+    towerGroup.add(g);
+    towers.push({ g, data: p, meshes: [cost, top], total });
+  });
+  buildCharts(rows, gap);
+  const span = Math.max(cols, rows) * gap;
+  home.pos.set(span * 0.75 + 6, span * 0.62 + 8, span * 0.95 + 10); home.target.set(0, H * 0.25, -2);
+  resetCamera();
+}
+
+function buildCharts(rows, gap) {
+  disposeGroup(chartGroup);
+  const months = D.mon.slice(-8);
+  if (!months.length) return;
+  const maxV = Math.max(1, ...months.map(r => Math.max(num(r.sales), num(r.received), num(r.goal))));
+  const zBack = -(rows * gap) / 2 - 7, step = 3.4, x0 = -((months.length - 1) * step) / 2;
+  const hv = v => Math.max(0.05, num(v) / maxV * 7);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(months.length * step + 1, 0.2, 4.2), new THREE.MeshStandardMaterial({ color: 0x14294a, roughness: 0.6 }));
+  base.position.set(0, 0.1, zBack); chartGroup.add(base);
+  months.forEach((r, i) => {
+    const x = x0 + i * step, m = r.month.slice(0, 7);
+    const sH = hv(r.sales), rH = hv(r.received);
+    const sb = new THREE.Mesh(new THREE.BoxGeometry(1.2, sH, 1.2), new THREE.MeshStandardMaterial({ color: 0xC69E63, roughness: 0.4, metalness: 0.3 })); sb.position.set(x - 0.75, 0.2 + sH / 2, zBack); chartGroup.add(sb);
+    const rb = new THREE.Mesh(new THREE.BoxGeometry(1.2, rH, 1.2), new THREE.MeshStandardMaterial({ color: 0x4fae6a, roughness: 0.4, metalness: 0.2 })); rb.position.set(x + 0.75, 0.2 + rH / 2, zBack); chartGroup.add(rb);
+    if (r.goal != null) {
+      const gH = hv(r.goal);
+      const gm = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.07, 0.07), new THREE.MeshBasicMaterial({ color: 0xff8b84 })); gm.position.set(x, 0.2 + gH, zBack + 0.7); chartGroup.add(gm);
+    }
+    const l = label(MON[+m.slice(5, 7) - 1] + '/' + m.slice(2, 4), 54, '#EAE6DA', 384); l.scale.set(2.4, 0.8, 1); l.position.set(x, -0.5, zBack + 2.4); chartGroup.add(l);
+    const v = label(fmt(r.sales), 48, '#e2c48a', 384); v.scale.set(2.4, 0.8, 1); v.position.set(x - 0.75, 0.2 + sH + 0.8, zBack); chartGroup.add(v);
+  });
+  const t = label('Vendas × Recebido por mês', 52, '#8fa6c7', 640); t.scale.set(5.4, 1, 1); t.position.set(0, 9.2, zBack); chartGroup.add(t);
+}
+
+function resetCamera() { camera.position.copy(home.pos); controls.target.copy(home.target); controls.update(); }
+function setRotLabel() { document.getElementById('b-rotate').textContent = '⟳ Girar: ' + (controls.autoRotate ? 'ligado' : 'desligado'); }
+
+const tip = document.getElementById('tip');
+function onMove(e) {
+  mouse.x = (e.clientX / innerWidth) * 2 - 1; mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hit = raycaster.intersectObjects(towers.flatMap(t => t.meshes), false)[0];
+  const t = hit ? towers.find(x => x.meshes.includes(hit.object)) : null;
+  setHover(t);
+  if (t) {
+    const p = t.data, margin = p.margin_pct == null ? '—' : p.margin_pct + '%';
+    tip.innerHTML = `<b>${esc(p.name)}</b><br>${esc(p.client_name || '')}<br>Contratado: ${fmt2(p.contracted)}<br>Recebido: ${fmt2(p.received)}<br>Custos: ${fmt2(p.costs)}<br>Lucro ${p.profit_kind === 'final' ? 'final' : 'parcial (provisório)'}: <b>${fmt2(p.profit)}</b> (${margin})`;
+    tip.style.display = 'block';
+    tip.style.left = Math.min(e.clientX + 16, innerWidth - 240) + 'px'; tip.style.top = Math.min(e.clientY + 16, innerHeight - 190) + 'px';
+  } else tip.style.display = 'none';
+}
+function setHover(t) {
+  if (hovered === t) return;
+  if (hovered) hovered.g.scale.set(1, 1, 1);
+  hovered = t; renderer.domElement.style.cursor = t ? 'pointer' : 'grab';
+  if (t) t.g.scale.set(1.08, 1, 1.08);
+}
+
+function loop() {
+  requestAnimationFrame(loop);
+  controls.update();
+  const tm = performance.now() / 1000;
+  towers.forEach((t, i) => { t.g.position.y = Math.sin(tm * 0.8 + i) * 0.03; });
+  renderer.render(scene, camera);
+}
+
+(async function main() {
+  if (!webglOK()) { msg.innerHTML = 'Este aparelho/navegador não suporta gráficos 3D (WebGL).<br><a href="/financial3">Abrir o Financeiro 3 (2D)</a>'; return; }
+  try {
+    if (!(await load())) return;
+    initScene(); fillPanel(); buildCity(); loop();
+    document.getElementById('f-status').onchange = buildCity;
+    document.getElementById('b-reset').onclick = resetCamera;
+    document.getElementById('b-rotate').onclick = () => { controls.autoRotate = !controls.autoRotate; setRotLabel(); };
+    msg.style.display = 'none';
+  } catch (e) {
+    msg.innerHTML = 'Não foi possível carregar os dados (' + esc(e.message) + ').<br><a href="/financial3">Abrir o Financeiro 3 (2D)</a>';
+  }
+})();
+</script>
+</body>
+</html>

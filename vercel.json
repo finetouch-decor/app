@@ -14,6 +14,7 @@
     { "source": "/financial", "destination": "/financial.html" },
     { "source": "/financial2", "destination": "/financial2.html" },
     { "source": "/financial3", "destination": "/financial3.html" },
+    { "source": "/dashboard3d", "destination": "/dashboard3d.html" },
     { "source": "/reports",   "destination": "/reports.html" },
     { "source": "/analytics", "destination": "/analytics.html" },
     { "source": "/marketing", "destination": "/marketing.html" },
