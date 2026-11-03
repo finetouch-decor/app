@@ -86,12 +86,15 @@ with base as (
          coalesce(sum(i.total) filter (where i.status not in ('cancelled','void','draft')), 0) as invoiced_total,
          coalesce(sum(i.total) filter (where i.status = 'paid'), 0) as paid_total,
          min(i.issue_date) filter (where i.status not in ('cancelled','void','draft')) as first_invoice_date,
+         max(i.project_total) filter (where i.status not in ('cancelled','void','draft')) as negotiated_total,
          array_agg(distinct i.project_id) filter (where i.project_id is not null) as project_ids
   from public.invoices i
   where coalesce(i.proposal_bundle_id, i.proposal_id) is not null
   group by 1
 ), u as (
-  select b.*, coalesce(inv.n_invoices, 0) as n_invoices, coalesce(inv.invoiced_total, 0) as invoiced_total,
+  select b.unit_type, b.unit_id, b.client_name, b.title,
+         round(coalesce(inv.negotiated_total, b.amount)::numeric, 2) as amount,   -- valor negociado (project_total das invoices) quando ja ha invoice
+         b.confirmed_at, b.proposal_date, coalesce(inv.n_invoices, 0) as n_invoices, coalesce(inv.invoiced_total, 0) as invoiced_total,
          coalesce(inv.paid_total, 0) as paid_total, inv.first_invoice_date,
          coalesce(array_length(inv.project_ids, 1), 0) as n_projects,
          case when array_length(inv.project_ids, 1) = 1 then inv.project_ids[1] end as project_id
