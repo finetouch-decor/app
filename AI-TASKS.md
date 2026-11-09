@@ -28,6 +28,18 @@ Fila compartilhada de trabalho entre Fabinho, Maia (ChatGPT) e Claude.
 
 ## Tarefas ativas
 
+### FT-013 — Tudo do Google dentro do ERP (Ads, Analytics, Search Console, avaliacoes, atribuicao de leads)
+Status: EM ANDAMENTO (codigo pronto e testado localmente; falta publicar, conectar o Google e validar com dados reais)
+Prioridade: ALTA (campanhas comecam em poucos dias)
+Responsável: Claude (revisao: Maia)
+Solicitado por: Fabinho
+Criado em: 2026-11-09
+Arquivos/sistemas: lib/google-sync.js (novo), api/marketing-sync.js (?task=google-*), api/gmb-callback.js (state google.*), api/google-ads.js (so diagnostico), marketing.html, users.html, vercel.json (8 crons), db/ft013-google-sync.sql, Google Cloud (APIs), Supabase (8 tabelas)
+Objetivo: Ads (todas as contas), GA4, Search Console e avaliacoes entram sozinhos todo dia; a aba Marketing mostra so dado real; qualquer falha aparece na tela e no Telegram.
+Feito e verificado: tabelas criadas com RLS no Supabase; APIs Analytics Data, Analytics Admin e Gmail ativadas no Google Cloud; sync testado com Google/Supabase simulados (conta administradora + filha, dedupe, erro real gravado, alerta sem spam, token revogado, nao conectado); tela de Marketing e painel de Usuarios testados em navegador com banco simulado.
+Falta: (1) publicar este commit; (2) Fabinho clicar em Usuarios > Integracoes > Conectar Google e marcar TODAS as permissoes; (3) conferir custo/cliques do ERP contra o painel do Google Ads (< 1%); (4) Perfil da Empresa: pedir ao Google acesso a Business Profile API; (5) Fase 4: gclid/UTM no site (Lovable) e ponte site_leads -> leads/lead_attribution; (6) GTM + GA4 duplicados no site; (7) keywords por campanha e conversoes offline (fase futura).
+Resultado: (preencher apos a validacao com dados reais)
+
 ### FT-012 — Financeiro 3 (vendas, meta, recebimentos, custos e lucratividade por obra)
 Status: CONCLUIDO
 Prioridade: ALTA

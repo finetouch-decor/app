@@ -187,6 +187,20 @@
       <div style="font-size:11.5px;color:var(--muted);margin-top:6px;">Somente leitura. As notas entram em Compras aguardando destinação e só viram custo depois da sua confirmação.</div>
     </div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(0,0,0,0.06);">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-weight:700;color:var(--navy);font-size:13px;">📈 Google no ERP (Ads, Analytics, Search Console, Avaliações)</div>
+          <div id="gg-status-text" style="font-size:12px;color:var(--muted);margin-top:4px;">Verificando status...</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-approve" style="padding:8px 14px;font-size:12.5px;" id="gg-sync-btn" onclick="syncGoogleNow()">🔄 Sincronizar agora</button>
+          <button class="btn-approve" style="padding:8px 14px;font-size:12.5px;" id="gg-connect-btn" onclick="connectGoogle()">Conectar Google</button>
+        </div>
+      </div>
+      <div id="gg-sources" style="font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.6;"></div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:6px;">Somente leitura. Ao conectar, marque TODAS as caixas de permissão. A sincronização roda sozinha todo dia e, se falhar, o ERP avisa aqui, na aba Marketing e no Telegram.</div>
+    </div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(0,0,0,0.06);">
       <div style="font-weight:700;color:var(--navy);font-size:13px;margin-bottom:6px;">🔍 Identificar chat_id</div>
       <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px;">Confirma a quem um chat_id pertence antes de autorizar — não adivinha, só mostra o que o próprio Telegram informa.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -233,6 +247,12 @@ async function init() {
   await loadUsers();
   await loadTelegramStatus();
   await loadGmailStatus();
+  await loadGoogleStatus();
+  if (new URLSearchParams(location.search).get('google') === 'connected') {
+    history.replaceState(null, '', location.pathname);
+    showToast('Google conectado! Rodando a primeira sincronização...', 'success');
+    await syncGoogleNow();
+  }
 }
 
 db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
@@ -312,6 +332,60 @@ async function connectGmail() {
     else showToast('Erro: ' + (data.error || 'não foi possível iniciar'), 'error');
   } catch (e) { showToast('Erro ao iniciar conexão.', 'error'); }
   btn.disabled = false;
+}
+
+
+// ─── INTEGRAÇÃO GOOGLE (FT-013) ───────────────────────────────
+function ggAgo(iso) { if (!iso) return 'nunca'; return new Date(iso).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); }
+async function loadGoogleStatus() {
+  const el = document.getElementById('gg-status-text');
+  const list = document.getElementById('gg-sources');
+  try {
+    const auth = await tgAuthHeader();
+    if (!auth) { el.textContent = '⚠️ Sessão expirada — recarregue a página.'; return; }
+    const res = await fetch('/api/marketing-sync?task=google-status', { headers: { Authorization: auth } });
+    const info = await res.json();
+    if (!res.ok) { el.textContent = `⚠️ ${info.error || 'Não foi possível verificar.'}`; return; }
+    if (!info.oauth_client_configured) { el.textContent = '⚠️ Credenciais Google (GOOGLE_CLIENT_ID/SECRET) ausentes no servidor.'; return; }
+    const btn = document.getElementById('gg-connect-btn');
+    if (!info.connected) { el.textContent = '⚠️ Não conectado — clique em Conectar Google e autorize com a conta dona do Ads/Analytics.'; list.innerHTML = ''; return; }
+    const miss = (info.missing_scopes || []).length;
+    el.textContent = `✅ Conectado${info.email ? ' como ' + info.email : ''}${miss ? ' · ⚠️ faltam ' + miss + ' permissão(ões): reconecte e marque todas' : ''}`;
+    btn.textContent = 'Reconectar Google';
+    list.innerHTML = Object.values(info.sources).map(s => {
+      const lr = s.last_run;
+      const ok = lr && lr.ok;
+      const line = !lr ? 'ainda não sincronizou' : ok ? `✅ ${ggAgo(lr.finished_at)} · ${lr.rows_written} linhas` : `❌ ${ggAgo(lr.finished_at || lr.started_at)} · ${(lr.error_message || lr.error_code || 'erro').replace(/</g,'&lt;')}`;
+      return `<div><b>${s.label}:</b> ${line}</div>`;
+    }).join('');
+  } catch (e) { el.textContent = '⚠️ Erro ao verificar status do Google.'; }
+}
+async function connectGoogle() {
+  const btn = document.getElementById('gg-connect-btn');
+  btn.disabled = true;
+  try {
+    const auth = await tgAuthHeader();
+    if (!auth) { showToast('Sessão expirada — recarregue a página.', 'error'); btn.disabled = false; return; }
+    const res = await fetch('/api/marketing-sync?task=google-connect', { headers: { Authorization: auth } });
+    const data = await res.json();
+    if (res.ok && data.url) window.location.href = data.url;
+    else showToast('Erro: ' + (data.error || 'não foi possível iniciar'), 'error');
+  } catch (e) { showToast('Erro ao iniciar conexão.', 'error'); }
+  btn.disabled = false;
+}
+async function syncGoogleNow() {
+  const btn = document.getElementById('gg-sync-btn');
+  btn.disabled = true; btn.textContent = 'Sincronizando...';
+  try {
+    const auth = await tgAuthHeader();
+    if (!auth) { showToast('Sessão expirada — recarregue a página.', 'error'); return; }
+    // Uma fonte por vez (cada chamada cabe no limite de tempo da função).
+    for (const src of ['ads', 'ga4', 'gsc', 'gbp']) {
+      try { await fetch('/api/marketing-sync?task=google-sync&source=' + src, { headers: { Authorization: auth } }); } catch (e) { /* o erro fica registrado no log */ }
+      await loadGoogleStatus();
+    }
+    showToast('Sincronização concluída — confira o resultado de cada fonte.', 'success');
+  } finally { btn.disabled = false; btn.textContent = '🔄 Sincronizar agora'; await loadGoogleStatus(); }
 }
 
 async function whoisTelegram() {

@@ -5,6 +5,10 @@ module.exports = async function handler(req, res) {
   if (typeof req.query?.task === 'string' && req.query.task.startsWith('gmail-')) {
     return require('../lib/gmail-intake').handleTask(req, res);
   }
+  // Sincronizacao Google -> ERP (Ads, GA4, Search Console, Perfil da Empresa) -- FT-013, lib/google-sync.js.
+  if (typeof req.query?.task === 'string' && req.query.task.startsWith('google-')) {
+    return require('../lib/google-sync').handleTask(req, res);
+  }
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

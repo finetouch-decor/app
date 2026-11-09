@@ -4,6 +4,10 @@ module.exports = async function handler(req, res) {
   if (typeof state === 'string' && state.startsWith('gmail.')) {
     return require('../lib/gmail-intake').oauthCallback(req, res);
   }
+  // Conexao unica Google (Ads + GA4 + Search Console + Perfil da Empresa): state assinado "google.*" (FT-013).
+  if (typeof state === 'string' && state.startsWith('google.')) {
+    return require('../lib/google-sync').oauthCallback(req, res);
+  }
   if (error) return res.status(400).send(`Google OAuth error: ${error}`);
   if (!code) return res.status(400).send('No code received');
 

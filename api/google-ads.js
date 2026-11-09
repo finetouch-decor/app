@@ -1,5 +1,7 @@
 // Vercel Serverless Function — Google Ads API proxy seguro
 // Credenciais APENAS em variáveis de ambiente do Vercel (nunca expostas ao browser)
+// FT-013: a aba Marketing nao chama mais este endpoint (le google_ads_campaign_daily, sincronizada por lib/google-sync.js).
+// Mantido so como diagnostico manual, agora devolvendo o erro real do Google.
 
 const ALLOWED_ORIGINS = [
   'https://app-one-amber-58.vercel.app',
@@ -45,8 +47,10 @@ export default async function handler(req, res) {
         grant_type: 'refresh_token',
       }),
     });
-    const { access_token } = await tokenRes.json();
-    if (!access_token) return res.status(401).json({ error: 'Auth failed' });
+    const tokenJson = await tokenRes.json().catch(() => ({}));
+    const { access_token } = tokenJson;
+    // Erro REAL do Google (sem segredos): antes isto virava so "Auth failed" e escondia a causa.
+    if (!access_token) return res.status(401).json({ error: 'Auth failed', google_error: tokenJson.error || `http_${tokenRes.status}`, google_error_description: tokenJson.error_description || null });
 
     const customerId = GOOGLE_ADS_CUSTOMER_ID.replace(/-/g, '');
     const period = req.query.period || '30';
@@ -73,6 +77,7 @@ export default async function handler(req, res) {
       `}),
     });
     const dailyJson = await dailyRes.json();
+    if (!dailyRes.ok) return res.status(502).json({ ok: false, error: 'Google Ads recusou a consulta', status: dailyRes.status, google: dailyJson.error || dailyJson });
 
     // 3. Keywords
     const kwRes = await fetch(base, {
@@ -89,6 +94,7 @@ export default async function handler(req, res) {
       `}),
     });
     const kwJson = await kwRes.json();
+    if (!kwRes.ok) return res.status(502).json({ ok: false, error: 'Google Ads recusou a consulta de keywords', status: kwRes.status, google: kwJson.error || kwJson });
 
     // 4. Processar resultados
     const daily = (dailyJson.results || []).map(r => ({

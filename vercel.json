@@ -43,6 +43,14 @@
     { "path": "/api/marketing-sync?task=gmail-intake", "schedule": "15 13 * * *" },
     { "path": "/api/marketing-sync?task=gmail-intake", "schedule": "15 16 * * *" },
     { "path": "/api/marketing-sync?task=gmail-intake", "schedule": "15 19 * * *" },
-    { "path": "/api/marketing-sync?task=gmail-intake", "schedule": "15 22 * * *" }
+    { "path": "/api/marketing-sync?task=gmail-intake", "schedule": "15 22 * * *" },
+    { "path": "/api/marketing-sync?task=google-sync&source=ads", "schedule": "10 11 * * *" },
+    { "path": "/api/marketing-sync?task=google-sync&source=ads", "schedule": "10 23 * * *" },
+    { "path": "/api/marketing-sync?task=google-sync&source=ga4", "schedule": "20 11 * * *" },
+    { "path": "/api/marketing-sync?task=google-sync&source=ga4", "schedule": "20 23 * * *" },
+    { "path": "/api/marketing-sync?task=google-sync&source=gsc", "schedule": "30 11 * * *" },
+    { "path": "/api/marketing-sync?task=google-sync&source=gsc", "schedule": "30 23 * * *" },
+    { "path": "/api/marketing-sync?task=google-sync&source=gbp", "schedule": "40 11 * * *" },
+    { "path": "/api/marketing-sync?task=google-sync&source=gbp", "schedule": "40 23 * * *" }
   ]
 }

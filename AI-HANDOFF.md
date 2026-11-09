@@ -10,6 +10,23 @@ Este arquivo existe porque o Fabinho usa mais de um assistente de IA (Claude e C
 4. Commits no GitHub e mudancas no Supabase ja ficam no historico de cada ferramenta — este log e um resumo em linguagem simples pro outro assistente (e pro Fabinho) entender rapido o que mudou e por que, sem precisar reconstruir o raciocinio a partir do diff bruto.
 
 
+### 2026-11-09 — Claude — Google dentro do ERP (FT-013)
+Status: EM ANDAMENTO — codigo pronto e testado localmente, AINDA NAO PUBLICADO nem conectado ao Google.
+Causa dos dados falsos na aba Marketing: o token do Google Ads era recusado ("Auth failed") e o codigo escondia o erro e mostrava dados simulados como "ao vivo".
+O que mudou: nova conexao unica "Conectar Google" (Usuarios > Integracoes) com permissoes so de leitura (Ads, Analytics, Search Console, Perfil da Empresa); token novo fica em api_secrets (so servidor). lib/google-sync.js sincroniza todo dia (cron 2x/dia por fonte) para 8 tabelas novas (google_*, ga4_daily, gsc_query_daily, gbp_*, lead_attribution) e grava cada execucao em google_sync_runs com o erro real do Google. Falhou = faixa vermelha em todas as abas do Marketing + aviso no Telegram. A aba Google Ads agora le so do banco (US$, tendencias reais, funil com leads reais; sem sazonalidade/sugestoes/keywords inventadas). Sem nova funcao em /api (continua 12; tudo via marketing-sync ?task=).
+Feito fora do repo: 8 tabelas criadas no Supabase com RLS (leitura so equipe aprovada); APIs Analytics Data, Analytics Admin e Gmail ativadas no projeto Google Cloud finetouch-app.
+Limites conhecidos: leads so contam como "Google" se tiverem origem Google ou gclid/UTM em lead_attribution (o site ainda nao envia isso: Fase 4); avaliacoes dependem da Google liberar a Business Profile API; keywords por campanha e conversoes offline ficam para depois; bloco "Concorrentes" da aba Google Ads continua com dados estaticos antigos.
+Validacao pendente: Fabinho conectar o Google; conferir custo/cliques contra o painel do Ads; confirmar GA4 e Search Console. Nao declarar concluido antes disso.
+Nota: nao tocar no registro da Maia de 2026-11-04 (formulario do site), que continua sem commit no working tree.
+
+### 2026-11-04 — Maia — Formulario do site FT
+Status: EM ANDAMENTO / ENVIO DE EMAIL BLOQUEADO POR CONFIGURACAO.
+Escopo: formulario publico ftdecordesign.com, projeto Lovable e829112b-5f34-4a02-8569-7404edca689f (backend do site, separado do ERP).
+Evidencia: chamada ao send-quote retornou HTTP 400, RESEND_API_KEY is not configured. Teste sintetico identificado FT-FORM-20261104-A enviado pela interface; recebimento no Gmail nao confirmado (busca vazia). Lovable confirmou que teste foi salvo no banco, email nao enviado. Frontend atual salva site_leads antes do email e pode duplicar ao tentar novamente.
+Acao: solicitado ao agente do proprio Lovable diagnostico/correcao minima, destinatario contact@ apenas, preservacao de leads e relatorio de pendencias. Nao republicar frontend antes de revisao. Mensagem umsg_01m6mh0fjxf9pakwhhyt6mstnm, thread main. Nao reenviar backlog sem revisao.
+Coordenacao: Claude desktop FT-001 pede novo login; nao foi possivel enviar mensagem ao Claudio. Este registro e o ponto de continuidade. Nenhum dado de cliente ou credencial neste registro.
+Validacao pendente: conexao Resend, dominio/remetente autorizado, teste completo e confirmacao no Gmail. Nao declarar resolvido somente com alteracao de codigo.
+
 ### 2026-10-23 — Claude
 Status: CONCLUIDO (versao de TESTE) — Dashboard 3D em /dashboard3d
 Arquivos/tabelas: dashboard3d.html (novo, pagina independente, Three.js via CDN), vercel.json (rota), financial3.html (link no menu)

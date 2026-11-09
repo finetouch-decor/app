@@ -126,6 +126,7 @@
   .gads-sub { font-size:12px; color:rgba(255,255,255,0.6); margin-top:2px; }
   .gads-status { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; padding:5px 12px; border-radius:20px; }
   .status-sim { background:rgba(251,188,4,0.2); color:#FBBC04; }
+  .status-live { background:rgba(46,160,67,0.22); color:#7ee2a0; }
 
   .period-bar { display:flex; gap:8px; margin-bottom:20px; align-items:center; flex-wrap:wrap; }
   .period-btn { padding:6px 14px; border-radius:20px; border:1.5px solid var(--border); background:var(--white); font-size:12px; font-weight:600; color:var(--muted); cursor:pointer; transition:all .15s; }
@@ -347,6 +348,8 @@
 
     <div class="content">
 
+      <div id="g-health" style="display:none;margin-bottom:14px;padding:10px 14px;border:1px solid;border-radius:10px;font-size:12.5px;line-height:1.6"></div>
+
       <!-- ══ TAB RESUMO ══ -->
       <div id="tab-resumo">
         <div class="kpi-row">
@@ -379,9 +382,9 @@
           <div class="gads-logo">🔍</div>
           <div class="gads-info">
             <div class="gads-title">Google Ads — Fine Touch Decor &amp; Design</div>
-            <div class="gads-sub">ID da Conta: 479-585-9742 &nbsp;·&nbsp; Florida, USA &nbsp;·&nbsp; Accent Wall · TV Wall · Custom Design</div>
+            <div class="gads-sub" id="gads-sub">Carregando contas...</div>
           </div>
-          <div class="gads-status status-sim">⚡ Dados Simulados</div>
+          <div class="gads-status status-sim" id="ga-source-badge">🔄 Carregando...</div>
         </div>
 
         <div class="period-bar">
@@ -444,23 +447,23 @@
         </div>
 
         <div class="season-card">
-          <div class="chart-title">🌡️ Sazonalidade — Últimos 12 Meses <span style="font-size:11px;font-weight:400;color:var(--muted)">· Custo vs Leads</span></div>
+          <div class="chart-title">🌡️ Sazonalidade — Últimos 12 Meses <span style="font-size:11px;font-weight:400;color:var(--muted)">· Custo vs Leads do Google (histórico sincronizado)</span></div>
           <div class="season-wrap"><canvas id="chart-season"></canvas></div>
         </div>
 
         <div class="section-header">
           <div class="section-title">🚨 Alertas Inteligentes</div>
-          <span style="font-size:11px;color:var(--muted)">Atualizado agora</span>
+          <span style="font-size:11px;color:var(--muted)">calculado com os dados sincronizados</span>
         </div>
         <div class="alerts-section" id="alerts-list"></div>
 
         <div class="kw-section">
           <div class="kw-header">
-            <span class="leads-title">🔑 Top Keywords — Accent Wall &amp; TV Wall Florida</span>
-            <span style="font-size:11px;color:var(--muted)">últimos 30 dias</span>
+            <span class="leads-title">📣 Campanhas — Google Ads</span>
+            <span style="font-size:11px;color:var(--muted)">no período selecionado</span>
           </div>
           <table>
-            <thead><tr><th>Palavra-chave</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>CPC</th><th>Leads</th><th>Qualidade</th></tr></thead>
+            <thead><tr><th>Campanha</th><th>Impressões</th><th>Cliques</th><th>CTR</th><th>CPC</th><th>Conversões</th><th>Custo</th></tr></thead>
             <tbody id="kw-table"></tbody>
           </table>
         </div>
@@ -1066,18 +1069,41 @@ async function renderChecklist(tabKey) {
 }
 
 
+async function buildGscFromDb() {
+  try {
+    const from = ymdLocal(new Date(Date.now() - 90 * 86400000));
+    const rows = await fetchAllRows(() => db.from('gsc_query_daily').select('date,query,page,clicks,impressions,position,synced_at').gte('date', from).order('date').order('query').order('page'));
+    if (!rows.length) return null;
+    let clicks = 0, impr = 0, posW = 0, last = '', first = rows[0].date, end = rows[0].date;
+    const q = {};
+    rows.forEach(r => {
+      clicks += r.clicks; impr += r.impressions; posW += Number(r.position || 0) * r.impressions;
+      if (r.synced_at > last) last = r.synced_at; if (r.date < first) first = r.date; if (r.date > end) end = r.date;
+      const o = q[r.query] || (q[r.query] = { query: r.query, clicks: 0, impressions: 0, posW: 0 });
+      o.clicks += r.clicks; o.impressions += r.impressions; o.posW += Number(r.position || 0) * r.impressions;
+    });
+    const topQueries = Object.values(q).map(o => ({ query: o.query, clicks: o.clicks, impressions: o.impressions, ctr: o.impressions ? Math.round(o.clicks / o.impressions * 1000) / 10 : 0, position: o.impressions ? Math.round(o.posW / o.impressions * 10) / 10 : 0 }))
+      .sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions);
+    return { ok: true, periodStart: first, periodEnd: end, fetchedAt: last,
+      totals: { clicks, impressions: impr, ctr: impr ? Math.round(clicks / impr * 1000) / 10 : 0, position: impr ? Math.round(posW / impr * 10) / 10 : null }, topQueries };
+  } catch (e) { return null; }
+}
+
 async function refreshGsc() {
   const btn = document.getElementById('gsc-refresh-btn');
   const status = document.getElementById('gsc-refresh-status');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Atualizando...'; }
   if (status) status.textContent = '';
   try {
-    const res = await fetch('/api/gsc-report');
+    const { data: { session } } = await db.auth.getSession();
+    const res = await fetch('/api/marketing-sync?task=google-sync&source=gsc', { headers: { Authorization: 'Bearer ' + session.access_token } });
     const json = await res.json();
-    if (!json.ok) {
-      if (status) status.textContent = 'Erro: ' + (json.error || 'desconhecido');
+    if (!res.ok || !json.ok) {
+      const r = (json.results && json.results[0]) || {};
+      if (status) status.textContent = 'Erro: ' + (r.error || json.error || 'desconhecido');
     } else {
       await renderCompetitorsTab();
+      loadGoogleHealth();
       return;
     }
   } catch (e) {
@@ -1092,7 +1118,7 @@ function buildGscSection(gscData) {
       <div class="kw-section" style="margin-bottom:20px">
         <div class="kw-header"><span class="leads-title">📊 Seu site no Google — dados reais (Search Console)</span></div>
         <div style="padding:16px;color:var(--muted);font-size:13px">
-          Ainda não conectado. <a href="/api/gsc-auth" target="_blank" style="color:var(--blue);font-weight:600">Clique aqui para conectar o Search Console</a>.
+          Ainda sem dados do Search Console no ERP. <a href="/users" style="color:var(--blue);font-weight:600">Abra Usuários &gt; Integrações e conecte/sincronize o Google</a>.
         </div>
       </div>`;
   }
@@ -1104,7 +1130,7 @@ function buildGscSection(gscData) {
       <div class="kw-header">
         <span class="leads-title">📊 Seu site no Google — dados reais (Search Console)</span>
         <span style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:11px;color:var(--muted)">Últimos 90 dias · ${gscData.periodStart} a ${gscData.periodEnd}</span>
+          <span style="font-size:11px;color:var(--muted)">Período · ${gscData.periodStart} a ${gscData.periodEnd}</span>
           <button id="gsc-refresh-btn" onclick="refreshGsc()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--white);cursor:pointer">🔄 Atualizar agora</button>
         </span>
       </div>
@@ -1269,7 +1295,7 @@ async function renderCompetitorsTab() {
       </table>
     </div>`;
 
-  const gscSection = buildGscSection(mkt.gsc_data);
+  const gscSection = buildGscSection((await buildGscFromDb()) || mkt.gsc_data);
   document.getElementById('competitors-content').innerHTML = table + gscSection + insights + kw;
 }
 
@@ -1790,6 +1816,7 @@ async function init() {
   document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
   document.getElementById('btn-topbar-ads').style.display = '';
   await loadData();
+  loadGoogleHealth();
   loadAprovacoes(); // carrega em paralelo so pra popular o badge de pendentes
 }
 db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });
@@ -1895,27 +1922,248 @@ function renderResume() {
   }
 }
 
-// ── GOOGLE ADS ─────────────────────────────────────────────────
-// DADOS REAIS — Google Ads API (atualizado automaticamente via script)
-const REAL_DAILY_DATA = [
-  { date: new Date('2026-06-08'), clicks: 0,  impr: 1,   cost: 0,      leads: 0 },
-  { date: new Date('2026-06-11'), clicks: 5,  impr: 18,  cost: 141.94, leads: 0 },
-  { date: new Date('2026-06-12'), clicks: 6,  impr: 98,  cost: 93.75,  leads: 0 },
-  { date: new Date('2026-06-13'), clicks: 8,  impr: 98,  cost: 145.24, leads: 0 },
-  { date: new Date('2026-06-14'), clicks: 4,  impr: 48,  cost: 141.22, leads: 0 },
-  { date: new Date('2026-06-15'), clicks: 6,  impr: 101, cost: 154.56, leads: 0 },
-  { date: new Date('2026-06-16'), clicks: 9,  impr: 53,  cost: 143.65, leads: 0 },
-  { date: new Date('2026-06-17'), clicks: 6,  impr: 60,  cost: 141.82, leads: 0 },
-  { date: new Date('2026-06-18'), clicks: 4,  impr: 73,  cost: 161.57, leads: 0 },
-];
+// ── GOOGLE ADS (dados reais sincronizados pelo servidor: google_ads_campaign_daily) ──
+// Nenhum numero e simulado: sem dado sincronizado = tela vazia com o motivo.
+const GA_MAX_CPL = 100; // meta de custo por lead (US$)
+const usd = (n, d = 2) => 'US$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+const ymdLocal = d => { const z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`; };
+const GOOGLE_SOURCES = { ads: 'Google Ads', ga4: 'Google Analytics', gsc: 'Search Console', gbp: 'Perfil da Empresa (avaliações)' };
 
-function generateDailyData(days) {
-  // Usa dados reais quando disponíveis, filtrando pelo período
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - days);
-  const filtered = REAL_DAILY_DATA.filter(d => d.date >= cutoff);
-  // Se não há dados suficientes para o período, retorna o que há
-  return filtered.length > 0 ? filtered : REAL_DAILY_DATA;
+async function fetchAllRows(build) {
+  let out = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await build().range(from, from + 999);
+    if (error) throw error;
+    out = out.concat(data || []);
+    if (!data || data.length < 1000) break;
+  }
+  return out;
+}
+
+// Faixa de saude no topo de TODAS as abas: mostra o erro real do Google ou dados desatualizados.
+async function loadGoogleHealth() {
+  const el = document.getElementById('g-health');
+  if (!el) return null;
+  try {
+    const { data: runs, error } = await db.from('google_sync_runs').select('source,ok,started_at,finished_at,error_code,error_message,rows_written').order('started_at', { ascending: false }).limit(120);
+    if (error) throw error;
+    const issues = [];
+    const info = {};
+    if (!runs || !runs.length) {
+      issues.push({ level: 'error', text: 'O ERP ainda não sincronizou nada do Google. Abra Usuários > Integrações e clique em <b>Conectar Google</b>.' });
+    } else {
+      for (const s of Object.keys(GOOGLE_SOURCES)) {
+        const mine = runs.filter(r => r.source === s);
+        const last = mine[0], okRun = mine.find(r => r.ok);
+        info[s] = { last, okRun };
+        if (!last) { issues.push({ level: 'warn', text: `<b>${GOOGLE_SOURCES[s]}:</b> ainda não sincronizou.` }); continue; }
+        if (!last.ok) {
+          const waiting = s === 'gbp' && /resource_exhausted|permission_denied|403|429|quota/i.test((last.error_code || '') + ' ' + (last.error_message || ''));
+          issues.push({ level: waiting ? 'warn' : 'error', text: waiting
+            ? `<b>${GOOGLE_SOURCES[s]}:</b> aguardando o Google liberar o acesso à API do Perfil da Empresa (as avaliações automáticas começam depois). ${escapeHtml(last.error_message || '')}`
+            : `<b>${GOOGLE_SOURCES[s]}:</b> ${escapeHtml(last.error_message || last.error_code || 'erro')} — <a href="/users" style="color:inherit;font-weight:700">Reconectar Google</a>` });
+        } else if (Date.now() - new Date(last.finished_at || last.started_at).getTime() > 36 * 3600000) {
+          issues.push({ level: 'warn', text: `<b>${GOOGLE_SOURCES[s]}:</b> última sincronização há mais de 36 h.` });
+        }
+      }
+    }
+    el.style.display = issues.length ? 'block' : 'none';
+    const bad = issues.some(i => i.level === 'error');
+    el.style.background = bad ? '#fdecec' : '#fff6e0';
+    el.style.borderColor = bad ? '#e3a0a0' : '#ecd08a';
+    el.style.color = bad ? '#7a1f1f' : '#7a5a10';
+    el.innerHTML = issues.map(i => `<div>${i.level === 'error' ? '❌' : '⚠️'} ${i.text}</div>`).join('');
+    window._googleHealth = info;
+    return info;
+  } catch (e) {
+    el.style.display = 'block'; el.style.background = '#fdecec'; el.style.borderColor = '#e3a0a0'; el.style.color = '#7a1f1f';
+    el.textContent = '❌ Não foi possível ler o status da sincronização do Google: ' + (e.message || e);
+    return null;
+  }
+}
+
+let adsCache = null;
+async function loadAdsData() {
+  if (adsCache && Date.now() - adsCache.ts < 300000) return adsCache;
+  const from = ymdLocal(new Date(Date.now() - 365 * 86400000));
+  const [rows, accts, leads, attrib] = await Promise.all([
+    fetchAllRows(() => db.from('google_ads_campaign_daily').select('date,campaign_id,campaign_name,campaign_status,impressions,clicks,cost_micros,conversions,currency_code').gte('date', from).order('date').order('campaign_id').order('customer_id')),
+    db.from('google_ads_accounts').select('customer_id,descriptive_name,is_manager').then(r => r.data || []),
+    fetchAllRows(() => db.from('leads').select('id,status,source,created_at').order('created_at').order('id')),
+    db.from('lead_attribution').select('lead_id,gclid,gbraid,wbraid,utm_source').then(r => r.data || []),
+  ]);
+  const googleIds = new Set(attrib.filter(a => a.gclid || a.gbraid || a.wbraid || /google/i.test(a.utm_source || '')).map(a => a.lead_id));
+  const gLeads = leads.filter(l => /google/i.test(l.source || '') || googleIds.has(l.id));
+  adsCache = { ts: Date.now(), rows, accts, gLeads };
+  return adsCache;
+}
+
+function adsWindow(days) {
+  const end = new Date(); const c0 = new Date(); c0.setDate(end.getDate() - days + 1);
+  const p1 = new Date(c0); p1.setDate(p1.getDate() - 1);
+  const p0 = new Date(p1); p0.setDate(p0.getDate() - days + 1);
+  return { cur: [ymdLocal(c0), ymdLocal(end)], prev: [ymdLocal(p0), ymdLocal(p1)] };
+}
+const inRange = (d, [a, b]) => d >= a && d <= b;
+const sumAds = rows => rows.reduce((a, r) => ({ clicks: a.clicks + Number(r.clicks), impr: a.impr + Number(r.impressions), cost: a.cost + Number(r.cost_micros) / 1e6, conv: a.conv + Number(r.conversions) }), { clicks: 0, impr: 0, cost: 0, conv: 0 });
+function trendText(cur, prev) {
+  if (!prev) return 'sem dados no período anterior';
+  const p = (cur - prev) / prev * 100;
+  return `${p >= 0 ? '↑ +' : '↓ '}${p.toFixed(0)}% vs período anterior`;
+}
+
+async function loadAndRenderGoogleAds(days) {
+  const badge = document.getElementById('ga-source-badge');
+  if (badge) badge.textContent = '🔄 Carregando...';
+  try {
+    const [d, health] = await Promise.all([loadAdsData(), loadGoogleHealth()]);
+    renderGoogleAds(days, d);
+    const ok = health && health.ads && health.ads.okRun;
+    if (badge) badge.textContent = ok ? `✅ Sincronizado ${new Date(ok.finished_at || ok.started_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : '⚠️ Sem sincronização';
+    if (badge) badge.className = 'gads-status ' + (ok ? 'status-live' : 'status-sim');
+  } catch (err) {
+    console.warn('Falha ao ler dados do Google Ads no banco:', err);
+    if (badge) { badge.textContent = '❌ Erro ao ler dados'; badge.className = 'gads-status status-sim'; }
+    renderGoogleAds(days, { rows: [], accts: [], gLeads: [] });
+  }
+}
+
+function renderGoogleAds(days, store) {
+  const w = adsWindow(days);
+  const rows = store.rows || [];
+  const curRows = rows.filter(r => inRange(r.date, w.cur));
+  const prevRows = rows.filter(r => inRange(r.date, w.prev));
+  const tot = sumAds(curRows), prev = sumAds(prevRows);
+  const gl = (store.gLeads || []).filter(l => inRange(String(l.created_at).slice(0, 10), w.cur));
+  const totalLeads = gl.length;
+  const props = gl.filter(l => l.status === 'proposta' || l.status === 'fechado').length;
+  const closed = gl.filter(l => l.status === 'fechado').length;
+  const has = curRows.length > 0;
+  const ctr = tot.impr > 0 ? (tot.clicks / tot.impr * 100).toFixed(1) : '0';
+  const cpc = tot.clicks > 0 ? tot.cost / tot.clicks : 0;
+  const cplNum = totalLeads > 0 ? tot.cost / totalLeads : 0;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+  const names = (store.accts || []).filter(a => !a.is_manager).map(a => a.descriptive_name || a.customer_id);
+  set('gads-sub', names.length ? 'Contas: ' + names.join(' · ') : 'Nenhuma conta sincronizada ainda');
+  set('ga-clicks', has ? tot.clicks.toLocaleString() : '—');
+  set('ga-clicks-trend', has ? trendText(tot.clicks, prev.clicks) : '');
+  set('ga-impr', has ? tot.impr.toLocaleString() : '—');
+  set('ga-impr-trend', has ? trendText(tot.impr, prev.impr) : '');
+  set('ga-ctr', has ? ctr + '%' : '—');
+  set('ga-cpc', has ? usd(cpc) : '—');
+  set('ga-cost', has ? usd(tot.cost, 0) : '—');
+  set('ga-cost-trend', has ? trendText(tot.cost, prev.cost) : '');
+  set('ga-cpl', totalLeads > 0 ? usd(cplNum, 0) : '—');
+  const cplCard = document.getElementById('ga-cpl-card'), cplSt = document.getElementById('ga-cpl-status');
+  cplCard.style.borderColor = ''; cplSt.textContent = ''; cplSt.style.color = '';
+  if (cplNum > GA_MAX_CPL) { cplSt.textContent = '⚠ acima do limite'; cplSt.style.color = 'var(--red)'; cplCard.style.borderColor = 'var(--red)'; }
+  else if (cplNum > 0) { cplSt.textContent = '✓ dentro do limite'; cplSt.style.color = 'var(--green)'; cplCard.style.borderColor = 'var(--green)'; }
+  else if (has) cplSt.textContent = 'sem leads do Google no período';
+
+  const fmtD = s => { const [y, m, d] = s.split('-'); return `${d}/${m}`; };
+  set('period-range-label', `${fmtD(w.cur[0])} — ${fmtD(w.cur[1])}`);
+  set('fn-impr', has ? tot.impr.toLocaleString() : '—');
+  set('fn-clicks', has ? tot.clicks.toLocaleString() : '—');
+  set('fn-ctr', has ? `CTR ${ctr}%` : '—');
+  set('fn-leads', has || totalLeads ? totalLeads : '—');
+  set('fn-cvr', tot.clicks > 0 ? `${(totalLeads / tot.clicks * 100).toFixed(1)}% dos cliques` : '—');
+  set('fn-props', has || totalLeads ? props : '—');
+  set('fn-prop-rate', totalLeads > 0 ? `${Math.round(props / totalLeads * 100)}% dos leads` : '—');
+  set('fn-closed', has || totalLeads ? closed : '—');
+  set('fn-close-rate', props > 0 ? `${Math.round(closed / props * 100)}% das propostas` : '—');
+
+  // Série diária contínua (dias sem linha = zero)
+  const byDate = {};
+  curRows.forEach(r => { const o = byDate[r.date] || (byDate[r.date] = { clicks: 0, impr: 0, cost: 0 }); o.clicks += Number(r.clicks); o.impr += Number(r.impressions); o.cost += Number(r.cost_micros) / 1e6; });
+  const leadsByDate = {};
+  gl.forEach(l => { const d = String(l.created_at).slice(0, 10); leadsByDate[d] = (leadsByDate[d] || 0) + 1; });
+  const series = [];
+  for (let d = new Date(w.cur[0] + 'T12:00:00'); ymdLocal(d) <= w.cur[1]; d.setDate(d.getDate() + 1)) {
+    const k = ymdLocal(d); const o = byDate[k] || { clicks: 0, impr: 0, cost: 0 };
+    series.push({ key: k, label: `${k.slice(8, 10)}/${k.slice(5, 7)}`, clicks: o.clicks, impr: o.impr, cost: o.cost, leads: leadsByDate[k] || 0 });
+  }
+  const labels = series.map(s => s.label);
+  if (chartDaily) chartDaily.destroy();
+  chartDaily = new Chart(document.getElementById('chart-daily').getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: 'Cliques', data: series.map(s => s.clicks), borderColor: '#4285F4', backgroundColor: 'rgba(66,133,244,0.08)', borderWidth: 2.5, pointRadius: days <= 14 ? 4 : 2, tension: 0.4, fill: true },
+      { label: 'Impressões ÷10', data: series.map(s => Math.round(s.impr / 10)), borderColor: '#C69E63', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [4, 3], pointRadius: 0, tension: 0.4 },
+    ] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 14 } } },
+      scales: { x: { ticks: { font: { size: 10 }, maxTicksLimit: days > 30 ? 8 : 14 }, grid: { display: false } }, y: { ticks: { font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.04)' } } } },
+  });
+  if (chartCost) chartCost.destroy();
+  chartCost = new Chart(document.getElementById('chart-cost').getContext('2d'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Custo (US$)', data: series.map(s => Math.round(s.cost * 100) / 100), backgroundColor: series.map(s => s.leads > 0 ? 'rgba(46,107,62,0.7)' : 'rgba(16,42,75,0.3)'), borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { ticks: { font: { size: 10 }, maxTicksLimit: 8 }, grid: { display: false } }, y: { ticks: { font: { size: 10 }, callback: v => '$' + v }, grid: { color: 'rgba(0,0,0,0.04)' } } } },
+  });
+
+  renderSeasonality(rows, store.gLeads || []);
+  renderAlerts(series, cplNum, has);
+  renderCampaignTable(curRows);
+  renderAI(tot, cplNum, curRows, has);
+}
+
+function renderSeasonality(rows, gLeads) {
+  const m = {};
+  rows.forEach(r => { const k = r.date.slice(0, 7); const o = m[k] || (m[k] = { cost: 0, leads: 0 }); o.cost += Number(r.cost_micros) / 1e6; });
+  gLeads.forEach(l => { const k = String(l.created_at).slice(0, 7); if (m[k]) m[k].leads++; });
+  const keys = Object.keys(m).sort();
+  const names = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const months = keys.map(k => `${names[Number(k.slice(5, 7)) - 1]}/${k.slice(2, 4)}`);
+  const costs = keys.map(k => Math.round(m[k].cost * 100) / 100);
+  const lds = keys.map(k => m[k].leads);
+  if (chartSeason) chartSeason.destroy();
+  chartSeason = new Chart(document.getElementById('chart-season').getContext('2d'), {
+    type: 'bar',
+    data: { labels: months, datasets: [
+      { label: 'Custo (US$)', data: costs, backgroundColor: 'rgba(66,133,244,0.7)', borderRadius: 5, yAxisID: 'y' },
+      { label: 'Leads do Google', data: lds, type: 'line', borderColor: '#C69E63', backgroundColor: 'transparent', borderWidth: 2.5, pointBackgroundColor: '#C69E63', pointRadius: 5, tension: 0.3, yAxisID: 'y2' },
+    ] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 14 } } },
+      scales: { x: { ticks: { font: { size: 10 } }, grid: { display: false } }, y: { position: 'left', ticks: { font: { size: 10 }, callback: v => '$' + v }, grid: { color: 'rgba(0,0,0,0.04)' } }, y2: { position: 'right', ticks: { font: { size: 10 }, precision: 0 }, grid: { display: false } } } },
+  });
+}
+
+function renderAlerts(series, cplNum, has) {
+  const alerts = [];
+  if (!has) {
+    alerts.push({ type: 'warn', icon: '⚠️', title: 'Sem dados do Google Ads neste período', desc: 'Se há campanhas rodando, veja a faixa vermelha no topo: ela mostra o erro real da sincronização.', action: '' });
+  } else {
+    const last7 = series.slice(-7);
+    const last7Cost = last7.reduce((s, d) => s + d.cost, 0);
+    const zeroLeadDays = last7.filter(d => d.clicks > 2 && d.leads === 0).length;
+    if (cplNum > GA_MAX_CPL) alerts.push({ type: 'danger', icon: '🚨', title: `Custo por lead acima do limite — ${usd(cplNum, 0)} (meta: ${usd(GA_MAX_CPL, 0)})`, desc: 'Revise termos de busca e adicione palavras negativas.', action: '' });
+    if (zeroLeadDays >= 3) alerts.push({ type: 'warn', icon: '⚠️', title: `${zeroLeadDays} dos últimos 7 dias com cliques e nenhum lead do Google`, desc: 'Verifique a landing page, o formulário e a origem informada nos leads.', action: '' });
+    alerts.push({ type: 'ok', icon: '💸', title: `Custo dos últimos 7 dias: ${usd(last7Cost, 0)}`, desc: `Média diária ${usd(last7Cost / 7, 0)}.`, action: '' });
+  }
+  document.getElementById('alerts-list').innerHTML = alerts.map(a => `
+    <div class="alert-item ${a.type}">
+      <div class="alert-icon">${a.icon}</div>
+      <div class="alert-body"><div class="alert-title">${a.title}</div><div class="alert-desc">${a.desc}</div></div>
+    </div>`).join('');
+}
+
+function renderCampaignTable(curRows) {
+  const m = {};
+  curRows.forEach(r => {
+    const o = m[r.campaign_id] || (m[r.campaign_id] = { name: r.campaign_name, status: r.campaign_status, impr: 0, clicks: 0, cost: 0, conv: 0 });
+    o.name = r.campaign_name || o.name; o.status = r.campaign_status || o.status;
+    o.impr += Number(r.impressions); o.clicks += Number(r.clicks); o.cost += Number(r.cost_micros) / 1e6; o.conv += Number(r.conversions);
+  });
+  const list = Object.values(m).sort((a, b) => b.cost - a.cost);
+  document.getElementById('kw-table').innerHTML = list.length ? list.map(c => `<tr>
+      <td style="font-weight:600">${escapeHtml(c.name || '—')} <span style="font-size:10px;color:var(--muted)">${escapeHtml(c.status || '')}</span></td>
+      <td>${c.impr.toLocaleString()}</td><td>${c.clicks.toLocaleString()}</td>
+      <td>${c.impr > 0 ? (c.clicks / c.impr * 100).toFixed(1) : '0.0'}%</td>
+      <td>${c.clicks > 0 ? usd(c.cost / c.clicks) : '—'}</td>
+      <td>${Math.round(c.conv * 10) / 10}</td>
+      <td style="font-weight:700">${usd(c.cost)}</td>
+    </tr>`).join('') : '<tr><td colspan="7" style="color:var(--muted);padding:14px">Nenhuma campanha com dados neste período.</td></tr>';
 }
 
 function setPeriod(days, btn) {
@@ -1923,234 +2171,6 @@ function setPeriod(days, btn) {
   document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   loadAndRenderGoogleAds(days);
-}
-
-let adsCache = {};
-
-async function loadAndRenderGoogleAds(days) {
-  // Mostra loading
-  const banner = document.getElementById('ga-live-banner');
-  if (banner) banner.textContent = '🔄 Carregando dados...';
-
-  // Cache por período (5 min)
-  const now = Date.now();
-  if (adsCache[days] && (now - adsCache[days].ts) < 300_000) {
-    renderGoogleAds(days, adsCache[days].data);
-    return;
-  }
-
-  try {
-    const res = await fetch(`/api/google-ads?period=${days}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const apiData = await res.json();
-    adsCache[days] = { ts: now, data: apiData };
-    renderGoogleAds(days, apiData);
-    if (banner) {
-      const d = new Date(apiData.fetchedAt);
-      banner.textContent = `✅ Dados ao vivo — atualizado ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`;
-    }
-  } catch (err) {
-    console.warn('API falhou, usando dados locais:', err);
-    if (banner) banner.textContent = '⚠️ Usando dados locais (API indisponível)';
-    renderGoogleAds(days, null);
-  }
-}
-
-function renderGoogleAds(days, apiData) {
-  // Usa dados da API se disponíveis, senão fallback local
-  let data;
-  if (apiData && apiData.daily && apiData.daily.length > 0) {
-    data = apiData.daily.map(d => ({
-      date: new Date(d.date + 'T12:00:00'),
-      clicks: d.clicks,
-      impr: d.impressions,
-      cost: d.cost,
-      leads: 0,
-    }));
-  } else {
-    data = generateDailyData(days);
-  }
-  const totalClicks = data.reduce((s,d)=>s+d.clicks,0);
-  const totalImpr   = data.reduce((s,d)=>s+d.impr,0);
-  const totalCost   = data.reduce((s,d)=>s+d.cost,0);
-  const totalLeads  = data.reduce((s,d)=>s+d.leads,0);
-  const ctr     = totalImpr > 0 ? ((totalClicks/totalImpr)*100).toFixed(1) : '0';
-  const cpc     = totalClicks > 0 ? (totalCost/totalClicks).toFixed(2) : '0';
-  const cplNum  = totalLeads > 0 ? totalCost/totalLeads : 0;
-  const cpl     = totalLeads > 0 ? Math.round(cplNum) : 0;
-  const maxCPL  = 100;
-
-  document.getElementById('ga-clicks').textContent      = totalClicks.toLocaleString();
-  document.getElementById('ga-clicks-trend').textContent = '↑ +12% vs período anterior';
-  document.getElementById('ga-impr').textContent        = totalImpr.toLocaleString();
-  document.getElementById('ga-impr-trend').textContent  = '↑ +8% vs anterior';
-  document.getElementById('ga-ctr').textContent         = ctr + '%';
-  document.getElementById('ga-cpc').textContent         = 'R$' + Number(cpc).toFixed(2);
-  document.getElementById('ga-cost').textContent        = 'R$' + Math.round(totalCost).toLocaleString('pt-BR');
-  document.getElementById('ga-cost-trend').textContent  = '↑ +5% vs anterior';
-  document.getElementById('ga-cpl').textContent         = cpl > 0 ? 'R$' + cpl.toLocaleString('pt-BR') : '—';
-
-  const cplCard = document.getElementById('ga-cpl-card');
-  if (cplNum > 0 && cplNum > maxCPL) {
-    document.getElementById('ga-cpl-status').textContent = '⚠ acima do limite';
-    document.getElementById('ga-cpl-status').style.color = 'var(--red)';
-    cplCard.style.borderColor = 'var(--red)';
-  } else if (cplNum > 0) {
-    document.getElementById('ga-cpl-status').textContent = '✓ dentro do limite';
-    document.getElementById('ga-cpl-status').style.color = 'var(--green)';
-    cplCard.style.borderColor = 'var(--green)';
-  }
-
-  const fmtD = d => d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
-  document.getElementById('period-range-label').textContent = `${fmtD(data[0].date)} — ${fmtD(data[data.length-1].date)}`;
-
-  const props  = Math.round(totalLeads * 0.6);
-  const closed = Math.round(props * 0.35);
-  document.getElementById('fn-impr').textContent     = totalImpr.toLocaleString();
-  document.getElementById('fn-clicks').textContent   = totalClicks.toLocaleString();
-  document.getElementById('fn-ctr').textContent      = `CTR ${ctr}%`;
-  document.getElementById('fn-leads').textContent    = totalLeads;
-  document.getElementById('fn-cvr').textContent      = totalClicks > 0 ? `${((totalLeads/totalClicks)*100).toFixed(1)}% dos cliques` : '—';
-  document.getElementById('fn-props').textContent    = props;
-  document.getElementById('fn-prop-rate').textContent = totalLeads > 0 ? `${Math.round((props/totalLeads)*100)}% dos leads` : '—';
-  document.getElementById('fn-closed').textContent   = closed;
-  document.getElementById('fn-close-rate').textContent = props > 0 ? `${Math.round((closed/props)*100)}% das propostas` : '—';
-
-  const labels = data.map(d => d.date.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}));
-
-  if (chartDaily) chartDaily.destroy();
-  chartDaily = new Chart(document.getElementById('chart-daily').getContext('2d'), {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label:'Cliques', data:data.map(d=>d.clicks), borderColor:'#4285F4', backgroundColor:'rgba(66,133,244,0.08)', borderWidth:2.5, pointRadius:days<=14?4:2, tension:0.4, fill:true, yAxisID:'y' },
-        { label:'Impressões ÷10', data:data.map(d=>Math.round(d.impr/10)), borderColor:'#C69E63', backgroundColor:'transparent', borderWidth:1.5, borderDash:[4,3], pointRadius:0, tension:0.4, yAxisID:'y' }
-      ]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:false},
-      plugins:{legend:{labels:{font:{size:11},boxWidth:14}}},
-      scales:{
-        x:{ticks:{font:{size:10},maxTicksLimit:days>30?8:14},grid:{display:false}},
-        y:{ticks:{font:{size:10}},grid:{color:'rgba(0,0,0,0.04)'}}
-      }
-    }
-  });
-
-  if (chartCost) chartCost.destroy();
-  chartCost = new Chart(document.getElementById('chart-cost').getContext('2d'), {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label:'Custo (R$)', data:data.map(d=>Math.round(d.cost)),
-        backgroundColor:data.map(d=>d.leads>0?'rgba(46,107,62,0.7)':'rgba(16,42,75,0.3)'),
-        borderRadius:4
-      }]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{ticks:{font:{size:10},maxTicksLimit:8},grid:{display:false}},
-        y:{ticks:{font:{size:10},callback:v=>'R$'+v},grid:{color:'rgba(0,0,0,0.04)'}}
-      }
-    }
-  });
-
-  renderSeasonality();
-  renderAlerts(data, cplNum, maxCPL);
-  renderKeywords(apiData && apiData.keywords);
-  renderCompetitors();
-  renderAI(cplNum, maxCPL);
-}
-
-function renderSeasonality() {
-  const months = ['Jul/25','Ago/25','Set/25','Out/25','Nov/25','Dez/25','Jan/26','Fev/26','Mar/26','Abr/26','Mai/26','Jun/26'];
-  const costs  = [680,720,890,1100,980,420,580,750,1200,1350,1120,1040];
-  const ldsArr = [3,4,6,8,5,2,3,5,9,10,7,6];
-  if (chartSeason) chartSeason.destroy();
-  chartSeason = new Chart(document.getElementById('chart-season').getContext('2d'), {
-    type:'bar',
-    data:{
-      labels:months,
-      datasets:[
-        { label:'Custo (R$)', data:costs, backgroundColor:costs.map(c=>c>1000?'rgba(66,133,244,0.7)':'rgba(16,42,75,0.3)'), borderRadius:5, yAxisID:'y' },
-        { label:'Leads', data:ldsArr, type:'line', borderColor:'#C69E63', backgroundColor:'transparent', borderWidth:2.5, pointBackgroundColor:'#C69E63', pointRadius:5, tension:0.3, yAxisID:'y2' }
-      ]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:false},
-      plugins:{legend:{labels:{font:{size:11},boxWidth:14}}},
-      scales:{
-        x:{ticks:{font:{size:10}},grid:{display:false}},
-        y:{position:'left',ticks:{font:{size:10},callback:v=>'R$'+v},grid:{color:'rgba(0,0,0,0.04)'}},
-        y2:{position:'right',ticks:{font:{size:10}},grid:{display:false}}
-      }
-    }
-  });
-}
-
-function renderAlerts(data, cplNum, maxCPL) {
-  const alerts = [];
-  const last7 = data.slice(-7);
-  const last7Cost = last7.reduce((s,d)=>s+d.cost,0);
-  const zeroLeadDays = last7.filter(d=>d.clicks>2&&d.leads===0).length;
-
-  if (cplNum > maxCPL) {
-    alerts.push({type:'danger', icon:'🚨', title:`CPL acima do limite — R$${Math.round(cplNum)} (meta: R$${maxCPL})`, desc:'Pause palavras-chave de baixo desempenho e adicione termos negativos.', action:'Ver keywords'});
-  }
-  if (zeroLeadDays >= 3) {
-    alerts.push({type:'warn', icon:'⚠️', title:`${zeroLeadDays} dias com cliques mas sem conversão`, desc:'Possível problema na landing page ou segmentação muito ampla.', action:'Verificar funil'});
-  }
-  if (last7Cost > 300) {
-    alerts.push({type:'warn', icon:'💸', title:`Custo últimos 7 dias: R$${Math.round(last7Cost)}`, desc:`Média diária R$${Math.round(last7Cost/7)}. Monitore o orçamento diário.`, action:''});
-  }
-  alerts.push({type:'ok', icon:'✅', title:'Pico de demanda em Out e Mar/Abr (sazonalidade Florida)', desc:'Planeje +40% de orçamento nesses meses.', action:'Ver sazonalidade'});
-  alerts.push({type:'ok', icon:'📊', title:'Keyword "custom accent wall near me" — score 9/10', desc:'Melhor desempenho de leads no período. Aumente o lance nessa keyword.', action:''});
-
-  document.getElementById('alerts-list').innerHTML = alerts.map(a=>`
-    <div class="alert-item ${a.type}">
-      <div class="alert-icon">${a.icon}</div>
-      <div class="alert-body"><div class="alert-title">${a.title}</div><div class="alert-desc">${a.desc}</div></div>
-      ${a.action ? `<div class="alert-action">${a.action} →</div>` : ''}
-    </div>`).join('');
-}
-
-function renderKeywords(apiKws) {
-  const kws = apiKws && apiKws.length > 0
-    ? apiKws.map(k => ({
-        kw: k.text,
-        impr: k.impressions,
-        clicks: k.clicks,
-        cpc: k.cpc,
-        leads: k.conversions || 0,
-        score: k.clicks > 20 ? 7 : k.clicks > 5 ? 5 : k.impressions > 0 ? 4 : 3,
-        type: k.matchType,
-      }))
-    : [
-        {kw:'accent wall',                      impr:545, clicks:48, cpc:23.41, leads:0, score:7, type:'BROAD'},
-        {kw:'accent wall ideas',                impr:0,   clicks:0,  cpc:0,     leads:0, score:3, type:'EXACT'},
-        {kw:'wall decoration ideas living room', impr:1,  clicks:0,  cpc:0,     leads:0, score:3, type:'BROAD'},
-        {kw:'accent wall contractor near me',   impr:4,   clicks:0,  cpc:0,     leads:0, score:5, type:'EXACT'},
-        {kw:'accent wall installation Orlando', impr:0,   clicks:0,  cpc:0,     leads:0, score:4, type:'EXACT'},
-        {kw:'accent wall design Orlando',       impr:0,   clicks:0,  cpc:0,     leads:0, score:4, type:'PHRASE'},
-      ];
-  document.getElementById('kw-table').innerHTML = kws.map(k=>{
-    const ctr = ((k.clicks/k.impr)*100).toFixed(1);
-    const sc = k.score >= 8 ? 'kw-high' : k.score >= 6 ? 'kw-med' : 'kw-low';
-    const scLabel = k.score >= 8 ? 'Alto' : k.score >= 6 ? 'Médio' : 'Baixo';
-    return `<tr>
-      <td style="font-weight:600">${k.kw}</td>
-      <td>${k.impr.toLocaleString()}</td><td>${k.clicks}</td><td>${ctr}%</td>
-      <td>R$${k.cpc.toFixed(2)}</td>
-      <td style="font-weight:700;color:${k.leads>3?'var(--green)':k.leads>0?'var(--navy)':'var(--red)'}">${k.leads}</td>
-      <td><span class="kw-tag ${sc}">${scLabel} (${k.score}/10)</span></td>
-    </tr>`;
-  }).join('');
 }
 
 function renderCompetitors() {
@@ -2178,22 +2198,20 @@ function renderCompetitors() {
     </div>`).join('');
 }
 
-function renderAI(cplNum, maxCPL) {
-  const suggestions = [
-    {icon:'🎯', text:`<strong>Campanha ativa desde 08/Jun:</strong> "accent wall" (BROAD) gerou 100% dos seus 48 cliques. Adicione variações exact match como "accent wall Orlando" e "accent wall contractor near me" para capturar intenção mais alta.`},
-    {icon:'🔑', text:`<strong>CPC médio R$23,41 — Keyword única:</strong> Toda verba está concentrada em 1 keyword. Diversifique com "tv wall design Orlando", "slat wall installation" e "custom accent wall near me" para reduzir risco.`},
-    {icon:'📱', text:`<strong>Crie campanha separada para TV Wall:</strong> Campanha dedicada com extensões de imagem aumenta CTR ~30% nesse segmento.`},
-    {icon:'🌟', text:`<strong>Ative extensões de avaliações:</strong> Com 5.0★, Review Extensions aumentam CTR em 15-25% sem custo adicional.`},
-    {icon:'💡', text:`<strong>Landing pages por serviço:</strong> Páginas específicas para Accent Wall e TV Wall aumentam Quality Score e reduzem CPC médio.`},
-  ];
-  if (cplNum > maxCPL) {
-    suggestions.unshift({icon:'🚨', text:`<strong>CPL acima da meta:</strong> Ação imediata — adicionar negativos ("DIY", "how to", "cheap") para filtrar buscas sem intenção de contratar.`});
+function renderAI(tot, cplNum, curRows, has) {
+  // Sugestoes calculadas SOMENTE a partir dos numeros reais do periodo (nada de texto fixo).
+  const s = [];
+  if (!has) s.push({ icon: 'ℹ️', text: 'Sem dados do Google Ads no período. Conecte/sincronize o Google em Usuários > Integrações.' });
+  else {
+    if (tot.clicks >= 20 && tot.conv === 0) s.push({ icon: '🎯', text: `<strong>${tot.clicks} cliques e nenhuma conversão registrada no Google Ads.</strong> Confirme que a conversão do formulário/ligação está configurada e revise a landing page.` });
+    if (cplNum > GA_MAX_CPL) s.push({ icon: '🚨', text: `<strong>Custo por lead ${usd(cplNum, 0)} acima da meta de ${usd(GA_MAX_CPL, 0)}.</strong> Adicione palavras negativas (ex.: "DIY", "how to", "cheap") e reveja os termos de busca.` });
+    const byC = {}; curRows.forEach(r => { byC[r.campaign_id] = (byC[r.campaign_id] || 0) + Number(r.cost_micros) / 1e6; });
+    const costs = Object.values(byC).sort((a, b) => b - a);
+    if (costs.length > 1 && tot.cost > 0 && costs[0] / tot.cost > 0.8) s.push({ icon: '🔑', text: `<strong>${Math.round(costs[0] / tot.cost * 100)}% da verba está em uma única campanha.</strong> Considere separar serviços (Accent Wall, TV Wall) em campanhas próprias.` });
+    if (!s.length) s.push({ icon: '✅', text: 'Nenhum ponto de atenção automático neste período.' });
   }
-  document.getElementById('ai-list').innerHTML = suggestions.map(s=>`
-    <div class="ai-item">
-      <div class="ai-item-icon">${s.icon}</div>
-      <div class="ai-item-text">${s.text}</div>
-    </div>`).join('');
+  document.getElementById('ai-list').innerHTML = s.map(x => `
+    <div class="ai-item"><div class="ai-item-icon">${x.icon}</div><div class="ai-item-text">${x.text}</div></div>`).join('');
 }
 
 // ── MODAL ──────────────────────────────────────────────────────
