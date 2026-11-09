@@ -349,3 +349,11 @@ Resumo: Mesclados os 2 invoices em aberto da cliente Maricela (INV-2607-2 e INV-
 Status: CONCLUIDO
 Arquivos/tabelas: quotes.html, proposals.html
 Resumo: Adicionados botoes de ordenacao (cliente, data, titulo, projeto, maior/menor valor) nas abas de Orcamentos e Propostas.
+
+## 2026-11-09 (noite) — Claude — FT-013: Google conectado e validado
+- Conectado em producao (merge b4530ec..64fb9e6 na main). Primeira sync: Ads 57 linhas, GA4 132, GSC 693. Business Profile: erro real `rate_limit_exceeded` (cota da API de contas; provavel falta de aprovacao do acesso da API pelo Google). Reviews = 0.
+- Validado contra paineis: Ads (conta FINE TOUCH - FABINHO, 4795859742) 280 cliques / R$1.847,50 = painel; GA4 147 sessoes (2-8/11) = painel, mesma divisao por origem; GSC: 139 consultas = painel; totais do painel incluem consultas anonimas (36 cliques) -> novo `gsc_daily` guarda totais reais.
+- ACHADO: Google Ads com "saldo esgotado" no painel (sem dados desde 25/06). Gestor de trafego vai operar as campanhas; o ERP so le dados (Claude NAO cria/altera campanhas).
+- Novas tabelas (aplicadas): `gsc_daily`, `ga4_landing_daily` (canal x pagina de entrada, separa organico/blog/ads/direto/social), `ga4_events_daily` (eventos por nome e canal). SQL em `db/ft013-gsc-daily.sql`. Marketing > Resumo ganhou bloco "De onde vem o trafego".
+- Nota: ~86% das sessoes GA4 sao "direct" (cidades tipo Reston/Wheaton = provavel robo/data center); organico Google ~1,4 sessao/dia.
+- Pendente: acesso Business Profile API (formulario Google); publicar captura de atribuicao no Lovable (decisao do Fabinho/Maia, NAO publicado); GA4 sem evento-chave de formulario; palavras-chave por campanha; conversoes offline.

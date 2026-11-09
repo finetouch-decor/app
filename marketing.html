@@ -373,6 +373,19 @@
           <div class="leads-header"><span class="leads-title">📊 Leads por Origem</span></div>
           <div id="leads-by-source"><div class="loading"><div class="spinner"></div></div></div>
         </div>
+        <div class="leads-section" style="margin-top:20px" id="traffic-section">
+          <div class="leads-header">
+            <span class="leads-title">🧭 De onde vem o tráfego do site (Google Analytics)</span>
+            <span>
+              <select id="traffic-days" onchange="loadTrafficSources()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:8px">
+                <option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="180">Últimos 180 dias</option>
+              </select>
+            </span>
+          </div>
+          <div id="traffic-by-channel" style="padding:12px 20px"><div class="loading"><div class="spinner"></div></div></div>
+          <div id="traffic-by-page" style="padding:0 20px 8px"></div>
+          <div id="traffic-events" style="padding:0 20px 14px"></div>
+        </div>
       </div>
 
       <!-- ══ TAB GOOGLE ADS ══ -->
@@ -1074,6 +1087,7 @@ async function buildGscFromDb() {
     const from = ymdLocal(new Date(Date.now() - 90 * 86400000));
     const rows = await fetchAllRows(() => db.from('gsc_query_daily').select('date,query,page,clicks,impressions,position,synced_at').gte('date', from).order('date').order('query').order('page'));
     if (!rows.length) return null;
+    const daily = await fetchAllRows(() => db.from('gsc_daily').select('date,clicks,impressions,position').gte('date', from).order('date'));
     let clicks = 0, impr = 0, posW = 0, last = '', first = rows[0].date, end = rows[0].date;
     const q = {};
     rows.forEach(r => {
@@ -1082,6 +1096,10 @@ async function buildGscFromDb() {
       const o = q[r.query] || (q[r.query] = { query: r.query, clicks: 0, impressions: 0, posW: 0 });
       o.clicks += r.clicks; o.impressions += r.impressions; o.posW += Number(r.position || 0) * r.impressions;
     });
+    if (daily.length) { // totais reais do Google (incluem consultas anonimas); as consultas abaixo sao so as visiveis
+      clicks = 0; impr = 0; posW = 0;
+      daily.forEach(r => { clicks += r.clicks; impr += r.impressions; posW += Number(r.position || 0) * r.impressions; });
+    }
     const topQueries = Object.values(q).map(o => ({ query: o.query, clicks: o.clicks, impressions: o.impressions, ctr: o.impressions ? Math.round(o.clicks / o.impressions * 1000) / 10 : 0, position: o.impressions ? Math.round(o.posW / o.impressions * 10) / 10 : 0 }))
       .sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions);
     return { ok: true, periodStart: first, periodEnd: end, fetchedAt: last,
@@ -1805,6 +1823,58 @@ function renderAprovCalendario() {
   `;
 }
 
+
+// ── Origem do trafego (GA4 por canal e pagina de entrada) ──────────────
+const GA_CHANNEL_LABELS = { 'Organic Search': '🔎 Orgânico (Google/Bing)', 'Paid Search': '💰 Anúncios (Google Ads)', 'Direct': '➡️ Direto', 'Organic Social': '📱 Redes sociais', 'Paid Social': '💰 Anúncios (redes sociais)', 'Referral': '🔗 Outros sites', 'Organic Shopping': '🛍️ Shopping', 'Email': '✉️ E-mail', 'Display': '🖼️ Display', 'Unassigned': '❔ Não atribuído', 'Cross-network': '🌐 Cross-network' };
+const GA_CHANNEL_BUCKET = { 'Organic Search': 'org', 'Paid Search': 'ads', 'Paid Social': 'ads', 'Display': 'ads', 'Direct': 'dir' };
+function gaPageKind(path) {
+  const p = (path || '').split('?')[0];
+  if (/^\/blog/i.test(p)) return 'Blog';
+  if (p === '/' || p === '') return 'Página inicial';
+  if (/catalog/i.test(p)) return 'Catálogo';
+  if (/project|portf/i.test(p)) return 'Projetos';
+  if (/accent|media-wall|kissimmee|lake-nona|orlando|winter|city|-fl/i.test(p)) return 'Páginas por cidade/serviço';
+  return 'Outras páginas';
+}
+async function loadTrafficSources() {
+  const chEl = document.getElementById('traffic-by-channel'), pgEl = document.getElementById('traffic-by-page');
+  if (!chEl) return;
+  try {
+    const days = Number(document.getElementById('traffic-days').value) || 30;
+    const from = ymdLocal(new Date(Date.now() - days * 86400000));
+    const rows = await fetchAllRows(() => db.from('ga4_landing_daily').select('date,channel_group,source,medium,landing_page,sessions,engaged_sessions,key_events').gte('date', from).order('date'));
+    if (!rows.length) { chEl.innerHTML = '<div class="empty">Sem dados do Google Analytics ainda. Conecte o Google em Usuários &gt; Integrações.</div>'; pgEl.innerHTML = ''; return; }
+    const ch = {}, pg = {};
+    let total = 0;
+    rows.forEach(r => {
+      total += r.sessions;
+      const c = ch[r.channel_group] || (ch[r.channel_group] = { s: 0, e: 0, k: 0 });
+      c.s += r.sessions; c.e += r.engaged_sessions; c.k += Number(r.key_events || 0);
+      const kind = gaPageKind(r.landing_page);
+      const g = pg[kind] || (pg[kind] = { s: 0, org: 0, ads: 0, dir: 0, oth: 0, k: 0 });
+      g.s += r.sessions; g.k += Number(r.key_events || 0);
+      g[GA_CHANNEL_BUCKET[r.channel_group] || 'oth'] += r.sessions;
+    });
+    const pct = (n, d) => d ? Math.round(n / d * 100) + '%' : '—';
+    chEl.innerHTML = `<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">${total.toLocaleString('pt-BR')} sessões nos últimos ${days} dias. "Direto" inclui robôs e acessos internos, por isso o orgânico e os anúncios são os números confiáveis.</div>
+      <table><thead><tr><th>Canal</th><th style="text-align:right">Sessões</th><th style="text-align:right">% do total</th><th style="text-align:right">Engajadas</th><th style="text-align:right">Eventos-chave</th></tr></thead><tbody>` +
+      Object.entries(ch).sort((a, b) => b[1].s - a[1].s).map(([k, v]) => `<tr><td style="font-weight:600">${escapeHtml(GA_CHANNEL_LABELS[k] || k)}</td><td style="text-align:right">${v.s.toLocaleString('pt-BR')}</td><td style="text-align:right">${pct(v.s, total)}</td><td style="text-align:right">${pct(v.e, v.s)}</td><td style="text-align:right">${v.k}</td></tr>`).join('') + '</tbody></table>';
+    pgEl.innerHTML = `<div style="font-size:12px;font-weight:700;color:var(--navy);margin:6px 0">Por tipo de página de entrada</div>
+      <table><thead><tr><th>Página de entrada</th><th style="text-align:right">Sessões</th><th style="text-align:right">Orgânico</th><th style="text-align:right">Anúncios</th><th style="text-align:right">Direto</th><th style="text-align:right">Outros</th><th style="text-align:right">Eventos-chave</th></tr></thead><tbody>` +
+      Object.entries(pg).sort((a, b) => b[1].s - a[1].s).map(([k, v]) => `<tr><td style="font-weight:600">${escapeHtml(k)}</td><td style="text-align:right">${v.s}</td><td style="text-align:right">${v.org}</td><td style="text-align:right">${v.ads}</td><td style="text-align:right">${v.dir}</td><td style="text-align:right">${v.oth}</td><td style="text-align:right">${v.k}</td></tr>`).join('') + '</tbody></table>';
+    const evEl = document.getElementById('traffic-events');
+    const ev = await fetchAllRows(() => db.from('ga4_events_daily').select('event_name,channel_group,event_count,key_events').gte('date', from));
+    const ACOES = { form_submit: 'Envio de formulário', generate_lead: 'Lead gerado', click: 'Cliques em links externos', file_download: 'Downloads', scroll: 'Rolagem de página', page_view: 'Páginas vistas', session_start: 'Início de sessão', first_visit: 'Primeira visita', user_engagement: 'Engajamento' };
+    const en = {};
+    ev.forEach(r => { const o = en[r.event_name] || (en[r.event_name] = { n: 0, k: 0, org: 0, ads: 0, dir: 0, oth: 0 }); o.n += Number(r.event_count); o.k += Number(r.key_events || 0); o[GA_CHANNEL_BUCKET[r.channel_group] || 'oth'] += Number(r.event_count); });
+    evEl.innerHTML = Object.keys(en).length ? `<div style="font-size:12px;font-weight:700;color:var(--navy);margin:10px 0 6px">Ações no site (eventos do GA4), por canal</div>
+      <table><thead><tr><th>Ação</th><th style="text-align:right">Total</th><th style="text-align:right">Orgânico</th><th style="text-align:right">Anúncios</th><th style="text-align:right">Direto</th><th style="text-align:right">Outros</th></tr></thead><tbody>` +
+      Object.entries(en).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => `<tr><td style="font-weight:600">${escapeHtml(ACOES[k] || k)}${v.k ? ' <span class="tab-badge">evento-chave</span>' : ''}</td><td style="text-align:right">${v.n}</td><td style="text-align:right">${v.org}</td><td style="text-align:right">${v.ads}</td><td style="text-align:right">${v.dir}</td><td style="text-align:right">${v.oth}</td></tr>`).join('') + '</tbody></table>' : '';
+  } catch (e) {
+    chEl.innerHTML = '<div class="empty">Erro ao carregar o tráfego: ' + escapeHtml(e.message || String(e)) + '</div>'; pgEl.innerHTML = '';
+  }
+}
+
 async function init() {
   const { data: { session } } = await db.auth.getSession();
   if (!session) { window.location.href = '/login.html'; return; }
@@ -1817,6 +1887,7 @@ async function init() {
   document.getElementById('btn-topbar-ads').style.display = '';
   await loadData();
   loadGoogleHealth();
+  loadTrafficSources();
   loadAprovacoes(); // carrega em paralelo so pra popular o badge de pendentes
 }
 db.auth.onAuthStateChange((e,s) => { if(e==='SIGNED_OUT') window.location.href='/login.html'; });

@@ -29,7 +29,7 @@ Fila compartilhada de trabalho entre Fabinho, Maia (ChatGPT) e Claude.
 ## Tarefas ativas
 
 ### FT-013 — Tudo do Google dentro do ERP (Ads, Analytics, Search Console, avaliacoes, atribuicao de leads)
-Status: EM ANDAMENTO (codigo pronto e testado localmente; falta publicar, conectar o Google e validar com dados reais)
+Status: EM ANDAMENTO (em producao e conectado; Ads/GA4/GSC validados com paineis; falta Business Profile API, atribuicao de leads no site e novo push de canais GA4)
 Prioridade: ALTA (campanhas comecam em poucos dias)
 Responsável: Claude (revisao: Maia)
 Solicitado por: Fabinho
