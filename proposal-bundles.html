@@ -412,11 +412,11 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
       <div id="parc-subtitle" style="font-size:13px;color:var(--muted);margin-bottom:14px;"></div>
       <div class="form-row" style="margin-bottom:16px;">
         <div id="parc-method-full" onclick="selectPaymentMethod('full')" style="border:2px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;text-align:center;">
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;">Card / PayPal / Venmo</div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;">Bundle total (no card fee)</div>
           <div id="parc-method-full-value" style="font-size:18px;font-weight:800;color:var(--navy);margin-top:4px;">$0.00</div>
         </div>
-        <div id="parc-method-cash" onclick="selectPaymentMethod('cash')" style="border:2px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;text-align:center;">
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;">Cash / Zelle (-3%)</div>
+        <div id="parc-method-cash" onclick="selectPaymentMethod('fee')" style="border:2px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;text-align:center;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;">Card — add 3% fee</div>
           <div id="parc-method-cash-value" style="font-size:18px;font-weight:800;color:var(--navy);margin-top:4px;">$0.00</div>
         </div>
       </div>
@@ -737,7 +737,7 @@ async function confirmReject() {
 }
 
 /* ─── GERAR INVOICE A PARTIR DO COMBO ─── */
-let parcelasTotal = 0, parcelasFullTotal = 0, parcelasCashTotal = 0;
+let parcelasTotal = 0, parcelasFullTotal = 0, parcelasFeeTotal = 0;
 let parcelasBundleId = null, parcelasClientId = null, parcelasProjectId = null, parcelasClientName = '', parcelasBundleTitle = '';
 let parcelasPaymentMethod = null, parcelaCount = 0;
 
@@ -758,12 +758,12 @@ async function generateInvoice(id) {
   }
 
   parcelasFullTotal = Number(b.total) || 0;
-  parcelasCashTotal = Math.round(parcelasFullTotal * 0.97 * 100) / 100;
+  parcelasFeeTotal = Math.round(parcelasFullTotal * 1.03 * 100) / 100;
   parcelasPaymentMethod = null;
 
   document.getElementById('parc-subtitle').textContent = parcelasClientName + ' — qual valor o cliente aprovou?';
   document.getElementById('parc-method-full-value').textContent = fmt(parcelasFullTotal);
-  document.getElementById('parc-method-cash-value').textContent = fmt(parcelasCashTotal);
+  document.getElementById('parc-method-cash-value').textContent = fmt(parcelasFeeTotal);
   document.getElementById('parc-method-full').style.borderColor = 'var(--border)';
   document.getElementById('parc-method-cash').style.borderColor = 'var(--border)';
   document.getElementById('parc-body-rest').style.display = 'none';
@@ -776,11 +776,11 @@ async function generateInvoice(id) {
 
 function selectPaymentMethod(method) {
   parcelasPaymentMethod = method;
-  parcelasTotal = method === 'cash' ? parcelasCashTotal : parcelasFullTotal;
+  parcelasTotal = method === 'fee' ? parcelasFeeTotal : parcelasFullTotal;
   document.getElementById('parc-method-full').style.borderColor = method === 'full' ? 'var(--gold)' : 'var(--border)';
-  document.getElementById('parc-method-cash').style.borderColor = method === 'cash' ? 'var(--gold)' : 'var(--border)';
+  document.getElementById('parc-method-cash').style.borderColor = method === 'fee' ? 'var(--gold)' : 'var(--border)';
   document.getElementById('parc-total-display').textContent = fmt(parcelasTotal);
-  document.getElementById('parc-method-label').textContent = method === 'cash' ? '💵 Cash / Zelle — 3% discount applied' : '💳 Card / PayPal / Venmo — full price';
+  document.getElementById('parc-method-label').textContent = method === 'fee' ? '💳 Card — 3% processing fee added' : 'Bundle total';
   document.getElementById('parc-body-rest').style.display = 'block';
   document.getElementById('btn-criar-invoices').disabled = false;
   applyTemplate([50, 50]);
@@ -853,7 +853,7 @@ async function criarInvoices() {
     const valor  = parseFloat(inputs[1]?.value) || 0;
     const venc   = inputs[2]?.value || hoje;
     const num    = 'INV-' + Date.now().toString().slice(-4) + '-' + i;
-    const methodLabel = parcelasPaymentMethod === 'cash' ? 'Cash/Zelle (-3%)' : 'Card/PayPal/Venmo (full price)';
+    const feeNote = parcelasPaymentMethod === 'fee' ? ' (includes 3% card processing fee)' : '';
     payloads.push({
       invoice_number: num,
       client_id: parcelasClientId,
@@ -866,7 +866,7 @@ async function criarInvoices() {
       due_date: venc,
       subtotal: valor,
       total: valor,
-      notes: `Installment ${i}/${total}: ${desc} — Bundle ${parcelasClientName} — Payment: ${methodLabel}`,
+      notes: `Installment ${i}/${total}: ${desc} — Bundle ${parcelasClientName}${feeNote}`,
     });
   });
 

@@ -409,10 +409,10 @@ textarea{resize:vertical;min-height:64px;}
         <div class="s-row"><span class="s-label">PREÇO DE VENDA AO CLIENTE</span><span class="s-val" id="s-sale">$0.00</span></div>
         <div class="markup-row" style="margin-top:8px">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;">
-            <input type="checkbox" id="f-card-fee" checked onchange="recalc()" style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer;">
-            <span>Taxa cartão (+3%)</span>
+            <input type="checkbox" id="f-card-fee" onchange="recalc()" style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer;">
+            <span>Acrescentar taxa de cartão (+3%)</span>
           </label>
-          <span style="color:rgba(255,255,255,0.35);font-size:11px;">cash/Zelle tem 3% de desconto sobre o preço com taxa</span>
+          <span style="color:rgba(255,255,255,0.35);font-size:11px;">ligue só se o cliente for pagar no cartão</span>
         </div>
         <div class="s-row" id="s-cardfee-row"><span class="s-label">+ Taxa cartão (3%)</span><span class="s-val" id="s-cardfee">$0.00</span></div>
         <div class="s-row"><span class="s-label" style="font-weight:700;">PREÇO COM TAXA DE CARTÃO</span><span class="s-val" id="s-sale-fee">$0.00</span></div>
@@ -918,7 +918,7 @@ function openModal(id) {
     document.getElementById('f-markup').value='30';
     document.getElementById('f-discount-pct').value='0';
     document.getElementById('f-discount-val').value='0';
-    document.getElementById('f-card-fee').checked=true;
+    document.getElementById('f-card-fee').checked=false;
     document.getElementById('f-date').value=new Date().toISOString().slice(0,10);
   }
   if(!matRowIds.length) addMatRow();
@@ -1179,6 +1179,8 @@ async function genProposal(quoteId) {
     title:`Proposal — ${q.project_name||q.clients?.name||'Project'}`,
     date:new Date().toISOString().slice(0,10),
     total_cost:salePrice,
+    card_fee_enabled:q.card_fee_enabled===true,
+    base_cost:q.card_fee_enabled===true?Math.round(salePrice/1.03*100)/100:salePrice,
     status:'draft',
     project_scope:projectScope,
     scope_items:scopeItems,

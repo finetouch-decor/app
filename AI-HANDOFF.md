@@ -357,3 +357,11 @@ Resumo: Adicionados botoes de ordenacao (cliente, data, titulo, projeto, maior/m
 - Novas tabelas (aplicadas): `gsc_daily`, `ga4_landing_daily` (canal x pagina de entrada, separa organico/blog/ads/direto/social), `ga4_events_daily` (eventos por nome e canal). SQL em `db/ft013-gsc-daily.sql`. Marketing > Resumo ganhou bloco "De onde vem o trafego".
 - Nota: ~86% das sessoes GA4 sao "direct" (cidades tipo Reston/Wheaton = provavel robo/data center); organico Google ~1,4 sessao/dia.
 - Pendente: acesso Business Profile API (formulario Google); publicar captura de atribuicao no Lovable (decisao do Fabinho/Maia, NAO publicado); GA4 sem evento-chave de formulario; palavras-chave por campanha; conversoes offline.
+
+## 2026-11-11 — Claude — Taxa de cartao como acrescimo (+3%) em vez de desconto cash/Zelle
+- Pedido do Fabinho: nao ha mais desconto de 3% para cash/Zelle; a taxa de cartao vira ACRESCIMO opcional, ligado/desligado por botao, no orcamento e na proposta. Tirar informacao de desconto do invoice.
+- quotes.html: checkbox "Acrescentar taxa de cartao (+3%)" agora DESLIGADO por padrao em orcamento novo (orcamentos salvos mantem o valor salvo); removido o texto "cash/Zelle tem 3% de desconto". O campo geral "Desconto %" de negociacao NAO foi alterado. Proposta gerada a partir do orcamento herda card_fee_enabled e base_cost.
+- proposals.html: checkbox no modal + botao "💳 +3%" na linha da proposta (liga/desliga direto; total_cost = base_cost x 1.03). Impressao da proposta mostra "Subtotal + 3% credit card processing fee" so quando ligado; removida a linha "Cash or Zelle price (3% discount)" e o texto "save 3%". Modal Generate Invoices: removida a opcao Cash/Zelle (-3%); notas do invoice nao citam mais desconto (so "(includes 3% card processing fee)" quando a taxa esta ligada). Preco customizado mantido, sem texto de desconto.
+- proposal-bundles.html: opcao "Cash / Zelle (-3%)" do modal de invoice virou "Card — add 3% fee" (total x 1.03); notas sem desconto.
+- DB (aplicado): db/proposals-card-fee.sql -> proposals.card_fee_enabled boolean default false, proposals.base_cost numeric. Propostas antigas mantem total_cost como esta (card_fee_enabled=false).
+- Invoices ja emitidos com texto antigo nas notas NAO foram alterados.

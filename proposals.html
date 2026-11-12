@@ -314,22 +314,17 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
       <!-- PASSO 1: QUAL VALOR O CLIENTE APROVOU -->
       <div id="parc-method-step" style="margin-bottom:18px;">
         <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Which price did the client approve?</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div style="display:grid;grid-template-columns:1fr;gap:10px;">
           <button type="button" id="parc-method-full" onclick="selectPaymentMethod('full')" style="text-align:left;padding:12px 14px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;font-family:'Inter',sans-serif;">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;">💳 Card / PayPal / Venmo</div>
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;">Proposal total</div>
             <div style="font-size:18px;font-weight:800;color:var(--navy);margin-top:4px;" id="parc-method-full-value">$0.00</div>
-            <div style="font-size:10.5px;color:var(--muted);margin-top:2px;">Full price</div>
-          </button>
-          <button type="button" id="parc-method-cash" onclick="selectPaymentMethod('cash')" style="text-align:left;padding:12px 14px;border:2px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;font-family:'Inter',sans-serif;">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;">💵 Cash / Zelle</div>
-            <div style="font-size:18px;font-weight:800;color:var(--navy);margin-top:4px;" id="parc-method-cash-value">$0.00</div>
-            <div style="font-size:10.5px;color:var(--muted);margin-top:2px;">3% discount</div>
+            <div style="font-size:10.5px;color:var(--muted);margin-top:2px;" id="parc-method-full-sub">As shown on the proposal</div>
           </button>
         </div>
       </div>
 
       <div style="margin:-6px 0 18px;padding:12px 14px;border:2px dashed var(--border);border-radius:10px;background:#fff;" id="parc-method-custom">
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;">✏️ Or set a custom price (your own discount)</div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;">✏️ Or set a custom final price</div>
         <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
           <span style="font-weight:700;color:var(--navy);">$</span>
           <input type="number" id="parc-custom-input" min="0.01" step="0.01" placeholder="Final price the client agreed to" style="flex:1;min-width:160px;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;" oninput="updateCustomHint()">
@@ -411,7 +406,11 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
       <div class="field"><label>Proposal Title</label><input type="text" id="f-title" placeholder="e.g. DECORATIVE WALL TRIM INSTALLATION"></div>
       <div class="form-row">
         <div class="field"><label>Date</label><input type="date" id="f-date"></div>
-        <div class="field"><label>Total Cost (USD)</label><input type="number" id="f-cost" placeholder="0.00" min="0" step="0.01"></div>
+        <div class="field"><label>Total Cost (USD)</label><input type="number" id="f-cost" placeholder="0.00" min="0" step="0.01" oninput="onCostInput()">
+          <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12.5px;font-weight:600;color:var(--navy);cursor:pointer;text-transform:none;letter-spacing:0;">
+            <input type="checkbox" id="f-card-fee" onchange="onCardFeeToggle()" style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer;"> 💳 Add 3% credit card fee
+          </label>
+          <div id="f-card-fee-hint" style="font-size:11px;color:var(--muted);margin-top:2px;">Turn on only if the client pays by card.</div></div>
       </div>
       <div class="field"><label>Project Scope</label><textarea id="f-scope" placeholder="Brief description of the overall project scope..."></textarea></div>
       <div class="field">
@@ -528,8 +527,8 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
         <div class="tl">Total Investment</div>
         <div class="tv" id="doc-total">$0.00</div>
       </div>
-      <div style="text-align:right;font-size:12.5px;color:#64748B;margin-top:8px;">
-        💵 Cash or Zelle price (3% discount): <strong id="doc-total-cash" style="color:#102A4B;">$0.00</strong>
+      <div id="doc-fee-breakdown" style="display:none;text-align:right;font-size:12.5px;color:#64748B;margin-top:8px;">
+        Subtotal <strong id="doc-subtotal" style="color:#102A4B;">$0.00</strong> + 3% credit card processing fee <strong id="doc-cardfee" style="color:#102A4B;">$0.00</strong>
       </div>
 
       <div style="text-align:center;margin-top:16px;padding:14px 18px;background:#FFFBF2;border:1px solid #E6D6AC;border-radius:8px;">
@@ -549,7 +548,7 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
       <div class="doc-note" style="margin-top:28px;">
         📌 This proposal includes all labor and materials necessary to complete the project as described above.<br>
         ⏳ This proposal is valid for <strong>30 days</strong> from the date of issue.<br>
-        💳 We accept credit/debit card (Stripe) and PayPal. Pay by cash or Zelle and save 3%.
+        💳 We accept credit/debit card (Stripe), PayPal, Zelle and cash.
       </div>
 
       <!-- Signatures -->
@@ -771,12 +770,46 @@ function render() {
         <span class="badge ${statusBadge[p.status]||'badge-draft'}">${statusLabel[p.status]||p.status}</span>
         ${p.status!=='accepted'&&p.status!=='rejected' ? `<button class="btn-icon" style="background:#f0fdf4;border-color:#16a34a;color:#16a34a;font-size:11px;font-weight:700;padding:5px 10px;" onclick="approveProposal('${p.id}')" title="Aprovar proposta">✅ Aprovar</button>` : ''}
         ${p.status==='accepted' ? `<button class="btn-icon" style="background:#eff6ff;border-color:#2563eb;color:#2563eb;font-size:11px;font-weight:700;padding:5px 10px;" onclick="generateInvoice('${p.id}')" title="Gerar Invoice">🧾 Invoice</button>` : ''}
+        <button class="btn-icon" style="${p.card_fee_enabled ? 'background:#fff7e0;border-color:#C69E63;color:#8a6a2a;font-weight:700;' : ''}font-size:11px;padding:5px 9px;" onclick="toggleCardFee('${p.id}')" title="${p.card_fee_enabled ? 'Card fee (+3%) is ON — click to remove' : 'Add 3% card fee'}">💳 ${p.card_fee_enabled ? '+3% ON' : '+3%'}</button>
         <button class="btn-icon" onclick="openEdit('${p.id}')" title="Edit">✏️</button>
         <button class="btn-icon" onclick="duplicateProposal('${p.id}')" title="Duplicar (ex: mesmo serviço, material diferente)">📑</button>
         <button class="btn-icon" onclick="openPrint('${p.id}')" title="Preview">👁️</button>
         <button class="btn-icon" onclick="deleteProposal('${p.id}')" title="Delete">🗑️</button>
       </div>
     </div>`).join('');
+}
+
+// ─── TAXA DE CARTAO (+3%, opcional) ──────────────────────────
+const CARD_FEE_RATE = 0.03;
+let propBase = 0;
+const round2 = n => Math.round(n * 100) / 100;
+function onCostInput() {
+  const v = parseFloat(document.getElementById('f-cost').value) || 0;
+  propBase = document.getElementById('f-card-fee').checked ? round2(v / (1 + CARD_FEE_RATE)) : v;
+  updateCardFeeHint();
+}
+function onCardFeeToggle() {
+  const on = document.getElementById('f-card-fee').checked;
+  if (!propBase) propBase = parseFloat(document.getElementById('f-cost').value) || 0;
+  document.getElementById('f-cost').value = propBase ? (on ? round2(propBase * (1 + CARD_FEE_RATE)) : propBase) : '';
+  updateCardFeeHint();
+}
+function updateCardFeeHint() {
+  const on = document.getElementById('f-card-fee').checked;
+  document.getElementById('f-card-fee-hint').textContent = on && propBase
+    ? 'Subtotal ' + fmtMoney(propBase) + ' + 3% card fee ' + fmtMoney(round2(propBase * CARD_FEE_RATE)) + ' = ' + fmtMoney(round2(propBase * (1 + CARD_FEE_RATE)))
+    : 'Turn on only if the client pays by card.';
+}
+async function toggleCardFee(id) {
+  const p = proposals.find(x => x.id === id);
+  if (!p) return;
+  const on = !p.card_fee_enabled;
+  const base = Number(p.base_cost) > 0 ? Number(p.base_cost) : (p.card_fee_enabled ? round2(Number(p.total_cost) / (1 + CARD_FEE_RATE)) : Number(p.total_cost) || 0);
+  const total = on ? round2(base * (1 + CARD_FEE_RATE)) : base;
+  const { error } = await db.from('proposals').update({ card_fee_enabled: on, base_cost: base, total_cost: total }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast(on ? '💳 3% card fee added: ' + fmtMoney(total) : '💳 Card fee removed: ' + fmtMoney(total), 'success');
+  await loadProposals();
 }
 
 // ─── MODAL ───────────────────────────────────────────────────
@@ -790,6 +823,9 @@ function openModal(data=null) {
   document.getElementById('f-title').value    = data?.title || '';
   document.getElementById('f-date').value     = data?.date || new Date().toISOString().slice(0,10);
   document.getElementById('f-cost').value     = data?.total_cost || '';
+  document.getElementById('f-card-fee').checked = data?.card_fee_enabled === true;
+  propBase = data ? (Number(data.base_cost) > 0 ? Number(data.base_cost) : (data.card_fee_enabled ? round2(Number(data.total_cost) / (1 + CARD_FEE_RATE)) : Number(data.total_cost) || 0)) : 0;
+  updateCardFeeHint();
   document.getElementById('f-scope').value    = data?.project_scope || '';
   document.getElementById('f-duration').value = data?.duration || '';
   document.getElementById('f-status').value   = data?.status || 'draft';
@@ -927,6 +963,8 @@ async function saveProposal() {
     title:         document.getElementById('f-title').value.trim(),
     date:          document.getElementById('f-date').value,
     total_cost:    parseFloat(document.getElementById('f-cost').value)||0,
+    card_fee_enabled: document.getElementById('f-card-fee').checked,
+    base_cost:     document.getElementById('f-card-fee').checked ? round2((parseFloat(document.getElementById('f-cost').value)||0) / (1 + CARD_FEE_RATE)) : (parseFloat(document.getElementById('f-cost').value)||0),
     project_scope: document.getElementById('f-scope').value.trim(),
     scope_items:   getScopeItems(),
     duration:      document.getElementById('f-duration').value.trim(),
@@ -1011,8 +1049,8 @@ async function approveProposal(id) {
 let parcelasProposalId = null;
 let parcelasTotal = 0;
 let parcelasFullTotal = 0;
-let parcelasCashTotal = 0;
-let parcelasPaymentMethod = null; // 'full' | 'cash' | 'custom'
+let parcelasFeeOn = false;
+let parcelasPaymentMethod = null; // 'full' | 'custom'
 let parcelasCustomTotal = 0;
 let parcelasClientId = null;
 let parcelasProjectId = null;
@@ -1048,14 +1086,13 @@ async function generateInvoice(id) {
   }
 
   parcelasFullTotal = Number(p.total_cost) || 0;
-  parcelasCashTotal = Math.round(parcelasFullTotal * 0.97 * 100) / 100;
+  parcelasFeeOn = p.card_fee_enabled === true;
   parcelasPaymentMethod = null;
 
   document.getElementById('parc-subtitle').textContent = parcelasClientName + ' — qual valor o cliente aprovou?';
   document.getElementById('parc-method-full-value').textContent = fmtMoney(parcelasFullTotal);
-  document.getElementById('parc-method-cash-value').textContent = fmtMoney(parcelasCashTotal);
+  document.getElementById('parc-method-full-sub').textContent = parcelasFeeOn ? 'Includes 3% card fee' : 'As shown on the proposal';
   document.getElementById('parc-method-full').style.borderColor = 'var(--border)';
-  document.getElementById('parc-method-cash').style.borderColor = 'var(--border)';
   document.getElementById('parc-method-custom').style.borderColor = 'var(--border)';
   document.getElementById('parc-custom-input').value = '';
   document.getElementById('parc-custom-hint').textContent = 'Type the final total (e.g. 3200.00). Installments will be split on this value.';
@@ -1075,19 +1112,15 @@ function selectPaymentMethod(method) {
     if (v > parcelasFullTotal + 0.005 && !confirm('The custom price is HIGHER than the full price (' + fmtMoney(parcelasFullTotal) + '). Continue?')) { parcelasPaymentMethod = null; return; }
     parcelasCustomTotal = v;
   }
-  parcelasTotal = method === 'custom' ? parcelasCustomTotal : (method === 'cash' ? parcelasCashTotal : parcelasFullTotal);
+  parcelasTotal = method === 'custom' ? parcelasCustomTotal : parcelasFullTotal;
 
   document.getElementById('parc-method-full').style.borderColor = method === 'full' ? 'var(--gold)' : 'var(--border)';
-  document.getElementById('parc-method-cash').style.borderColor = method === 'cash' ? 'var(--gold)' : 'var(--border)';
   document.getElementById('parc-method-custom').style.borderColor = method === 'custom' ? 'var(--gold)' : 'var(--border)';
 
   document.getElementById('parc-total-display').textContent = fmtMoney(parcelasTotal);
-  const customDisc = Math.round((parcelasFullTotal - parcelasCustomTotal) * 100) / 100;
   document.getElementById('parc-method-label').textContent = method === 'custom'
-    ? '✏️ Custom price — ' + (customDisc > 0 ? 'discount of ' + fmtMoney(customDisc) + ' (' + (customDisc / parcelasFullTotal * 100).toFixed(1) + '%)' : 'no discount')
-    : method === 'cash'
-    ? '💵 Cash / Zelle — 3% discount applied'
-    : '💳 Card / PayPal / Venmo — full price';
+    ? '✏️ Custom final price'
+    : (parcelasFeeOn ? '💳 Proposal total (includes 3% card fee)' : 'Proposal total');
   document.getElementById('parc-body-rest').style.display = 'block';
   document.getElementById('btn-criar-invoices').disabled = false;
 
@@ -1100,7 +1133,7 @@ function updateCustomHint() {
   const el = document.getElementById('parc-custom-hint');
   if (!(v > 0)) { el.textContent = 'Type the final total (e.g. 3200.00). Installments will be split on this value.'; return; }
   const d = Math.round((parcelasFullTotal - v) * 100) / 100;
-  el.textContent = d > 0 ? 'Discount of ' + fmtMoney(d) + ' (' + (d / parcelasFullTotal * 100).toFixed(1) + '%) vs the full price ' + fmtMoney(parcelasFullTotal) + '.' : (d < 0 ? 'This is ' + fmtMoney(-d) + ' ABOVE the full price.' : 'Same as the full price.');
+  el.textContent = d > 0 ? fmtMoney(d) + ' below the proposal total (' + fmtMoney(parcelasFullTotal) + ').' : (d < 0 ? fmtMoney(-d) + ' ABOVE the proposal total (' + fmtMoney(parcelasFullTotal) + ').' : 'Same as the proposal total.');
 }
 
 function closeParcelas() {
@@ -1208,9 +1241,7 @@ async function criarInvoices() {
     const valor  = parseFloat(inputs[1]?.value) || 0;
     const venc   = inputs[2]?.value || hoje;
     const num    = 'INV-' + Date.now().toString().slice(-4) + '-' + i;
-    const methodLabel = parcelasPaymentMethod === 'custom'
-      ? 'Custom price (' + (parcelasFullTotal - parcelasTotal > 0.005 ? '-' + fmtMoney(parcelasFullTotal - parcelasTotal) + ' discount' : 'no discount') + ')'
-      : parcelasPaymentMethod === 'cash' ? 'Cash/Zelle (-3%)' : 'Card/PayPal/Venmo (full price)';
+    const feeNote = (parcelasPaymentMethod !== 'custom' && parcelasFeeOn) ? ' (includes 3% card processing fee)' : '';
     payloads.push({
       invoice_number: num,
       client_id:      parcelasClientId,
@@ -1223,7 +1254,7 @@ async function criarInvoices() {
       due_date:       venc,
       subtotal:       valor,
       total:          valor,
-      notes:          `Installment ${i}/${total}: ${desc} — Proposal ${parcelasClientName} — Payment: ${methodLabel}`,
+      notes:          `Installment ${i}/${total}: ${desc} — Proposal ${parcelasClientName}${feeNote}`,
     });
   });
 
@@ -1277,7 +1308,13 @@ async function openPrint(id) {
   document.getElementById('doc-scope').textContent      = p.project_scope || '';
   document.getElementById('doc-sig-client').textContent = p.client_name || '';
   document.getElementById('doc-total').textContent      = fmt(p.total_cost);
-  document.getElementById('doc-total-cash').textContent  = fmt((Number(p.total_cost)||0) * 0.97);
+  const feeOn = p.card_fee_enabled === true;
+  const baseV = Number(p.base_cost) > 0 ? Number(p.base_cost) : (Number(p.total_cost) || 0) / (1 + CARD_FEE_RATE);
+  document.getElementById('doc-fee-breakdown').style.display = feeOn ? 'block' : 'none';
+  if (feeOn) {
+    document.getElementById('doc-subtotal').textContent = fmt(baseV);
+    document.getElementById('doc-cardfee').textContent  = fmt((Number(p.total_cost) || 0) - baseV);
+  }
 
   // Scope items table
   const items = p.scope_items || [];
