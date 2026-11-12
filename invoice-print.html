@@ -171,7 +171,8 @@ async function load() {
   const projectTotal = Number(inv.project_total || inv.quotes?.total || inv.quotes?.sale_price || 0);
 
   // Update page title
-  document.title = `${inv.invoice_number} — Fine Touch`;
+  const _safe = x => String(x || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+  document.title = (_safe(client.name) ? _safe(client.name) + ' - ' : '') + _safe(inv.invoice_number);
 
   document.getElementById('invoice-wrap').innerHTML = `
   <div class="invoice">

@@ -365,3 +365,8 @@ Resumo: Adicionados botoes de ordenacao (cliente, data, titulo, projeto, maior/m
 - proposal-bundles.html: opcao "Cash / Zelle (-3%)" do modal de invoice virou "Card — add 3% fee" (total x 1.03); notas sem desconto.
 - DB (aplicado): db/proposals-card-fee.sql -> proposals.card_fee_enabled boolean default false, proposals.base_cost numeric. Propostas antigas mantem total_cost como esta (card_fee_enabled=false).
 - Invoices ja emitidos com texto antigo nas notas NAO foram alterados.
+
+## 2026-11-11 (noite) — Claude — Ajustes de proposta/invoice
+- Proposta impressa: aviso fixo "A 3% processing fee is added... credit/debit card or PayPal" ao lado de "We accept credit/debit card...".
+- Notas de 24 invoices antigos limpas no banco (removido "— Payment: Card/PayPal/Venmo (full price)" e "— Payment: Custom price (-$198.38 discount)"); 5 invoices com "Payment: Zelle" mantidos.
+- Nome do PDF ao salvar: "Cliente - codigo" (invoice-print: "Cliente - INV-xxxx-1"; proposals: "Cliente - Proposal FT-0001"; proposal-bundles: "Cliente - Combined Proposal FTB-0001") via document.title/beforeprint. Orcamento (quotes.html) nao tem PDF no app.

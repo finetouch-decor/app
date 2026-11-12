@@ -884,6 +884,18 @@ async function criarInvoices() {
 
 init();
 </script>
-<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{});}</script>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{});}
+// Nome do PDF ao salvar/imprimir: "Cliente - Tipo codigo" (o navegador usa o titulo da pagina como nome do arquivo).
+(function () {
+  const baseTitle = document.title;
+  const clean = s => String(s || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+  window.addEventListener('beforeprint', () => {
+    const c = clean((document.getElementById('doc-client-name') || {}).textContent);
+    const n = clean((document.getElementById('doc-num') || {}).textContent);
+    if (c && c !== '—') document.title = `${c} - Combined Proposal ${n}`.trim();
+  });
+  window.addEventListener('afterprint', () => { document.title = baseTitle; });
+})();
+</script>
 </body>
 </html>
