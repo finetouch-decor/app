@@ -140,18 +140,22 @@ async function extractReceiptItemsFromBase64(base64, opts = {}) {
         role: 'user',
         content: [
           docPart,
-          { type: 'text', text: `Analise esta nota fiscal/recibo e extraia cada item de linha com descrição, quantidade, preço unitário e valor total da linha.
-Ignore QR codes, barcodes e cabeçalhos. Foque apenas no texto impresso com descrições de produtos e valores.
+          { type: 'text', text: `Analise esta nota fiscal/recibo/invoice e extraia TODOS os custos: cada item de linha (descrição, quantidade, preço unitário, valor da linha) E também imposto, frete/entrega e qualquer outra cobrança ou desconto descrito.
+Ignore QR codes, barcodes e cabeçalhos. Foque apenas no texto impresso com descrições e valores.
 Retorne SOMENTE um JSON válido neste formato (sem markdown):
-{"store":"nome da loja","total":99.99,"tax":0,"discount":0,"items":[{"desc":"descrição do produto","qty":1,"unit_price":9.99,"value":9.99}]}
+{"store":"nome da loja","total":99.99,"tax":0,"discount":0,"extras":[{"desc":"Frete","amount":0}],"items":[{"desc":"descrição do produto","qty":1,"unit_price":9.99,"value":9.99}]}
 Regras importantes:
+- "total" é o valor FINAL a pagar impresso na nota (grand total / amount due / total due), já com imposto, frete e demais cobranças, depois dos descontos. Nunca use o subtotal dos produtos como total.
 - Se a linha tiver quantidade x preço unitário impressos, preencha qty e unit_price corretamente e value = qty * unit_price.
 - Se a nota tiver duas ou mais linhas do MESMO produto impressas separadamente (compras repetidas), mantenha cada uma como uma linha distinta — não junte nem remova linhas repetidas legítimas. Só elimine uma linha se for claramente o mesmo texto lido duas vezes por erro (ex: OCR duplicou a mesma linha física).
-- Se a nota mostrar imposto (tax) ou desconto (discount) separados do valor dos itens, preencha esses campos; senão retorne 0 para ambos.
+- "tax": imposto (sales tax, VAT, etc.) impresso separado dos itens; senão 0.
+- "discount": desconto/cupom/crédito impresso separado dos itens, como número positivo; senão 0.
+- "extras": TODA outra cobrança que não seja produto nem imposto: frete (shipping/delivery/freight), manuseio (handling), taxa de serviço, taxa de combustível, taxa de entrega, gorjeta, taxa de cartão, sacola, depósito, restocking, etc. Uma entrada por cobrança, com a descrição como impressa e o valor positivo. Se não houver, retorne [].
+- Frete, taxas e outras cobranças NUNCA vão dentro de "items" nem são ignorados: vão em "extras".
 - Se não conseguir identificar itens individuais, retorne o total como um único item com desc "Compra geral", qty 1 e unit_price igual ao total.` }
         ]
       }],
-      max_tokens: (isPdf || textBody !== null) ? 1500 : 600
+      max_tokens: (isPdf || textBody !== null) ? 2500 : 1500
     })
   });
   const data = await res.json();
@@ -168,7 +172,22 @@ Regras importantes:
       return { desc: it.desc, qty, unit_price: Math.round(unitPrice * 100) / 100, value: Math.round(value * 100) / 100 };
     });
     parsed.tax = Number(parsed.tax) || 0;
-    parsed.discount = Number(parsed.discount) || 0;
+    parsed.discount = Math.abs(Number(parsed.discount) || 0);
+    parsed.extras = (Array.isArray(parsed.extras) ? parsed.extras : [])
+      .map(e => ({ desc: String(e.desc || e.description || 'Outra cobrança').slice(0, 80), amount: Math.round(Math.abs(Number(e.amount ?? e.value) || 0) * 100) / 100 }))
+      .filter(e => e.amount > 0);
+    parsed.total = Number(parsed.total) || 0;
+    // Reconciliação com o total IMPRESSO na nota (é o que foi realmente pago): se itens +
+    // imposto + extras - desconto não fecham, a diferença não pode sumir do custo da obra.
+    // Sobrou valor -> entra como "outros custos"; faltou -> entra como desconto/ajuste.
+    if (parsed.total > 0) {
+      const sumItems = parsed.items.reduce((s, it) => s + it.value, 0);
+      const sumExtras = parsed.extras.reduce((s, e) => s + e.amount, 0);
+      const gap = Math.round((parsed.total - (sumItems + parsed.tax + sumExtras - parsed.discount)) * 100) / 100;
+      if (gap > 0.01) parsed.extras.push({ desc: 'Outros custos (diferença para o total da nota)', amount: gap, auto: true });
+      else if (gap < -0.01) { parsed.discount = Math.round((parsed.discount + Math.abs(gap)) * 100) / 100; parsed.discountAdjusted = Math.abs(gap); }
+    }
+    parsed.extrasTotal = Math.round(parsed.extras.reduce((s, e) => s + e.amount, 0) * 100) / 100;
     return parsed;
   }
   catch { return { _raw: `Parse falhou. Resposta: ${content.slice(0, 400)}`, _error: 'parse failed' }; }
@@ -604,6 +623,8 @@ async function handlePhoto(chatId, fileId) {
     total: data.total,
     tax: data.tax || 0,
     discount: data.discount || 0,
+    extras: data.extras || [],
+    extrasTotal: data.extrasTotal || 0,
     // fixado na criacao: se uma resposta parcial falhar e sobrar so alguns itens
     // pra retry, o rateio de taxa/desconto continua usando a base ORIGINAL da nota
     // (nao a soma dos itens restantes), senao o retry herdaria 100% da taxa/desconto
@@ -632,11 +653,11 @@ async function presentInvoiceNote(chatId, note, opts = {}) {
   // Pulado num retry parcial: "note.items" ali é só o que falhou, não a nota inteira,
   // então comparar com o total da nota completa daria um alerta falso.
   const sumItems = note.items.reduce((s, it) => s + Number(it.value || 0), 0);
-  const expectedTotal = sumItems + Number(note.tax || 0) - Number(note.discount || 0);
+  const expectedTotal = sumItems + Number(note.tax || 0) + Number(note.extrasTotal || 0) - Number(note.discount || 0);
   const noteTotal = Number(note.total || 0);
   const diff = Math.abs(expectedTotal - noteTotal);
   const reconcileWarning = (!opts.retry && diff > 0.5)
-    ? `\n\n⚠️ *Confira antes de responder:* itens${note.tax ? ` + taxa $${Number(note.tax).toFixed(2)}` : ''}${note.discount ? ` - desconto $${Number(note.discount).toFixed(2)}` : ''} = $${expectedTotal.toFixed(2)}, mas a nota mostra $${noteTotal.toFixed(2)}.`
+    ? `\n\n⚠️ *Confira antes de responder:* itens${note.tax ? ` + taxa $${Number(note.tax).toFixed(2)}` : ''}${note.extrasTotal ? ` + frete/outros $${Number(note.extrasTotal).toFixed(2)}` : ''}${note.discount ? ` - desconto $${Number(note.discount).toFixed(2)}` : ''} = $${expectedTotal.toFixed(2)}, mas a nota mostra $${noteTotal.toFixed(2)}.`
     : '';
 
   const header = opts.retry
@@ -646,6 +667,12 @@ async function presentInvoiceNote(chatId, note, opts = {}) {
   await send(chatId,
     `${header}\n\n` +
     `*Itens:*\n${itemList}\n\n` +
+    (!opts.retry && (note.tax || note.extrasTotal || note.discount)
+      ? `*Também entra no custo (rateado entre as obras):*\n` +
+        (note.tax ? `• Imposto — $${Number(note.tax).toFixed(2)}\n` : '') +
+        (note.extras || []).map(e => `• ${e.desc} — $${Number(e.amount).toFixed(2)}\n`).join('') +
+        (note.discount ? `• Desconto — -$${Number(note.discount).toFixed(2)}\n` : '') + `\n`
+      : '') +
     `*Obras em andamento:*\n${projectList}${reconcileWarning}\n\n` +
     `Responda com itens e obras:\n` +
     `Ex: \`itens 1 e 3 obra A, item 2 obra B, resto ignorar\`\n` +
@@ -839,7 +866,7 @@ async function handleSessionReply(chatId, text) {
   // entre as obras/destinos, pra o total gravado bater com o total real pago por cada uma,
   // em vez de simplesmente somar os valores de linha e ignorar taxa/desconto.
   const noteSubtotal = Number(session.baseSubtotal) || items.reduce((s, it) => s + Number(it.value || 0), 0);
-  const adjustment = Number(session.tax || 0) - Number(session.discount || 0);
+  const adjustment = Number(session.tax || 0) + Number(session.extrasTotal || 0) - Number(session.discount || 0);
 
   for (const [dest, itens] of Object.entries(groups)) {
     const subtotal = itens.reduce((s, x) => s + x.amount, 0);
@@ -1416,6 +1443,7 @@ export default async function handler(req, res) {
         total: data.total || 0,
         tax: data.tax || 0,
         discount: data.discount || 0,
+        extras: data.extras || [],
         items: data.items || [],
         projects,
       });

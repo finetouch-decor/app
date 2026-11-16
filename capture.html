@@ -383,11 +383,16 @@ async function handleFile(file) {
     document.getElementById('f-store').value = result.store || '';
     document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
     document.getElementById('f-tax').value = (result.tax || 0).toFixed(2);
+    window._noteTotal = Number(result.total) || 0;
 
     document.getElementById('items-list').innerHTML = '';
     itemRowIds = [];
     if (result.items && result.items.length) {
       result.items.forEach(it => addItemRow(it.desc || it.description, it.qty || 1, it.unit_price, it.value || it.total));
+      // Frete, taxas e outras cobranças entram como linhas de custo (100% do que foi pago);
+      // desconto entra como linha negativa. O usuário pode editar/remover cada uma.
+      (result.extras || []).forEach(e => addItemRow(e.desc, 1, e.amount, e.amount));
+      if (Number(result.discount) > 0) addItemRow('Desconto', 1, -Number(result.discount), -Number(result.discount));
     } else {
       addItemRow();
     }
@@ -447,7 +452,11 @@ function updateTotal() {
   const itemsTotal = items.reduce((s,i) => s+i.total, 0);
   const tax = parseFloat(document.getElementById('f-tax').value) || 0;
   document.getElementById('total-value').textContent = '$' + (itemsTotal+tax).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-  document.getElementById('total-breakdown').textContent = tax ? `itens $${itemsTotal.toFixed(2)} + imposto $${tax.toFixed(2)}` : '';
+  const nt = window._noteTotal || 0;
+  const mismatch = nt > 0 && Math.abs((itemsTotal+tax) - nt) > 0.5;
+  document.getElementById('total-breakdown').textContent =
+    (tax ? `itens $${itemsTotal.toFixed(2)} + imposto $${tax.toFixed(2)}` : '') +
+    (mismatch ? `${tax ? ' · ' : ''}⚠️ a nota mostra $${nt.toFixed(2)}` : '');
 }
 // recalcula total quando um item novo é digitado via delegação (cobre inputs criados depois)
 document.getElementById('items-list').addEventListener('input', updateTotal);

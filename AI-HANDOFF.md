@@ -370,3 +370,10 @@ Resumo: Adicionados botoes de ordenacao (cliente, data, titulo, projeto, maior/m
 - Proposta impressa: aviso fixo "A 3% processing fee is added... credit/debit card or PayPal" ao lado de "We accept credit/debit card...".
 - Notas de 24 invoices antigos limpas no banco (removido "— Payment: Card/PayPal/Venmo (full price)" e "— Payment: Custom price (-$198.38 discount)"); 5 invoices com "Payment: Zelle" mantidos.
 - Nome do PDF ao salvar: "Cliente - codigo" (invoice-print: "Cliente - INV-xxxx-1"; proposals: "Cliente - Proposal FT-0001"; proposal-bundles: "Cliente - Combined Proposal FTB-0001") via document.title/beforeprint. Orcamento (quotes.html) nao tem PDF no app.
+
+## 2026-11-16 — Leitura de invoice de custo de obra: 100% dos custos (Claude)
+- Pedido do dono: ao subir invoice/nota de custo de obra, considerar TODOS os custos (imposto, frete, taxas e qualquer outra cobrança descrita), não só o preço dos produtos.
+- `api/telegram.js` (`extractReceiptItemsFromBase64`, usado pelo bot do Telegram e pela tela Envio de notas): prompt novo pede `total` final impresso, `tax`, `discount` e `extras` (frete, handling, taxas de serviço/entrega, gorjeta etc.). Normalização reconcilia com o total impresso: sobra vira "Outros custos (diferença para o total da nota)", falta vira desconto/ajuste. max_tokens subiu (600→1500 imagem, 1500→2500 PDF/texto).
+- Telegram: imposto + extras - desconto são rateados entre as obras; mensagem mostra o que entra além dos itens.
+- `capture.html`: extras entram como linhas de custo editáveis, desconto como linha negativa, aviso se a soma não bate com o total da nota.
+- Notas já lançadas antes desta mudança NÃO foram reprocessadas.
