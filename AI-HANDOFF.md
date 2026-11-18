@@ -377,3 +377,9 @@ Resumo: Adicionados botoes de ordenacao (cliente, data, titulo, projeto, maior/m
 - Telegram: imposto + extras - desconto são rateados entre as obras; mensagem mostra o que entra além dos itens.
 - `capture.html`: extras entram como linhas de custo editáveis, desconto como linha negativa, aviso se a soma não bate com o total da nota.
 - Notas já lançadas antes desta mudança NÃO foram reprocessadas.
+
+## 2026-11-18 — Serviço de Pintura completo no orçamento (quotes.html)
+- Modal por ambiente: parede/teto, interno/externo, medidas (ft/in/m), extras (rodapé, portas, armários, beiral, lavagem, reparo de reboco), preparo, tinta standard/premium, primer, 3ª demão, textura.
+- Preços de referência editáveis na constante `PAINT` (mão de obra = venda alvo; material = custo estimado, markup aplicado por cima).
+- Gera 2 linhas por ambiente: mão de obra (começa com o nome do serviço, usada no escopo) e "Material de pintura — ambiente" (fica fora do escopo da proposta, só no total).
+- Pendente de validação: custo real da equipe (margem) e preço de armários (estimativa).

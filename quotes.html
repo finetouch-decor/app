@@ -169,6 +169,24 @@ textarea{resize:vertical;min-height:64px;}
 /* TOAST */
 .awf-unit-btn{padding:4px 10px;border-radius:6px;border:1.5px solid var(--border);background:#fff;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;transition:all .15s;}
 .awf-unit-btn.active{background:var(--navy);color:var(--gold);border-color:var(--navy);}
+.pf-lbl{display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
+.pf-inp{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;background:#fff;}
+.pf-seg{flex:1;padding:9px;border-radius:8px;border:1.5px solid var(--border);background:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;}
+.pf-seg.active{background:var(--navy);color:var(--gold);border-color:var(--navy);}
+.pf-unit-btn{padding:4px 10px;border-radius:6px;border:1.5px solid var(--border);background:#fff;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;}
+.pf-unit-btn.active{background:var(--navy);color:var(--gold);border-color:var(--navy);}
+.pf-add{margin-top:8px;width:100%;padding:8px;border:1.5px dashed var(--border);border-radius:8px;background:transparent;color:var(--navy);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
+.pf-extra{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:500;}
+.pf-extra label{display:flex;align-items:center;gap:8px;cursor:pointer;}
+.pf-extra input[type=number]{width:70px;padding:6px 8px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;margin-right:4px;}
+.pf-extra input[type=checkbox],.pf-chk input{width:16px;height:16px;accent-color:var(--navy);cursor:pointer;}
+.pf-chk{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;cursor:pointer;}
+.pf-chk span{color:var(--muted);font-size:11px;font-weight:400;}
+.pf-btn{flex:1;padding:10px 12px;border-radius:8px;border:none;background:var(--gold);color:var(--navy);font-family:'Inter',sans-serif;font-size:12.5px;font-weight:800;cursor:pointer;}
+.pf-btn.alt{background:transparent;border:1.5px solid var(--gold);color:var(--gold);}
+.pf-srow{display:flex;align-items:center;gap:6px;}
+.pf-srow select,.pf-srow input{padding:8px 8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;min-width:0;}
+
 .toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:500;transform:translateY(10px);opacity:0;transition:all .3s;pointer-events:none;}
 .toast.show{transform:translateY(0);opacity:1;}
 .toast.success{background:#1a3d6e;color:var(--white);}
@@ -531,82 +549,107 @@ textarea{resize:vertical;min-height:64px;}
   </div>
 </div>
 
-<!-- Modal guiado Pintura no orçamento -->
+<!-- Modal guiado Pintura no orçamento (serviço completo: por ambiente, parede/teto, interno/externo, extras, material estimado) -->
 <div id="pf-form-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:center;justify-content:center;padding:20px;">
-  <div style="background:#fff;border-radius:16px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.25);">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:540px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.25);">
     <div style="background:var(--navy);padding:18px 22px;border-radius:16px 16px 0 0;">
       <div style="font-size:15px;font-weight:800;color:#fff;">🖌️ <span id="pf-form-title">Pintura</span></div>
-      <div style="font-size:11px;color:var(--gold2);margin-top:2px;">Preencha os detalhes para calcular labor + material</div>
+      <div style="font-size:11px;color:var(--gold2);margin-top:2px;">Um ambiente por vez — mão de obra + material estimado em linhas separadas</div>
     </div>
     <div style="padding:20px 22px;display:flex;flex-direction:column;gap:14px;">
 
       <div>
-        <label style="display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Nome do ambiente / área</label>
-        <input id="pf-room" type="text" placeholder="Ex: Living Room, Fachada..." oninput="recalcPForm()"
-          style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
+        <label class="pf-lbl">Ambiente / área</label>
+        <input id="pf-room" type="text" placeholder="Ex: Living Room, Master Bedroom, Fachada..." oninput="recalcPForm()" class="pf-inp">
+      </div>
+
+      <div>
+        <label class="pf-lbl">Local</label>
+        <div style="display:flex;gap:8px;">
+          <button type="button" id="pf-loc-int" class="pf-seg active" onclick="setPFLoc('int')">🏠 Interno</button>
+          <button type="button" id="pf-loc-ext" class="pf-seg" onclick="setPFLoc('ext')">🌤️ Externo</button>
+        </div>
       </div>
 
       <div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
-          <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Paredes (largura × altura)</label>
-          <div style="display:flex;gap:6px;">
-            <span style="font-size:11px;color:var(--muted);align-self:center;margin-right:2px;">Unidade:</span>
+          <label class="pf-lbl" style="margin:0;">Superfícies (largura × altura/comprimento × qtd)</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span style="font-size:11px;color:var(--muted);">Unidade:</span>
             <button type="button" class="pf-unit-btn active" onclick="setPFUnit('ft',this)">ft</button>
             <button type="button" class="pf-unit-btn" onclick="setPFUnit('in',this)">in</button>
+            <button type="button" class="pf-unit-btn" onclick="setPFUnit('m',this)">m</button>
           </div>
         </div>
-        <div id="pf-walls-list" style="display:flex;flex-direction:column;gap:8px;"></div>
-        <button type="button" onclick="addPFWall()"
-          style="margin-top:8px;width:100%;padding:8px;border:1.5px dashed var(--border);border-radius:8px;background:transparent;color:var(--navy);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
-          + Adicionar parede
-        </button>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding:8px 12px;background:#f8f9fb;border-radius:8px;">
-          <span style="font-size:12px;color:var(--muted);">Total das paredes acima:</span>
-          <span style="font-size:13px;font-weight:700;color:var(--navy);" id="pf-sqft">—</span>
+        <div id="pf-surf-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <button type="button" onclick="addPFSurf()" class="pf-add">+ Adicionar parede/teto</button>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;padding:8px 12px;background:#f8f9fb;border-radius:8px;font-size:12px;">
+          <span style="color:var(--muted);">Paredes: <b id="pf-wall-sqft" style="color:var(--navy);">0 ft²</b></span>
+          <span style="color:var(--muted);">Tetos: <b id="pf-ceil-sqft" style="color:var(--navy);">0 ft²</b></span>
+          <span style="color:var(--muted);">Total: <b id="pf-sqft" style="color:var(--navy);">—</b></span>
         </div>
-        <div style="margin-top:6px;">
-          <label style="font-size:11px;color:var(--muted);">ou informe a metragem TOTAL direto (ft²), ignorando as paredes acima:</label>
-          <input id="pf-sqft-manual" type="number" min="1" step="1" placeholder="Deixe em branco para usar a soma das paredes" oninput="recalcPForm()"
-            style="width:100%;margin-top:4px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
-        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Medida bruta (sem descontar portas e janelas). Parede acima de 9 ft recebe +30% de mão de obra automaticamente.</div>
       </div>
 
       <div>
-        <label style="display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Tipo e escopo</label>
-        <select id="pf-scope" onchange="recalcPForm()"
-          style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;background:#fff;">
-          <option value="1.75|1.00">🏠 Interior — Paredes apenas ($1.75 labor / $1.00 mat. por ft²)</option>
-          <option value="3.00|1.70">🏠 Interior — Paredes + Teto + Rodapé ($3.00 labor / $1.70 mat. por ft²)</option>
-          <option value="2.00|1.50">🌤️ Exterior ($2.00 labor / $1.50 mat. por ft²)</option>
-        </select>
-      </div>
-
-      <div style="display:flex;flex-direction:column;gap:10px;">
-        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;cursor:pointer;">
-          <input type="checkbox" id="pf-prep" onchange="recalcPForm()" style="width:16px;height:16px;accent-color:var(--navy);cursor:pointer;">
-          Preparo extra da superfície <span style="color:var(--muted);font-size:11px;">(manchas, reparos, troca de cor escura — +$0.60/ft² labor)</span>
-        </label>
-        <label style="display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;cursor:pointer;">
-          <input type="checkbox" id="pf-coat3" onchange="recalcPForm()" style="width:16px;height:16px;accent-color:var(--navy);cursor:pointer;">
-          3ª demão necessária <span style="color:var(--muted);font-size:11px;">(+$0.50/ft² labor + $0.50/ft² material)</span>
-        </label>
-      </div>
-
-      <div style="background:#f8f9fb;border:1.5px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;font-size:12px;">
-        <span style="color:var(--muted);">Labor: <b id="pf-labor-sub" style="color:var(--navy);">—</b></span>
-        <span style="color:var(--muted);">Material: <b id="pf-mat-sub" style="color:var(--navy);">—</b></span>
-      </div>
-
-      <div style="background:var(--navy);border-radius:10px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;">
-        <div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:4px;">Total estimado</div>
-          <div style="font-size:26px;font-weight:800;color:var(--gold);" id="pf-total">—</div>
+        <label class="pf-lbl">Acabamentos e extras <span style="text-transform:none;font-weight:500;">(marque o que entra neste ambiente)</span></label>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div class="pf-extra"><label><input type="checkbox" id="pf-trim-on" onchange="recalcPForm()"> Rodapé / guarnição</label><span><input type="number" id="pf-trim-qty" min="0" step="1" placeholder="0" oninput="pfAuto('pf-trim-on',this);recalcPForm()"> ft linear</span></div>
+          <div class="pf-extra"><label><input type="checkbox" id="pf-door-on" onchange="recalcPForm()"> Portas (2 lados)</label><span><input type="number" id="pf-door-qty" min="0" step="1" placeholder="0" oninput="pfAuto('pf-door-on',this);recalcPForm()"> unid.</span></div>
+          <div class="pf-extra" id="pf-cab-row"><label><input type="checkbox" id="pf-cab-on" onchange="recalcPForm()"> Armários (portas + gavetas)</label><span><input type="number" id="pf-cab-qty" min="0" step="1" placeholder="0" oninput="pfAuto('pf-cab-on',this);recalcPForm()"> unid.</span></div>
+          <div id="pf-ext-extras" style="display:none;flex-direction:column;gap:8px;">
+            <div class="pf-extra"><label><input type="checkbox" id="pf-wash-on" onchange="recalcPForm()"> Lavagem sob pressão</label><span style="font-size:11px;color:var(--muted);">sobre a área das paredes</span></div>
+            <div class="pf-extra"><label><input type="checkbox" id="pf-soffit-on" onchange="recalcPForm()"> Beiral / soffit / fascia</label><span><input type="number" id="pf-soffit-qty" min="0" step="1" placeholder="0" oninput="pfAuto('pf-soffit-on',this);recalcPForm()"> ft linear</span></div>
+            <div class="pf-extra"><label>Reparo de reboco/stucco ($)</label><span><input type="number" id="pf-repair-amt" min="0" step="10" placeholder="0" oninput="recalcPForm()"> valor</span></div>
+          </div>
         </div>
-        <button onclick="confirmPForm()"
-          style="padding:10px 20px;border-radius:8px;border:none;background:var(--gold);color:var(--navy);font-family:'Inter',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">
-          ＋ Adicionar ao orçamento
-        </button>
       </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label class="pf-lbl">Preparo da superfície</label>
+          <select id="pf-prep" onchange="recalcPForm()" class="pf-inp">
+            <option value="0">Padrão (furos e trincas pequenos incluídos)</option>
+            <option value="mod">Moderado (+$0.60/ft²: lixar, reparos médios)</option>
+            <option value="heavy">Pesado (+$1.20/ft²: muitos reparos)</option>
+          </select>
+        </div>
+        <div>
+          <label class="pf-lbl">Tinta</label>
+          <select id="pf-paint" onchange="recalcPForm()" class="pf-inp">
+            <option value="std">Standard (~$35/gal)</option>
+            <option value="premium">Premium SW / Benjamin Moore (~$70/gal)</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:9px;">
+        <label class="pf-chk"><input type="checkbox" id="pf-primer" onchange="recalcPForm()"> Primer / selador <span>(drywall novo, manchas, troca de cor forte)</span></label>
+        <label class="pf-chk"><input type="checkbox" id="pf-coat3" onchange="recalcPForm()"> 3ª demão <span>(+$0.50/ft² mão de obra, +50% de tinta)</span></label>
+        <label class="pf-chk" id="pf-tex-row"><input type="checkbox" id="pf-tex" onchange="recalcPForm()"> Parede texturizada <span>(+25% mão de obra nas paredes)</span></label>
+      </div>
+
+      <div style="background:#f8f9fb;border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;font-size:12px;display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Mão de obra (venda)</span><b id="pf-labor-sub" style="color:var(--navy);">—</b></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Material estimado (custo) <span id="pf-mat-detail" style="font-size:10.5px;"></span></span><b id="pf-mat-sub" style="color:var(--navy);">—</b></div>
+        <div id="pf-min-note" style="display:none;font-size:10.5px;color:#b45309;">Aplicado o mínimo por ambiente.</div>
+        <div style="font-size:10.5px;color:var(--muted);">Mão de obra entra no orçamento já descontando o markup atual (<b id="pf-mk">30%</b>), para o preço de venda ficar igual ao valor alvo.</div>
+      </div>
+
+      <div style="background:var(--navy);border-radius:10px;padding:16px 20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:4px;">Venda estimada deste ambiente</div>
+            <div style="font-size:26px;font-weight:800;color:var(--gold);" id="pf-total">—</div>
+            <div style="font-size:10.5px;color:rgba(255,255,255,0.55);margin-top:3px;" id="pf-psf"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <button onclick="confirmPForm(false)" class="pf-btn">＋ Adicionar ao orçamento</button>
+          <button onclick="confirmPForm(true)" class="pf-btn alt">＋ Adicionar e outro ambiente</button>
+        </div>
+      </div>
+      <button type="button" onclick="cancelPForm()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;">Cancelar</button>
 
     </div>
   </div>
@@ -1144,6 +1187,7 @@ async function genProposal(quoteId) {
   let stdNotes=[];
 
   (q.quote_items||[]).forEach(i=>{
+    if(i.description&&i.description.startsWith('Material de pintura')) return; // material estimado e interno: vai so no total, nao no escopo
     const svcName=Object.keys(catMap).find(k=>i.description&&i.description.startsWith(k));
     const svc=svcName?catMap[svcName]:null;
     if(svc){
@@ -1354,118 +1398,231 @@ function confirmAWForm() {
   else showToast('Accent Wall adicionado ao orçamento!', 'success');
 }
 
-// --- Pintura: cálculo guiado (labor + material por ft², múltiplas paredes) ---
+// --- Pintura: serviço completo por ambiente (parede/teto, interno/externo, extras, material estimado) ---
+// PREÇOS DE REFERÊNCIA. Mão de obra = preço de VENDA alvo (mercado Orlando/FL, nov/2026, posicionamento médio-alto).
+// Material = CUSTO estimado (o markup do orçamento é aplicado por cima, como em todo material).
+// Para mudar um preço, é só editar o número aqui.
+const PAINT = {
+  labor: {
+    wallInt: 2.25,      // $/ft² parede interna (mercado: $1.50–$3.50 mão de obra+material; até $4.50 com pé-direito alto)
+    ceilInt: 1.75,      // $/ft² teto liso (mercado: $1–$2.50)
+    wallExt: 2.10,      // $/ft² parede externa, stucco (mercado Orlando: $1.15–$3.15)
+    trimLf: 2.50,       // $/ft linear rodapé/guarnição (mercado: $1.50–$4.00)
+    doorInt: 120,       // $/porta, 2 lados (mercado: $75–$150)
+    cabinetUnit: 65,    // $/porta ou gaveta de armário (ESTIMATIVA — não pesquisado, confirmar)
+    soffitLf: 3.25,     // $/ft linear beiral/fascia (mercado: $1.95–$4.70)
+    washPerSqft: 0.15,  // $/ft² lavagem sob pressão
+    washMin: 250        // mínimo da lavagem (média Orlando: $241)
+  },
+  prepMod: 0.60,        // $/ft² preparo moderado (mercado: $0.50–$0.75)
+  prepHeavy: 1.20,      // $/ft² preparo pesado
+  coat3Labor: 0.50,     // $/ft² 3ª demão
+  tallMult: 1.30,       // parede > 9 ft (mercado: +20% a +40%)
+  texMult: 1.25,        // parede texturizada (mercado: até +50%)
+  roomMin: 250,         // mínimo de mão de obra por ambiente
+  mat: {
+    coverage: 350,      // ft² por galão (350–400)
+    waste: 1.10,        // 10% de perda
+    coats: 2,
+    paintStd: 35,       // $/galão (mercado standard: $25–$35)
+    paintPremium: 70,   // $/galão (mercado premium: $60–$90)
+    primerGal: 30,      // $/galão (mercado: $10–$65)
+    primerCover: 300,   // ft² por galão de primer
+    consumablesSqft: 0.10, // fita, plástico, calafetar, rolos, lixa ($/ft²) — estimativa
+    trimLf: 0.35,       // material por ft linear de rodapé/guarnição — estimativa
+    doorUnit: 12,       // material por porta — estimativa
+    cabinetUnit: 10     // material por porta/gaveta — estimativa
+  }
+};
 let pfUnit = 'ft';
-const pfToFt = { ft: 1, in: 1/12 };
-let pfWalls = []; // [{w:'', h:''}, ...]
+const pfToFt = { ft: 1, in: 1/12, m: 3.28084 };
+let pfLoc = 'int';
+let pfSurf = []; // [{kind:'wall'|'ceil', w, h, q}]
+
+function pfMarkup() { return (parseFloat(document.getElementById('f-markup').value) || 0) / 100; }
+function pfEl(id) { return document.getElementById(id); }
 
 function openNextPForm() {
   if (!pfQueue.length) return;
-  const item = pfQueue[0];
-  document.getElementById('pf-form-title').textContent = item.name;
-  document.getElementById('pf-room').value = '';
-  document.getElementById('pf-sqft-manual').value = '';
-  document.getElementById('pf-scope').value = '1.75|1.00';
-  document.getElementById('pf-prep').checked = false;
-  document.getElementById('pf-coat3').checked = false;
-  pfWalls = [{ w: '', h: '8' }];
-  renderPFWalls();
+  resetPForm(pfQueue[0]);
+  pfEl('pf-form-overlay').style.display = 'flex';
+}
+
+function resetPForm(item) {
+  pfEl('pf-form-title').textContent = item.name;
+  pfEl('pf-room').value = '';
+  ['pf-trim-qty','pf-door-qty','pf-cab-qty','pf-soffit-qty','pf-repair-amt'].forEach(id => pfEl(id).value = '');
+  ['pf-trim-on','pf-door-on','pf-cab-on','pf-wash-on','pf-soffit-on','pf-primer','pf-coat3','pf-tex'].forEach(id => pfEl(id).checked = false);
+  pfEl('pf-prep').value = '0';
+  pfEl('pf-paint').value = 'std';
+  pfLoc = 'int';
+  pfSurf = [{ kind: 'wall', w: '', h: '8', q: '1' }];
+  applyPFLoc();
+  renderPFSurf();
   recalcPForm();
-  document.getElementById('pf-form-overlay').style.display = 'flex';
+}
+
+function setPFLoc(loc) {
+  pfLoc = loc;
+  if (loc === 'ext') pfSurf = pfSurf.map(s => ({ ...s, kind: 'wall' }));
+  applyPFLoc();
+  renderPFSurf();
+  recalcPForm();
+}
+function applyPFLoc() {
+  const ext = pfLoc === 'ext';
+  pfEl('pf-loc-int').classList.toggle('active', !ext);
+  pfEl('pf-loc-ext').classList.toggle('active', ext);
+  pfEl('pf-ext-extras').style.display = ext ? 'flex' : 'none';
+  pfEl('pf-cab-row').style.display = ext ? 'none' : 'flex';
+  pfEl('pf-tex-row').style.display = ext ? 'none' : 'flex';
+  if (ext) { pfEl('pf-cab-on').checked = false; pfEl('pf-tex').checked = false; }
 }
 
 function setPFUnit(unit, btn) {
   pfUnit = unit;
   document.querySelectorAll('.pf-unit-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  renderPFWalls();
+  renderPFSurf();
   recalcPForm();
 }
+function addPFSurf() { pfSurf.push({ kind: 'wall', w: '', h: '8', q: '1' }); renderPFSurf(); recalcPForm(); }
+function removePFSurf(i) { pfSurf.splice(i, 1); if (!pfSurf.length) pfSurf.push({ kind: 'wall', w: '', h: '8', q: '1' }); renderPFSurf(); recalcPForm(); }
+function updatePFSurf(i, field, value) { pfSurf[i][field] = value; if (field === 'kind') renderPFSurf(); recalcPForm(); }
+function pfAuto(checkId, input) { if (parseFloat(input.value) > 0) pfEl(checkId).checked = true; }
 
-function addPFWall() {
-  pfWalls.push({ w: '', h: '8' });
-  renderPFWalls();
-  recalcPForm();
-}
-
-function removePFWall(idx) {
-  pfWalls.splice(idx, 1);
-  if (!pfWalls.length) pfWalls.push({ w: '', h: '8' });
-  renderPFWalls();
-  recalcPForm();
-}
-
-function updatePFWall(idx, field, value) {
-  pfWalls[idx][field] = value;
-  recalcPForm();
-}
-
-function renderPFWalls() {
-  document.getElementById('pf-walls-list').innerHTML = pfWalls.map((wall, idx) => `
-    <div style="display:flex;align-items:center;gap:8px;">
-      <input type="number" min="0" step="0.1" placeholder="Largura" value="${wall.w}"
-        oninput="updatePFWall(${idx},'w',this.value)"
-        style="flex:1;min-width:0;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
+function renderPFSurf() {
+  const ext = pfLoc === 'ext';
+  pfEl('pf-surf-list').innerHTML = pfSurf.map((s, i) => `
+    <div class="pf-srow">
+      <select onchange="updatePFSurf(${i},'kind',this.value)" style="width:96px;flex-shrink:0;">
+        <option value="wall" ${s.kind==='wall'?'selected':''}>${ext ? 'Parede ext.' : 'Parede'}</option>
+        ${ext ? '' : `<option value="ceil" ${s.kind==='ceil'?'selected':''}>Teto</option>`}
+      </select>
+      <input type="number" min="0" step="0.1" placeholder="Largura" value="${s.w}" oninput="updatePFSurf(${i},'w',this.value)" style="flex:1;">
       <span style="color:var(--muted);font-weight:600;">×</span>
-      <input type="number" min="0" step="0.1" placeholder="Altura" value="${wall.h}"
-        oninput="updatePFWall(${idx},'h',this.value)"
-        style="flex:1;min-width:0;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;">
-      <span style="font-size:11px;color:var(--muted);min-width:16px;">${pfUnit}</span>
-      <button type="button" onclick="removePFWall(${idx})" title="Remover parede"
-        style="flex-shrink:0;width:26px;height:26px;border-radius:6px;border:1.5px solid var(--border);background:#fff;color:var(--muted);cursor:pointer;font-size:13px;">✕</button>
-    </div>
-  `).join('');
+      <input type="number" min="0" step="0.1" placeholder="${s.kind==='ceil'?'Compr.':'Altura'}" value="${s.h}" oninput="updatePFSurf(${i},'h',this.value)" style="flex:1;">
+      <span style="color:var(--muted);font-weight:600;">×</span>
+      <input type="number" min="1" step="1" placeholder="Qtd" value="${s.q}" oninput="updatePFSurf(${i},'q',this.value)" style="width:48px;">
+      <span style="font-size:11px;color:var(--muted);">${pfUnit}</span>
+      <button type="button" onclick="removePFSurf(${i})" title="Remover" style="flex-shrink:0;width:26px;height:26px;border-radius:6px;border:1.5px solid var(--border);background:#fff;color:var(--muted);cursor:pointer;font-size:13px;">✕</button>
+    </div>`).join('');
+}
+
+function pfCalc() {
+  const P = PAINT, ext = pfLoc === 'ext', f = pfToFt[pfUnit] || 1;
+  let wallSqft = 0, ceilSqft = 0, labor = 0, tall = false;
+  const tex = !ext && pfEl('pf-tex').checked;
+  pfSurf.forEach(s => {
+    const w = (parseFloat(s.w) || 0) * f, h = (parseFloat(s.h) || 0) * f, q = parseFloat(s.q) || 1;
+    const a = w * h * q;
+    if (a <= 0) return;
+    if (s.kind === 'ceil' && !ext) { ceilSqft += a; labor += a * P.labor.ceilInt; }
+    else {
+      wallSqft += a;
+      let m = 1;
+      if (h > 9.01) { m *= P.tallMult; tall = true; }
+      if (tex) m *= P.texMult;
+      labor += a * (ext ? P.labor.wallExt : P.labor.wallInt) * m;
+    }
+  });
+  const paintable = wallSqft + ceilSqft;
+  const prepSel = pfEl('pf-prep').value;
+  const prepRate = prepSel === 'mod' ? P.prepMod : prepSel === 'heavy' ? P.prepHeavy : 0;
+  const coat3 = pfEl('pf-coat3').checked;
+  labor += paintable * prepRate + (coat3 ? paintable * P.coat3Labor : 0);
+
+  const trimLf = pfEl('pf-trim-on').checked ? (parseFloat(pfEl('pf-trim-qty').value) || 0) : 0;
+  const doors = pfEl('pf-door-on').checked ? (parseFloat(pfEl('pf-door-qty').value) || 0) : 0;
+  const cabs = (!ext && pfEl('pf-cab-on').checked) ? (parseFloat(pfEl('pf-cab-qty').value) || 0) : 0;
+  const soffit = (ext && pfEl('pf-soffit-on').checked) ? (parseFloat(pfEl('pf-soffit-qty').value) || 0) : 0;
+  const repair = ext ? (parseFloat(pfEl('pf-repair-amt').value) || 0) : 0;
+  const wash = (ext && pfEl('pf-wash-on').checked && wallSqft > 0) ? Math.max(P.labor.washMin, wallSqft * P.labor.washPerSqft) : 0;
+  labor += trimLf * P.labor.trimLf + doors * P.labor.doorInt + cabs * P.labor.cabinetUnit + soffit * P.labor.soffitLf + repair + wash;
+
+  const hasAnything = paintable > 0 || trimLf > 0 || doors > 0 || cabs > 0 || soffit > 0 || repair > 0 || wash > 0;
+  let minApplied = false;
+  if (hasAnything && labor < P.roomMin) { labor = P.roomMin; minApplied = true; }
+
+  // Material (custo)
+  const M = P.mat, coats = M.coats + (coat3 ? 1 : 0);
+  const paintGalRaw = paintable * (M.coats + (coat3 ? 0.5 : 0)) / M.coverage * M.waste;
+  const paintGal = paintable > 0 ? Math.ceil(paintGalRaw * 2) / 2 : 0;
+  const price = pfEl('pf-paint').value === 'premium' ? M.paintPremium : M.paintStd;
+  const primerGal = (pfEl('pf-primer').checked && paintable > 0) ? Math.ceil(paintable / M.primerCover * 2) / 2 : 0;
+  const mat = paintGal * price + primerGal * M.primerGal + paintable * M.consumablesSqft
+    + trimLf * M.trimLf + doors * M.doorUnit + cabs * M.cabinetUnit;
+
+  const mk = pfMarkup();
+  const matSale = mat * (1 + mk);
+  const sale = labor + matSale;
+  return { wallSqft, ceilSqft, paintable, labor, mat, matSale, sale, paintGal, primerGal, price, coats, coat3, tall, tex,
+           trimLf, doors, cabs, soffit, repair, wash, minApplied, prepSel, mk,
+           laborCost: mk >= 0 ? labor / (1 + mk) : labor };
 }
 
 function recalcPForm() {
-  const factor = pfToFt[pfUnit] || 1;
-  const wallsSqft = pfWalls.reduce((sum, wall) => {
-    const w = (parseFloat(wall.w) || 0) * factor;
-    const h = (parseFloat(wall.h) || 0) * factor;
-    return sum + (w * h);
-  }, 0);
-  const manual = parseFloat(document.getElementById('pf-sqft-manual').value) || 0;
-  const sqft = manual || wallsSqft;
-  document.getElementById('pf-sqft').textContent = wallsSqft > 0 ? wallsSqft.toFixed(1) + ' ft²' : '—';
-
-  const [laborRate0, matRate0] = document.getElementById('pf-scope').value.split('|').map(Number);
-  const prep = document.getElementById('pf-prep').checked ? 0.60 : 0;
-  const coat3 = document.getElementById('pf-coat3').checked;
-  const laborRate = laborRate0 + prep + (coat3 ? 0.50 : 0);
-  const matRate = matRate0 + (coat3 ? 0.50 : 0);
-
-  const laborTotal = sqft > 0 ? sqft * laborRate : 0;
-  const matTotal = sqft > 0 ? sqft * matRate : 0;
-  const total = laborTotal + matTotal;
-
-  document.getElementById('pf-labor-sub').textContent = laborTotal > 0 ? '$' + laborTotal.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
-  document.getElementById('pf-mat-sub').textContent = matTotal > 0 ? '$' + matTotal.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
-  document.getElementById('pf-total').textContent = total > 0 ? '$' + total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
-  document.getElementById('pf-total').dataset.value = total.toFixed(2);
-  document.getElementById('pf-total').dataset.sqft = sqft.toFixed(1);
-  document.getElementById('pf-total').dataset.labor = laborTotal.toFixed(2);
-  document.getElementById('pf-total').dataset.mat = matTotal.toFixed(2);
+  const r = pfCalc();
+  window._pf = r;
+  const money = v => v > 0 ? fmtN(v) : '—';
+  pfEl('pf-wall-sqft').textContent = r.wallSqft.toFixed(0) + ' ft²';
+  pfEl('pf-ceil-sqft').textContent = r.ceilSqft.toFixed(0) + ' ft²';
+  pfEl('pf-sqft').textContent = r.paintable > 0 ? r.paintable.toFixed(0) + ' ft²' : '—';
+  pfEl('pf-labor-sub').textContent = money(r.labor);
+  pfEl('pf-mat-sub').textContent = money(r.mat);
+  pfEl('pf-mat-detail').textContent = r.paintable > 0 ? `(${r.paintGal} gal tinta${r.primerGal ? ' + ' + r.primerGal + ' gal primer' : ''})` : '';
+  pfEl('pf-min-note').style.display = r.minApplied ? 'block' : 'none';
+  pfEl('pf-mk').textContent = Math.round(r.mk * 100) + '%';
+  pfEl('pf-total').textContent = money(r.sale);
+  const psf = r.paintable > 0 ? r.sale / r.paintable : 0;
+  pfEl('pf-psf').textContent = psf > 0 ? `≈ $${psf.toFixed(2)}/ft² com material · mercado Orlando: ~$2–$4 parede, ~$1–$2.50 teto` : '';
 }
 
-function confirmPForm() {
+function cancelPForm() {
+  pfEl('pf-form-overlay').style.display = 'none';
+  pfQueue.shift();
+  if (pfQueue.length) setTimeout(openNextPForm, 200);
+}
+
+function confirmPForm(another) {
   const item = pfQueue[0];
-  const room = document.getElementById('pf-room').value.trim();
-  const sqft = parseFloat(document.getElementById('pf-total').dataset.sqft) || 0;
+  const room = pfEl('pf-room').value.trim();
+  const r = pfCalc();
   if (!room) { alert('Informe o nome do ambiente (ex: Living Room)'); return; }
-  if (!sqft) { alert('Informe as medidas das paredes, ou a metragem total direto'); return; }
-  const total = parseFloat(document.getElementById('pf-total').dataset.value) || 0;
-  const laborTotal = parseFloat(document.getElementById('pf-total').dataset.labor) || 0;
-  const matTotal = parseFloat(document.getElementById('pf-total').dataset.mat) || 0;
-  const scopeLabel = document.getElementById('pf-scope').options[document.getElementById('pf-scope').selectedIndex].text.split(' (')[0];
-  const manual = parseFloat(document.getElementById('pf-sqft-manual').value) || 0;
-  const wallsDetail = !manual ? pfWalls.filter(w => (parseFloat(w.w)||0) > 0 && (parseFloat(w.h)||0) > 0)
-    .map(w => `${w.w}x${w.h}${pfUnit}`).join(', ') : '';
-  const extras = [];
-  if (document.getElementById('pf-prep').checked) extras.push('preparo extra');
-  if (document.getElementById('pf-coat3').checked) extras.push('3ª demão');
-  const desc = `${item.name} — ${room}${wallsDetail ? ' | Paredes: ' + wallsDetail : ''} | ${sqft} ft² | ${scopeLabel} | Labor $${laborTotal.toFixed(2)} + Mat $${matTotal.toFixed(2)}${extras.length ? ' | ' + extras.join(', ') : ''}`;
-  addMatRow(desc, 1, total);
-  document.getElementById('pf-form-overlay').style.display = 'none';
+  if (r.labor <= 0) { alert('Informe as medidas (ou marque algum extra) para calcular.'); return; }
+  const loc = pfLoc === 'ext' ? 'Externo' : 'Interno';
+  const parts = [];
+  if (r.wallSqft > 0) parts.push(`paredes ${r.wallSqft.toFixed(0)} ft²`);
+  if (r.ceilSqft > 0) parts.push(`teto ${r.ceilSqft.toFixed(0)} ft²`);
+  if (r.trimLf > 0) parts.push(`rodapé/guarnição ${r.trimLf} ft`);
+  if (r.doors > 0) parts.push(`${r.doors} porta(s)`);
+  if (r.cabs > 0) parts.push(`${r.cabs} armário(s) porta/gaveta`);
+  if (r.soffit > 0) parts.push(`beiral ${r.soffit} ft`);
+  if (r.wash > 0) parts.push('lavagem sob pressão');
+  if (r.repair > 0) parts.push(`reparo reboco $${r.repair}`);
+  const opts = [];
+  if (r.prepSel === 'mod') opts.push('preparo moderado');
+  if (r.prepSel === 'heavy') opts.push('preparo pesado');
+  if (r.coat3) opts.push('3ª demão');
+  if (r.tex) opts.push('texturizada');
+  if (r.tall) opts.push('pé-direito alto (+30%)');
+  if (r.minApplied) opts.push('mínimo por ambiente');
+  const total = r.paintable > 0 ? ` | ${r.paintable.toFixed(0)} ft²` : '';
+  // IMPORTANTE: a linha de mão de obra começa com o nome do serviço do catálogo (a proposta usa isso
+  // para montar o escopo) e traz a metragem total logo no começo ("N ft²"), usada no texto do escopo.
+  const laborDesc = `${item.name} — ${room}${total} | ${loc} | ${parts.join(', ')}${opts.length ? ' | ' + opts.join(', ') : ''} | Mão de obra (venda alvo $${r.labor.toFixed(2)})`;
+  addMatRow(laborDesc, 1, Math.round(r.laborCost * 100) / 100);
+  if (r.mat > 0) {
+    const matDesc = `Material de pintura — ${room} | ${r.paintGal} gal tinta ${pfEl('pf-paint').value === 'premium' ? 'premium' : 'standard'} (${r.coats} demãos)${r.primerGal ? ' + ' + r.primerGal + ' gal primer' : ''} + consumíveis | estimativa`;
+    addMatRow(matDesc, 1, Math.round(r.mat * 100) / 100);
+  }
+  if (another) {
+    showToast(`${room} adicionado. Próximo ambiente:`, 'success');
+    resetPForm(item);
+    pfEl('pf-room').focus();
+    return;
+  }
+  pfEl('pf-form-overlay').style.display = 'none';
   pfQueue.shift();
   if (pfQueue.length) { setTimeout(openNextPForm, 200); }
   else showToast('Pintura adicionada ao orçamento!', 'success');
