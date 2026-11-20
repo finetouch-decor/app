@@ -914,7 +914,9 @@ function addScopeItem(data='') {
   const isSep = text.startsWith('---');
   row.className='scope-item-row'; row.id=id;
   if (isSep) {
-    row.innerHTML=`<div style="flex:1;font-size:10px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:2px;padding:6px 0 2px;border-bottom:1px solid rgba(198,158,99,0.3);">Important Notes</div>
+    row.dataset.sep = text; // preserva o titulo da secao ao salvar
+    const sepLabel = text.replace(/---/g,'').trim().replace(/&/g,'&amp;').replace(/</g,'&lt;') || 'Important Notes';
+    row.innerHTML=`<div style="flex:1;font-size:10px;font-weight:800;color:var(--gold);text-transform:uppercase;letter-spacing:2px;padding:6px 0 2px;border-bottom:1px solid rgba(198,158,99,0.3);">${sepLabel}</div>
       <button onclick="document.getElementById('${id}').remove()" title="Remover seção">✕</button>`;
   } else {
     row.innerHTML=`<input type="text" placeholder="e.g. Supply and installation of trim boards" value="${text.replace(/"/g,'&quot;')}">
@@ -928,7 +930,7 @@ function getScopeItems() {
     const inp = row.querySelector('input');
     const div = row.querySelector('div');
     if (inp) return inp.value.trim();
-    if (div) return '--- IMPORTANT NOTES ---';
+    if (div) return row.dataset.sep || '--- IMPORTANT NOTES ---';
     return null;
   }).filter(Boolean);
 }
