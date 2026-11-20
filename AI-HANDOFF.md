@@ -383,3 +383,7 @@ Resumo: Adicionados botoes de ordenacao (cliente, data, titulo, projeto, maior/m
 - Preços de referência editáveis na constante `PAINT` (mão de obra = venda alvo; material = custo estimado, markup aplicado por cima).
 - Gera 2 linhas por ambiente: mão de obra (começa com o nome do serviço, usada no escopo) e "Material de pintura — ambiente" (fica fora do escopo da proposta, só no total).
 - Pendente de validação: custo real da equipe (margem) e preço de armários (estimativa).
+
+## 2026-11-20 — Layout de escopo estruturado na proposta (proposals.html)
+- Se scope_items tem cabeçalhos "--- N. TÍTULO ---" e nenhum item com preço, o documento renderiza cada serviço como cartão (título, medidas em etiquetas, "Scope of work" em lista, caixa "Included"). Demais proposals seguem o layout antigo.
+- Proposal do Paul Micenko (Living Room) preenchida com os 4 escopos + Inclusions + Notes (dados direto no Supabase, total $14.820).
