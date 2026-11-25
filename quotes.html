@@ -1171,6 +1171,44 @@ async function saveQuote(andProposal=false) {
 }
 
 // ── GERAR PROPOSTA ─────────────────────────────────────────
+// Escopo customizado por IA a partir dos servicos do orcamento (sem precos). Devolve null se falhar -> cai no metodo antigo (templates).
+async function aiScopeFromQuote(q,catMap){
+  try{
+    const blocks=[]; const paint=[];
+    (q.quote_items||[]).forEach(i=>{
+      const d=String(i.description||'').trim();
+      if(!d||d.startsWith('Material de pintura')) return;
+      const clean=d.replace(/\|\s*Mão de obra \(venda alvo[^)]*\)/g,'').trim();
+      if(/^Pintura/i.test(d)){ paint.push(clean); return; }
+      const svcName=Object.keys(catMap).find(k=>d.startsWith(k));
+      const tpl=svcName&&catMap[svcName].scope_template;
+      let t=clean+(Number(i.quantity)>1?` (qty ${i.quantity})`:'');
+      if(tpl&&tpl.length) t+='\nReference template (adapt, keep only what applies):\n'+tpl.map(x=>'- '+x).join('\n');
+      blocks.push(t);
+    });
+    if(paint.length){
+      const svcName=Object.keys(catMap).find(k=>/^Pintura/i.test(k));
+      const tpl=svcName&&catMap[svcName].scope_template;
+      blocks.push('Painting, by room:\n'+paint.map(x=>'- '+x).join('\n')+(tpl&&tpl.length?'\nReference template (adapt, keep only what applies):\n'+tpl.map(x=>'- '+x).join('\n'):''));
+    }
+    if(!blocks.length) return null;
+    const {data:{session}}=await db.auth.getSession();
+    const r=await fetch('/api/marketing-sync?task=scope-generate',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+(session?session.access_token:'')},body:JSON.stringify({stage:'auto',overview:true,client:q.clients?.name||'',project:q.project_name||'',sections:blocks.map((pt,i)=>({id:'s'+i,pt}))})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||!j.ok||!(j.sections||[]).length) return null;
+    const items=[];
+    j.sections.forEach((s,k)=>{
+      items.push({item:`--- ${k+1}. ${String(s.title||'SERVICE').toUpperCase()} ---`,qty:null,price:null});
+      const d=s.dimensions||[];
+      if(d.length===1) items.push({item:'Dimensions: '+d[0],qty:null,price:null});
+      else if(d.length>1){ items.push({item:'Dimensions:',qty:null,price:null}); d.forEach(x=>items.push({item:'• '+x,qty:null,price:null})); }
+      if((s.scope||[]).length){ items.push({item:'Scope of Work:',qty:null,price:null}); s.scope.forEach(x=>items.push({item:'• '+x.replace(/^•\s*/,''),qty:null,price:null})); }
+      if(s.included) items.push({item:'Included: '+s.included,qty:null,price:null});
+    });
+    return {items,overview:j.overview||'',pt:blocks.map(b=>b.split('\nReference template')[0]).join('\n\n')};
+  }catch(e){ return null; }
+}
+
 async function genProposal(quoteId) {
   const q=allQuotes.find(x=>x.id===quoteId);
   if(!q){showToast('Orçamento não encontrado','error');return;}
@@ -1216,6 +1254,16 @@ async function genProposal(quoteId) {
     stdNotes.forEach(n=>scopeItems.push({item:n,qty:null,price:null}));
   }
 
+  // Escopo customizado por IA (se falhar, mantem o escopo dos templates montado acima)
+  showToast('✨ Gerando o escopo com IA... (pode levar ~20s)','success');
+  const ai=await aiScopeFromQuote(q,catMap);
+  let finalItems=scopeItems, finalScope=projectScope;
+  if(ai){
+    finalItems=ai.items.slice();
+    if(stdNotes.length){ finalItems.push({item:'--- IMPORTANT NOTES ---',qty:null,price:null}); stdNotes.forEach(n=>finalItems.push({item:n,qty:null,price:null})); }
+    if(ai.overview) finalScope=ai.overview;
+  } else showToast('IA indisponível agora: usei o escopo padrão do catálogo.','error');
+
   const payload={
     client_name:q.clients?.name||'',
     city:q.clients?.city||'',
@@ -1226,10 +1274,11 @@ async function genProposal(quoteId) {
     card_fee_enabled:q.card_fee_enabled===true,
     base_cost:q.card_fee_enabled===true?Math.round(salePrice/1.03*100)/100:salePrice,
     status:'draft',
-    project_scope:projectScope,
-    scope_items:scopeItems,
+    project_scope:finalScope,
+    scope_items:finalItems,
   };
-  const {error}=await db.from('proposals').insert(payload);
+  const {data:ins,error}=await db.from('proposals').insert(payload).select('id').single();
+  if(!error&&ai&&ins&&ins.id){ try{ localStorage.setItem('ft-ai-pt-'+ins.id, ai.pt); }catch(e){} }
   if(error){showToast('Erro: '+error.message,'error');return;}
   showToast('✅ Proposta criada! Redirecionando...','success');
   setTimeout(()=>window.location.href='/proposals',1500);

@@ -394,3 +394,5 @@ Resumo: Adicionados botoes de ordenacao (cliente, data, titulo, projeto, maior/m
 - Regras no prompt: nao inventar preco/medida/material; glossario PT->EN.
 
 - Ajuste 2026-11-25 (mesmo dia): fluxo em 2 etapas. Etapa 1 "Organizar em portugues" (stage=pt: anotacoes -> escopo estruturado em PT, so para revisao do dono). Etapa 2 "Gerar texto em ingles" (stage=en: traduz o PT JA REVISADO; e o que vai para a proposta). Mudar o PT depois do EN marca "desatualizado" e pede confirmacao ao aplicar. Refazer por servico existe nas duas etapas.
+
+- 2026-11-25: "Gerar proposta" a partir do orcamento (quotes.html genProposal) agora cria o escopo por IA (stage=auto em lib/scope-ai.js): usa as descricoes dos itens do orcamento (sem precos; linhas de pintura agrupadas, material de pintura ignorado) e, como guia de estilo, o scope_template do catalogo. Se a IA falhar, cai no metodo antigo (templates). As notas usadas ficam no localStorage (ft-ai-pt-<id da proposta>) para aparecerem na caixa do assistente. Notas importantes do catalogo continuam sendo anexadas no fim. Proposta criada sem precos por item.
