@@ -130,7 +130,8 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 .ai-card{border:1px solid #e6dcc8;border-left:4px solid var(--gold);border-radius:8px;background:#fff;padding:10px 12px;margin-top:10px;}
 .ai-card label{display:block;font-size:10px;font-weight:800;color:var(--gold);letter-spacing:1.4px;text-transform:uppercase;margin:8px 0 3px;}
 .ai-step{font-size:12px;font-weight:700;color:var(--navy);margin:14px 0 2px;padding-top:10px;border-top:1px dashed rgba(198,158,99,.5);}
-.ai-card .ai-regen{display:flex;gap:6px;margin-top:8px;}
+.ai-card .ai-regen{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.ai-card .ai-regen input{min-width:180px;}
 .ai-card .ai-regen input{flex:1;}
 .gallery-editor{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:10px;}
 .gallery-thumb-wrap{position:relative;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;background:var(--cream2);}
@@ -990,14 +991,14 @@ async function aiStepEn() {
 }
 function aiMarkStale() { if (ai.en.length && !ai.stale) { ai.stale = true; aiStatus('⚠ Você mudou o português depois de gerar o inglês. Clique em "2 · Gerar texto em inglês" de novo (ou refaça só o serviço alterado).'); } }
 function aiCards(list, key, lang) {
-  const L = lang === 'pt' ? { svc: 'Serviço', title: 'título', dims: 'Medidas (separe por ; )', scope: 'Escopo (uma linha por item)', inc: 'Incluído', redo: 'Refazer só este serviço… (ex.: mais curto)', btn: '↻ Refazer' }
-                          : { svc: 'Service', title: 'title', dims: 'Measurements (separate with ; )', scope: 'Scope of work (one line per item)', inc: 'Included', redo: 'Redo only this service… (e.g. shorter, more premium)', btn: '↻ Redo' };
+  const L = lang === 'pt' ? { svc: 'Serviço', title: 'título', dims: 'Medidas (separe por ; )', scope: 'Escopo (uma linha por item)', inc: 'Incluído', redo: 'Refazer só este serviço… (ex.: mais curto)', simple: '↻ Mais simples', btn: '↻ Refazer', full: '↻ Mais completo' }
+                          : { svc: 'Service', title: 'title', dims: 'Measurements (separate with ; )', scope: 'Scope of work (one line per item)', inc: 'Included', redo: 'Redo only this service… (e.g. shorter, more premium)', simple: '↻ Simpler', btn: '↻ Redo', full: '↻ More complete' };
   return list.map((s, i) => `<div class="ai-card">
       <label>${L.svc} ${i+1} — ${L.title}</label><input type="text" value="${aiEsc(s.title)}" oninput="ai.${key}[${i}].title=this.value;${key==='pt'?'aiMarkStale()':''}">
       <label>${L.dims}</label><input type="text" value="${aiEsc((s.dimensions||[]).join('; '))}" oninput="ai.${key}[${i}].dimensions=this.value.split(';').map(x=>x.trim()).filter(Boolean);${key==='pt'?'aiMarkStale()':''}">
       <label>${L.scope}</label><textarea rows="${Math.min(10, Math.max(3,(s.scope||[]).length))}" oninput="ai.${key}[${i}].scope=this.value.split('\\n').map(x=>x.trim()).filter(Boolean);${key==='pt'?'aiMarkStale()':''}">${aiEsc((s.scope||[]).join('\n'))}</textarea>
       <label>${L.inc}</label><textarea rows="2" oninput="ai.${key}[${i}].included=this.value;${key==='pt'?'aiMarkStale()':''}">${aiEsc(s.included)}</textarea>
-      <div class="ai-regen"><input type="text" id="ai-r${key}-${i}" placeholder="${L.redo}"><button type="button" class="ai-btn sec" onclick="aiRegen('${key}',${i},this)">${L.btn}</button>${key==='pt'?`<button type="button" class="ai-btn sec" onclick="aiRemovePt(${i})" title="Remover serviço">✕</button>`:''}</div>
+      <div class="ai-regen"><input type="text" id="ai-r${key}-${i}" placeholder="${L.redo}"><button type="button" class="ai-btn sec" onclick="aiRegen('${key}',${i},this,'simple')">${L.simple}</button><button type="button" class="ai-btn sec" onclick="aiRegen('${key}',${i},this)">${L.btn}</button><button type="button" class="ai-btn sec" onclick="aiRegen('${key}',${i},this,'full')">${L.full}</button>${key==='pt'?`<button type="button" class="ai-btn sec" onclick="aiRemovePt(${i})" title="Remover serviço">✕</button>`:''}</div>
     </div>`).join('');
 }
 function aiRenderAll() {
@@ -1007,8 +1008,13 @@ function aiRenderAll() {
   document.getElementById('ai-en-wrap').style.display = ai.en.length ? 'block' : 'none';
   document.getElementById('ai-en-preview').innerHTML = (ai.ovEn ? ovBox('ovEn', 'Project Scope (opening paragraph)') : '') + aiCards(ai.en, 'en', 'en');
 }
-async function aiRegen(key, i, btn) {
-  const instr = document.getElementById('ai-r' + key + '-' + i).value;
+const AI_MODES = {
+  simple: 'Rewrite it SIMPLER and shorter: only the essentials, at most 4 short scope bullets, plain wording.',
+  full: 'Rewrite it MORE COMPLETE and detailed: cover every professional step implied by the work (preparation, cutting, finishing, cleanup), still without inventing services, materials or numbers.',
+};
+async function aiRegen(key, i, btn, mode) {
+  const typed = document.getElementById('ai-r' + key + '-' + i).value.trim();
+  const instr = [mode ? AI_MODES[mode] : '', typed].filter(Boolean).join(' ');
   btn.disabled = true;
   try {
     if (key === 'pt') {
