@@ -387,3 +387,8 @@ Resumo: Adicionados botoes de ordenacao (cliente, data, titulo, projeto, maior/m
 ## 2026-11-20 — Layout de escopo estruturado na proposta (proposals.html)
 - Se scope_items tem cabeçalhos "--- N. TÍTULO ---" e nenhum item com preço, o documento renderiza cada serviço como cartão (título, medidas em etiquetas, "Scope of work" em lista, caixa "Included"). Demais proposals seguem o layout antigo.
 - Proposal do Paul Micenko (Living Room) preenchida com os 4 escopos + Inclusions + Notes (dados direto no Supabase, total $14.820).
+
+## 2026-11-25 — Assistente de escopo da proposta (PT -> EN)
+- Editor de proposta (proposals.html): caixa "Assistente de escopo" — usuario escreve servicos em portugues (1 bloco por servico, linha em branco entre eles); botao gera previa editavel (titulo, medidas, escopo, incluido) + Project Scope opcional; "Refazer so este" com instrucao; Aplicar (substitui) / Adicionar ao final / Descartar / Desfazer. O texto em portugues fica no localStorage por proposta.
+- Backend: lib/scope-ai.js, rota POST /api/marketing-sync?task=scope-generate (mesma funcao do marketing-sync por causa do limite de 12 funcoes). Usuario aprovado (token Supabase). Anthropic API (ANTHROPIC_API_KEY ja existe na Vercel), tool-use forcado; modelo claude-sonnet-5-5 com fallback claude-haiku-4-5-20251001. Nunca grava no banco; so devolve JSON.
+- Regras no prompt: nao inventar preco/medida/material; glossario PT->EN.

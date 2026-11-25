@@ -5,6 +5,10 @@ module.exports = async function handler(req, res) {
   if (typeof req.query?.task === 'string' && req.query.task.startsWith('gmail-')) {
     return require('../lib/gmail-intake').handleTask(req, res);
   }
+  // Assistente de escopo da proposta (PT -> EN), lib/scope-ai.js. Autorizacao propria (usuario aprovado).
+  if (typeof req.query?.task === 'string' && req.query.task.startsWith('scope-')) {
+    return require('../lib/scope-ai').handleTask(req, res);
+  }
   // Sincronizacao Google -> ERP (Ads, GA4, Search Console, Perfil da Empresa) -- FT-013, lib/google-sync.js.
   if (typeof req.query?.task === 'string' && req.query.task.startsWith('google-')) {
     return require('../lib/google-sync').handleTask(req, res);

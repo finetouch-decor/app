@@ -116,6 +116,21 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
 .scope-item-row button{padding:6px 10px;border-radius:7px;border:1.5px solid var(--border);background:transparent;cursor:pointer;color:var(--muted);font-size:14px;}
 .scope-item-row button:hover{background:var(--red-bg);border-color:var(--red);color:var(--red);}
 .btn-add-item{padding:8px 14px;border-radius:8px;border:1.5px dashed var(--gold2);background:transparent;color:var(--gold);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;width:100%;margin-top:4px;}
+.ai-box{border:1.5px solid rgba(198,158,99,0.45);border-radius:10px;background:#fffdf7;margin-bottom:14px;}
+.ai-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;font-size:12.5px;font-weight:800;color:var(--navy);}
+.ai-head span.sub{font-weight:500;color:var(--muted);font-size:11.5px;margin-left:8px;}
+.ai-body{padding:0 14px 14px;display:none;}
+.ai-body.open{display:block;}
+.ai-body textarea,.ai-body input[type=text]{width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-family:'Inter',sans-serif;font-size:12.5px;}
+.ai-hint{font-size:11.5px;color:var(--muted);margin:2px 0 8px;line-height:1.5;}
+.ai-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;}
+.ai-btn{padding:8px 14px;border-radius:8px;border:none;background:var(--navy);color:var(--gold);font-weight:700;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;}
+.ai-btn.sec{background:#fff;color:var(--navy);border:1.5px solid var(--border);}
+.ai-btn:disabled{opacity:.55;cursor:wait;}
+.ai-card{border:1px solid #e6dcc8;border-left:4px solid var(--gold);border-radius:8px;background:#fff;padding:10px 12px;margin-top:10px;}
+.ai-card label{display:block;font-size:10px;font-weight:800;color:var(--gold);letter-spacing:1.4px;text-transform:uppercase;margin:8px 0 3px;}
+.ai-card .ai-regen{display:flex;gap:6px;margin-top:8px;}
+.ai-card .ai-regen input{flex:1;}
 .gallery-editor{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:10px;}
 .gallery-thumb-wrap{position:relative;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;background:var(--cream2);}
 .gallery-thumb-wrap img{width:100%;height:90px;object-fit:contain;display:block;background:#f1f0ec;}
@@ -424,6 +439,23 @@ body{font-family:'Inter',sans-serif;background:var(--cream2);color:var(--text);d
             <input type="checkbox" id="f-card-fee" onchange="onCardFeeToggle()" style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer;"> 💳 Add 3% credit card fee
           </label>
           <div id="f-card-fee-hint" style="font-size:11px;color:var(--muted);margin-top:2px;">Turn on only if the client pays by card.</div></div>
+      </div>
+      <div class="ai-box" id="ai-box">
+        <div class="ai-head" onclick="aiToggle()"><div>✨ Assistente de escopo — português → inglês<span class="sub">escreva os tópicos, a IA redige, você edita</span></div><span id="ai-caret">▸</span></div>
+        <div class="ai-body" id="ai-body">
+          <div class="ai-hint">Escreva <b>um serviço por bloco</b>, separando os blocos com uma <b>linha em branco</b>. Pode ser solto, ex.: <i>ilha da cozinha, ripado PVC, LED embaixo do tampo, tirar a madeira velha, interruptor novo. Medidas 80x35</i>. A IA só usa o que você escrever: não inventa preço nem medida.</div>
+          <textarea id="ai-pt" rows="7" placeholder="Serviço 1...&#10;&#10;Serviço 2..." oninput="aiSavePt()"></textarea>
+          <div class="ai-row"><label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--navy);text-transform:none;letter-spacing:0;"><input type="checkbox" id="ai-overview" checked> Também escrever o Project Scope</label></div>
+          <div class="ai-row"><input type="text" id="ai-general" placeholder="Instrução extra (opcional): mais curto, tom mais premium, citar Sherwin-Williams..."></div>
+          <div class="ai-row"><button type="button" class="ai-btn" id="ai-go" onclick="aiGenerate()">✨ Gerar em inglês</button><span id="ai-status" style="font-size:12px;color:var(--muted);"></span></div>
+          <div id="ai-preview"></div>
+          <div class="ai-row" id="ai-actions" style="display:none;">
+            <button type="button" class="ai-btn" onclick="aiApply('replace')">Aplicar (substitui o escopo)</button>
+            <button type="button" class="ai-btn sec" onclick="aiApply('append')">Adicionar ao final</button>
+            <button type="button" class="ai-btn sec" onclick="aiDiscard()">Descartar</button>
+          </div>
+          <div class="ai-row"><button type="button" class="ai-btn sec" id="ai-undo" style="display:none;" onclick="aiUndoApply()">↩ Desfazer última aplicação</button></div>
+        </div>
       </div>
       <div class="field"><label>Project Scope</label><textarea id="f-scope" placeholder="Brief description of the overall project scope..."></textarea></div>
       <div class="field">
@@ -828,6 +860,7 @@ async function toggleCardFee(id) {
 // ─── MODAL ───────────────────────────────────────────────────
 function openModal(data=null) {
   editId = data ? data.id : null;
+  setTimeout(aiLoadPt, 0);
   document.getElementById('modal-title').textContent = data ? 'Edit Proposal' : 'New Proposal';
   document.getElementById('f-client').value   = data?.client_name || '';
   document.getElementById('f-project').value  = data?.project_name || '';
@@ -887,6 +920,117 @@ function renderScopeSections(items){
     if(dims.length) html+='<div class="sec-dims">'+dims.map(d=>'<span>'+esc(d)+'</span>').join('')+'</div>';
     return html+blocks.join('')+'</div>';
   }).join('');
+}
+
+// ─── Assistente de escopo (PT → EN) ───────────────────────────────────────────
+let aiSecs = [], aiOverview = '', aiUndo = null;
+const aiEsc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function aiToggle() {
+  const b = document.getElementById('ai-body'); b.classList.toggle('open');
+  document.getElementById('ai-caret').textContent = b.classList.contains('open') ? '▾' : '▸';
+}
+function aiKey() { return 'ft-ai-pt-' + (editId || 'new'); }
+function aiSavePt() { try { localStorage.setItem(aiKey(), document.getElementById('ai-pt').value); } catch(e) {} }
+function aiLoadPt() {
+  let v = ''; try { v = localStorage.getItem(aiKey()) || ''; } catch(e) {}
+  document.getElementById('ai-pt').value = v;
+  aiSecs = []; aiOverview = ''; aiUndo = null;
+  document.getElementById('ai-preview').innerHTML = '';
+  document.getElementById('ai-actions').style.display = 'none';
+  document.getElementById('ai-undo').style.display = 'none';
+  document.getElementById('ai-status').textContent = '';
+}
+function aiBlocks() { return document.getElementById('ai-pt').value.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean); }
+async function aiCall(sections, overview) {
+  const { data: { session } } = await db.auth.getSession();
+  const r = await fetch('/api/marketing-sync?task=scope-generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (session ? session.access_token : '') },
+    body: JSON.stringify({
+      sections, overview,
+      client: document.getElementById('f-client').value, project: document.getElementById('f-project').value,
+      instruction: document.getElementById('ai-general').value,
+    }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.ok) throw new Error(j.error || ('Erro ' + r.status));
+  return j;
+}
+async function aiGenerate() {
+  const blocks = aiBlocks();
+  if (!blocks.length) { document.getElementById('ai-status').textContent = 'Escreva ao menos um serviço em português.'; return; }
+  const btn = document.getElementById('ai-go'); btn.disabled = true;
+  document.getElementById('ai-status').textContent = 'Gerando…';
+  try {
+    const want = document.getElementById('ai-overview').checked;
+    const j = await aiCall(blocks.map((pt, i) => ({ id: 's' + i, pt })), want);
+    aiSecs = j.sections.map((s, i) => ({ ...s, id: 's' + i, pt: blocks[i] || '' }));
+    aiOverview = j.overview || '';
+    aiRender();
+    document.getElementById('ai-status').textContent = 'Pronto. Revise e edite abaixo antes de aplicar.';
+  } catch (e) {
+    document.getElementById('ai-status').textContent = 'Não deu certo: ' + e.message;
+  } finally { btn.disabled = false; }
+}
+function aiRender() {
+  let html = '';
+  if (aiOverview || document.getElementById('ai-overview').checked) {
+    html += `<div class="ai-card"><label>Project Scope (texto de abertura)</label><textarea rows="3" oninput="aiOverview=this.value">${aiEsc(aiOverview)}</textarea></div>`;
+  }
+  aiSecs.forEach((s, i) => {
+    html += `<div class="ai-card">
+      <label>Serviço ${i+1} — título</label><input type="text" value="${aiEsc(s.title)}" oninput="aiSecs[${i}].title=this.value">
+      <label>Medidas (separe por ; )</label><input type="text" value="${aiEsc((s.dimensions||[]).join('; '))}" oninput="aiSecs[${i}].dimensions=this.value.split(';').map(x=>x.trim()).filter(Boolean)">
+      <label>Escopo (uma linha por item)</label><textarea rows="${Math.min(10, Math.max(3,(s.scope||[]).length))}" oninput="aiSecs[${i}].scope=this.value.split('\\n').map(x=>x.trim()).filter(Boolean)">${aiEsc((s.scope||[]).join('\n'))}</textarea>
+      <label>Incluído</label><textarea rows="2" oninput="aiSecs[${i}].included=this.value">${aiEsc(s.included)}</textarea>
+      <div class="ai-regen"><input type="text" id="ai-ri-${i}" placeholder="Refazer só este serviço… (ex.: mais curto, citar LED 24V)"><button type="button" class="ai-btn sec" onclick="aiRegen(${i}, this)">↻ Refazer</button><button type="button" class="ai-btn sec" onclick="aiRemove(${i})" title="Remover este serviço">✕</button></div>
+    </div>`;
+  });
+  document.getElementById('ai-preview').innerHTML = html;
+  document.getElementById('ai-actions').style.display = aiSecs.length ? 'flex' : 'none';
+}
+async function aiRegen(i, btn) {
+  const s = aiSecs[i]; if (!s) return;
+  btn.disabled = true; document.getElementById('ai-status').textContent = 'Refazendo serviço ' + (i+1) + '…';
+  try {
+    const j = await aiCall([{ id: s.id, pt: s.pt, instruction: document.getElementById('ai-ri-' + i).value }], false);
+    if (j.sections[0]) aiSecs[i] = { ...j.sections[0], id: s.id, pt: s.pt };
+    aiRender(); document.getElementById('ai-status').textContent = 'Serviço ' + (i+1) + ' refeito.';
+  } catch (e) { document.getElementById('ai-status').textContent = 'Não deu certo: ' + e.message; }
+  finally { btn.disabled = false; }
+}
+function aiRemove(i) { aiSecs.splice(i, 1); aiRender(); }
+function aiDiscard() { aiSecs = []; aiOverview = ''; aiRender(); document.getElementById('ai-status').textContent = ''; }
+function aiBuildItems(startNum) {
+  const out = [];
+  aiSecs.forEach((s, k) => {
+    out.push(`--- ${startNum + k}. ${String(s.title || 'SERVICE').toUpperCase()} ---`);
+    const d = s.dimensions || [];
+    if (d.length === 1) out.push('Dimensions: ' + d[0]);
+    else if (d.length > 1) { out.push('Dimensions:'); d.forEach(x => out.push('• ' + x)); }
+    if ((s.scope || []).length) { out.push('Scope of Work:'); s.scope.forEach(x => out.push('• ' + x.replace(/^•\s*/, ''))); }
+    if (s.included) out.push('Included: ' + s.included);
+  });
+  return out;
+}
+function aiApply(mode) {
+  if (!aiSecs.length) return;
+  aiUndo = { items: getScopeItems(), overview: document.getElementById('f-scope').value };
+  const existing = getScopeItems();
+  if (mode === 'replace') { document.getElementById('scope-items').innerHTML = ''; itemCount = 0; }
+  const startNum = mode === 'replace' ? 1 : existing.filter(t => /^---\s*\d+\./.test(t)).length + 1;
+  aiBuildItems(startNum).forEach(t => addScopeItem(t));
+  if (aiOverview && aiOverview.trim()) document.getElementById('f-scope').value = aiOverview.trim();
+  document.getElementById('ai-undo').style.display = 'inline-block';
+  document.getElementById('ai-status').textContent = 'Aplicado na proposta. Ajuste os itens abaixo se quiser e clique em Salvar.';
+}
+function aiUndoApply() {
+  if (!aiUndo) return;
+  document.getElementById('scope-items').innerHTML = ''; itemCount = 0;
+  if (aiUndo.items.length) aiUndo.items.forEach(t => addScopeItem(t)); else { addScopeItem(); addScopeItem(); }
+  document.getElementById('f-scope').value = aiUndo.overview;
+  aiUndo = null; document.getElementById('ai-undo').style.display = 'none';
+  document.getElementById('ai-status').textContent = 'Voltou para o escopo anterior.';
 }
 
 async function openEdit(id) {
